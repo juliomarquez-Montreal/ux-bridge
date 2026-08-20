@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PO
+  UX
+  ADMIN
+}
+
+enum TranscriptionStatus {
+  UPLOADED
+  EXTRACTED
+  PENDING_PO_APPROVAL
+  APPROVED
+  PENDING_UX_APPROVAL
+  DELIVERED
+  REJECTED
+}
+
+enum ArtifactType {
+  BDD
+  PBI
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  CORRECT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      Role
+  squadId   String?
+  squad     Squad?   @relation(fields: [squadId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Squad {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model ContextNode {
+  id        String        @id @default(cuid())
+  type      String        // SQUAD | DOMAIN | ARTIFACT | INTENT
+  name      String
+  parentId  String?
+  parent    ContextNode?  @relation("ContextTree", fields: [parentId], references: [id])
+  children  ContextNode[] @relation("ContextTree")
+  patterns  MemoryPattern[]
+}
+
+model Transcription {
+  id           String   @id @default(cuid())
+  squadId      String
+  fileUrl      String
+  rawText      String?
+  status       TranscriptionStatus @default(UPLOADED)
+  createdAt    DateTime @default(now())
+  extraction   Extraction?
+  artifacts    Artifact[]
+  goalModeRuns GoalModeRun[]
+}
+
+model Extraction {
+  id               String   @id @default(cuid())
+  transcriptionId  String   @unique
+  transcription    Transcription @relation(fields: [transcriptionId], references: [id])
+  entitiesJson     Json
+  rulesJson        Json
+  intent           String
+  contextNodeId    String?
+  modelUsed        String
+  createdAt        DateTime @default(now())
+}
+
+model Artifact {
+  id              String   @id @default(cuid())
+  transcriptionId String
+  transcription   Transcription @relation(fields: [transcriptionId], references: [id])
+  type            ArtifactType
+  contentMd       String
+  version         Int      @default(1)
+  status          String   // DRAFT | PENDING_PO | APPROVED | REJECTED
+  createdByAi     Boolean  @default(true)
+  approvedById    String?
+  approvedAt      DateTime?
+  wireframes      Wireframe[]
+  createdAt       DateTime @default(now())
+}
+
+model Wireframe {
+  id           String   @id @default(cuid())
+  artifactId   String
+  artifact     Artifact @relation(fields: [artifactId], references: [id])
+  htmlContent  String
+  version      Int      @default(1)
+  status       String   // DRAFT | PENDING_UX | APPROVED | REJECTED
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model ApprovalLog {
+  id             String            @id @default(cuid())
+  targetType     String            // ARTIFACT | WIREFRAME
+  targetId       String
+  approverId     String
+  decision       ApprovalDecision
+  comment        String?
+  correctionDiff String?
+  createdAt      DateTime          @default(now())
+}
+
+model MemoryPattern {
+  id              String       @id @default(cuid())
+  contextNodeId   String
+  contextNode     ContextNode  @relation(fields: [contextNodeId], references: [id])
+  patternType     String
+  patternData     Json
+  confidence      Float        @default(0.5)
+  sourceApprovalId String?
+  createdAt       DateTime     @default(now())
+}
+
+model GoalModeRun {
+  id              String   @id @default(cuid())
+  transcriptionId String
+  transcription   Transcription @relation(fields: [transcriptionId], references: [id])
+  status          String
+  startedById     String
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  logJson         Json?
+}
+
+model Notification {
+  id                String   @id @default(cuid())
+  recipientId       String
+  type              String
+  relatedEntityType String
+  relatedEntityId   String
+  channel           String   @default("EMAIL")
+  sentAt            DateTime @default(now())
+}

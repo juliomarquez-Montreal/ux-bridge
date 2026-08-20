@@ -1,0 +1,485 @@
+<!DOCTYPE html><html lang="pt-BR" style=""><head><link data-snapdom="injected-import" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Sora:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"></head><body class="antialiased min-h-screen flex flex-col">
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Orion Dashboard - Otimização de Processos P.O.</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style data-purpose="custom-fonts">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #15121a; /* Base dark background */
+      color: #e8e0eb;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Sora', sans-serif;
+    }
+  </style>
+<style data-purpose="glassmorphism">
+    .glass-panel {
+      background: rgba(34, 30, 38, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+    }
+    
+    .glass-card {
+      background: linear-gradient(145deg, rgba(44, 40, 49, 0.8) 0%, rgba(30, 26, 34, 0.8) 100%);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+<style data-purpose="utilities">
+    .neon-text {
+      color: #56039f;
+    }
+    .neon-bg {
+      background-color: #56039f;
+    }
+    .neon-border {
+      border-color: #56039f;
+    }
+    .text-shadow {
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .hero-bg {
+      background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBip1JmxaBfOWSY3A1zoJ46tKvMj15mXq8J2FMnDPom9DJ8NLHo8pNm8gRRx5-Q2cdT6zftLHTusPImmoMWedAmZyoipfYDpBUj4MSuGPvOrTV4R0KMfj6tqk8DBzeZsvUa6al215usy8mq_kcyN1gagTdbljJaf1RnrQLvbexKiYRt4bt9zuNLsXKg-P6CGPDQWmO7_kFxzRsZ1hdA6Ws7FUJx0a-tDVX0Cn2SAiPEGPUckYbBIJaUVseEiEhWdUDdFEWYSPGhpBl_');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+    }
+    .hero-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(to bottom, rgba(21,18,26,0.2) 0%, rgba(21,18,26,0.9) 100%);
+      z-index: 0;
+    }
+    .content-z {
+      position: relative;
+      z-index: 10;
+    }
+    
+    /* Progress Circle */
+    .progress-ring__circle {
+      transition: stroke-dashoffset 0.35s;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+    
+    /* Hide scrollbar for nav */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "primary-fixed-dim": "#d9b9ff",
+                "outline": "#978d9e",
+                "on-tertiary-fixed": "#311300",
+                "on-surface-variant": "#cec2d5",
+                "on-error": "#690005",
+                "tertiary-container": "#632d00",
+                "surface-variant": "#37333c",
+                "on-primary-fixed-variant": "#611baa",
+                "inverse-on-surface": "#332f37",
+                "background": "#15121a",
+                "secondary-fixed": "#eedbff",
+                "on-secondary": "#3c2559",
+                "surface-container-high": "#2c2831",
+                "surface-container": "#221e26",
+                "on-tertiary": "#512400",
+                "surface-container-low": "#1e1a22",
+                "error": "#ffb4ab",
+                "on-primary-container": "#c190ff",
+                "on-tertiary-fixed-variant": "#703709",
+                "outline-variant": "#4b4453",
+                "secondary-fixed-dim": "#d8baf9",
+                "on-secondary-fixed-variant": "#533c71",
+                "on-primary-fixed": "#2a0054",
+                "tertiary": "#ffb688",
+                "on-surface": "#e8e0eb",
+                "on-error-container": "#ffdad6",
+                "on-secondary-fixed": "#260e42",
+                "secondary-container": "#563e73",
+                "primary-container": "#56039f",
+                "error-container": "#93000a",
+                "tertiary-fixed-dim": "#ffb688",
+                "primary-fixed": "#eedbff",
+                "on-tertiary-container": "#e39460",
+                "inverse-primary": "#7a3bc4",
+                "on-primary": "#460085",
+                "inverse-surface": "#e8e0eb",
+                "surface-tint": "#d9b9ff",
+                "surface-bright": "#3c3740",
+                "primary": "#d9b9ff",
+                "surface-dim": "#15121a",
+                "surface": "#15121a",
+                "on-background": "#e8e0eb",
+                "surface-container-highest": "#37333c",
+                "on-secondary-container": "#c9acea",
+                "surface-container-lowest": "#100d14",
+                "secondary": "#d8baf9",
+                "tertiary-fixed": "#ffdbc7"
+        },
+        "fontFamily": {
+                "headline": [
+                        "Sora"
+                ],
+                "display": [
+                        "Sora"
+                ],
+                "body": [
+                        "Inter"
+                ],
+                "label": [
+                        "Jetbrains Mono"
+                ]
+        },
+        spacing: {
+          '18': '4.5rem',
+        },
+        fontSize: {
+          'xxs': '0.65rem',
+        }
+      }
+    }
+  }
+</script>
+<!-- BEGIN: Hero Section -->
+<section class="hero-bg w-full min-h-[600px] flex flex-col relative" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBjyR915ot40pJXuysDj9sV3SZ73rGMndO9MrAT0BjSNweLzVXxmeqkiL6AEkqlftpWtt_4taCcBKJFYiJQ0ZSKuadife3K1KS8CErCL6qUc8JQnyjznxejTk1IDDoAijtdSyTb6-HZEwQeQQIEe18xpopqpGDqeK1r4G06ZFz6zNytS6X-goCe2Biab6PwRwQcljIfGJ6RTIi-mNm3sYq7enjfsK9AaQBaRSauEfbtVIrEgiD_r-paNYxprtwuF0Osb17PiX1ZJotz'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+<div class="hero-overlay"></div>
+<!-- Top Navigation inside Hero -->
+<header class="content-z w-full px-8 py-6 flex justify-between items-center">
+<!-- Logo -->
+<div class="flex items-center">
+<img alt="Montreal Logo" class="h-8 object-contain filter invert opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADzZvg0Bq0GZjg1oGQMdFYVIL8gW_d-ZDzZXd4U37tVDyEc_xNM8OhjmGPF59ne_r51KN1vOwMiSRmKiBRVU1Q6owtFOBL99v-AYNiGFWSjqp2nsfUEx52fpAyyvpQajEciWP_CVtLXHYM-CLUs8IRGcnuCeFBEjAFX37JWziDUUBb9lwnueUn6A3nDBPmYvSjzUY74koEy73Nz9Dfh_6xOtJlIo2amr7UFPLCzR3cmRJkrsvlnH0X85Oye_783iAMjIsmqSLkEqGp">
+</div>
+<!-- Search & Location -->
+<div class="flex-1 flex justify-center max-w-2xl mx-auto">
+<div class="glass-panel flex items-center rounded-full px-4 py-2 w-full max-w-lg">
+<i class="fas fa-search text-on-surface-variant mr-3"></i>
+<input class="bg-transparent border-none text-on-surface focus:ring-0 text-sm w-32 placeholder-on-surface-variant p-0" placeholder="Projeto" type="text" value="Redesign Core">
+<div class="h-5 w-px bg-outline-variant mx-3"></div>
+<i class="fas fa-layer-group text-on-surface-variant mr-2 text-sm"></i>
+<select class="bg-transparent border-none text-on-surface focus:ring-0 text-sm flex-1 appearance-none p-0">
+<option>Squad Alpha</option>
+</select>
+<i class="fas fa-chevron-down text-on-surface-variant text-xs ml-1 mr-3"></i>
+<button class="bg-primary text-on-primary px-6 py-1.5 rounded-full text-sm font-semibold hover:bg-primary-fixed transition">Filtrar</button>
+</div>
+</div>
+<!-- User Actions -->
+<div class="flex items-center space-x-4">
+<button class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-on-surface hover:bg-white/10 transition">
+<i class="fas fa-headset"></i>
+</button>
+<button class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-on-surface hover:bg-white/10 transition">
+<i class="fas fa-cog"></i>
+</button>
+<button class="w-10 h-10 rounded-full overflow-hidden border border-white/20">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuwUYfBs1p1lFJdmAaUNQO_eXs0gK_3boaJMsKzAbSQenOlODx-YGZjIgYgWCTjRgyE5mYTi-HYOGHUDUa_8oFGaq9M0XRv3pIDPcL_GWzBjTFtpTxOuFoIeETvdyoMNaGLVFFlGx9yij4fghT7rSPuP06s-L6-eU9NGXc5eV2S51GP7ODfCEBa98jc5jPmlv6F8rDDb9bTXp4eISCgaMmW361KEXQtIHrihGFKjlciAw2Lh0wG9AtEzpqzMU7cc7zjtviIQ1Ob02J">
+</button>
+</div>
+</header>
+<!-- Hero Main Content -->
+<div class="content-z flex-1 w-full max-w-[1400px] mx-auto px-8 pt-12 pb-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Title & Chart -->
+<div class="lg:col-span-7 flex flex-col justify-between">
+<div class="mb-12">
+<div class="flex items-center mb-2">
+<h1 class="text-6xl font-extrabold text-on-surface tracking-tight uppercase text-shadow">UX</h1>
+<span class="ml-4 border border-white/30 rounded-full px-3 py-1 text-xs font-semibold tracking-wider bg-white/5 backdrop-blur-sm text-on-surface">Com IA</span>
+</div>
+<h1 class="text-6xl font-extrabold text-on-surface tracking-tight uppercase text-shadow">BRIDGE <sup class="text-primary-container">{P.O}</sup></h1>
+</div>
+<!-- Chart Card -->
+<div class="glass-card p-6 h-64 flex flex-col relative overflow-hidden group">
+<div class="flex justify-between items-start mb-6 z-10">
+<h3 class="text-lg font-semibold text-on-surface">Eficiência de Requisitos (Dias)</h3>
+<button class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-on-surface hover:bg-white/20 transition">
+<i class="fas fa-arrow-down right-0 transform text-xs text-green-400"></i>
+</button>
+</div>
+<!-- Mock Chart -->
+<div class="flex-1 relative z-10">
+<!-- Y-axis labels -->
+<div class="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-on-surface-variant">
+<span class="">Lento</span>
+<span class="">Rápido</span>
+</div>
+<!-- Chart Line SVG -->
+<div class="absolute left-12 right-4 top-4 bottom-8">
+<svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 400 100">
+<!-- Grid line -->
+<line stroke="rgba(255,255,255,0.1)" stroke-dasharray="4 4" stroke-width="1" x1="0" x2="400" y1="80" y2="80"></line>
+<!-- Main Line -->
+<path d="M0,70 L60,80 L120,60 L180,45 L240,65 L300,50 L360,60 L400,65" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2"></path>
+<!-- Highlight Point -->
+<circle cx="180" cy="45" fill="#56039f" r="4"></circle>
+<line stroke="#56039f" stroke-dasharray="2 2" stroke-width="1" x1="180" x2="180" y1="45" y2="100"></line>
+</svg>
+<!-- Tooltip -->
+<div class="absolute bg-primary-container text-on-primary-container text-xs font-bold py-1 px-2 rounded" style="left: 45%; top: 20%; transform: translate(-50%, -100%);">
+                -4.5d
+              </div>
+</div>
+<!-- X-axis labels -->
+<div class="absolute left-12 right-4 bottom-0 flex justify-between text-xxs text-on-surface-variant uppercase tracking-wider">
+<span class="">Mar</span>
+<span class="">Abr</span>
+<span class="">Mai</span>
+<span class="">Jun</span>
+<span class="">Jul</span>
+<span class="">Ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Stats Cards -->
+<div class="lg:col-span-5 flex flex-col gap-6">
+<!-- Top Stats Card -->
+<div class="glass-card p-6">
+<div class="flex justify-between items-start mb-6">
+<h3 class="text-sm font-medium text-on-surface-variant">Tempo de Levantamento</h3>
+<button class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-on-surface hover:bg-white/20 transition">
+<i class="fas fa-arrow-down transform text-xs text-green-400"></i>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-4 mb-6">
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-3xl font-bold text-on-surface">14</span>
+<span class="text-xs text-on-surface-variant">dias</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-3xl font-bold text-on-surface-variant">8</span>
+<span class="text-xs text-on-surface-variant">dias</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="text-3xl font-bold text-outline">3</span>
+<span class="text-xs text-on-surface-variant">dias</span>
+</div>
+</div>
+</div>
+<div class="flex space-x-2 bg-black/40 rounded-full p-1">
+<button class="flex-1 py-2 text-sm font-medium text-on-surface rounded-full bg-black/60">Épico</button>
+<button class="flex-1 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface transition rounded-full">História</button>
+<button class="flex-1 py-2 text-sm font-bold text-on-primary-container rounded-full bg-primary-container">Tarefa</button>
+</div>
+</div>
+<!-- Bottom Row of Stats -->
+<div class="grid grid-cols-2 gap-6">
+<!-- Orion Index -->
+<div class="glass-card p-6 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-sm font-medium text-on-surface-variant">Entrega de Wireframes</h3>
+<button class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-on-surface hover:bg-white/20 transition">
+<i class="fas fa-arrow-up transform rotate-45 text-xs"></i>
+</button>
+</div>
+<div class="flex items-start">
+<span class="text-4xl font-bold text-on-surface">92%</span>
+<span class="text-primary-container text-sm font-bold ml-1">+12%</span>
+</div>
+<div class="mt-6 w-full">
+<div class="flex justify-between text-xs text-on-surface-variant mb-2">
+<span class="">No Prazo</span>
+<span class="">Atrasados</span>
+</div>
+<div class="relative h-1 bg-surface-container-high rounded-full">
+<div class="absolute left-[92%] top-1/2 transform -translate-y-1/2 w-8 h-3 bg-primary rounded-full flex items-center justify-center cursor-pointer shadow-lg">
+<div class="w-1 h-2 bg-on-primary rounded-sm mx-px"></div>
+<div class="w-1 h-2 bg-on-primary rounded-sm mx-px"></div>
+</div>
+<!-- Ticks -->
+<div class="absolute left-1/4 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-outline rounded-full"></div>
+<div class="absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-outline rounded-full"></div>
+<div class="absolute left-3/4 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-outline rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Vagas -->
+<div class="glass-card p-6 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-sm font-medium text-on-surface-variant">Fluxos de Trabalho</h3>
+<button class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-on-surface hover:bg-white/20 transition">
+<i class="fas fa-arrow-up transform rotate-45 text-xs"></i>
+</button>
+</div>
+<div class="flex items-start mb-4">
+<span class="text-4xl font-bold text-on-surface">128</span>
+<span class="text-on-surface-variant text-sm font-medium ml-1">Ativos</span>
+</div>
+<!-- Bar Chart Mock -->
+<div class="flex items-end space-x-1 h-12 w-full mt-auto">
+<div class="w-1/6 bg-white/20 rounded-t-sm h-3"></div>
+<div class="w-1/6 bg-white/20 rounded-t-sm h-5"></div>
+<div class="w-1/6 bg-white/20 rounded-t-sm h-8"></div>
+<div class="w-1/6 bg-white/40 rounded-t-sm h-12"></div>
+<div class="w-1/6 bg-primary-container rounded-t-sm h-10 shadow-[0_0_10px_#56039f]"></div>
+<div class="w-1/6 bg-white/20 rounded-t-sm h-6"></div>
+<div class="w-1/6 bg-white/20 rounded-t-sm h-4"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters Bar (Bottom of Hero) -->
+<div class="content-z w-full max-w-[1400px] mx-auto px-8 pb-4 flex justify-between items-center mt-auto">
+<div class="flex flex-wrap gap-3">
+<button class="glass-panel px-4 py-2 flex items-center text-sm text-on-surface-variant hover:text-on-surface transition">
+          Este mês <i class="fas fa-chevron-down text-xs ml-2"></i>
+</button>
+<button class="glass-panel px-4 py-2 flex items-center text-sm text-on-surface-variant hover:text-on-surface transition">
+          Squad Alpha <i class="fas fa-chevron-down text-xs ml-2"></i>
+</button>
+<button class="glass-panel px-4 py-2 flex items-center text-sm text-on-surface-variant hover:text-on-surface transition">
+          Alta Prioridade <i class="fas fa-chevron-down text-xs ml-2"></i>
+</button>
+<button class="glass-panel px-4 py-2 flex items-center text-sm text-on-surface-variant hover:text-on-surface transition">
+          Em Andamento <i class="fas fa-chevron-down text-xs ml-2"></i>
+</button>
+<button class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary hover:bg-primary-fixed transition">
+<i class="fas fa-sliders-h"></i>
+</button>
+</div>
+<div class="glass-panel px-4 py-2 flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-on-surface"><i class="fas fa-arrow-left text-sm"></i></button>
+<span class="text-sm"><strong class="text-on-surface">03</strong> <span class="text-on-surface-variant">/ 45</span></span>
+<button class="text-on-surface-variant hover:text-on-surface"><i class="fas fa-arrow-right text-sm"></i></button>
+</div>
+</div>
+</section>
+<!-- END: Hero Section -->
+<!-- BEGIN: Main Content Area -->
+<main class="flex-1 bg-surface w-full px-8 py-8 flex flex-col items-center">
+<!-- View Toggles (Grid/List etc) -->
+<div class="flex justify-center space-x-6 mb-8 bg-surface-container-low p-2 rounded-2xl border border-white/5">
+<button class="p-3 bg-surface-container rounded-xl text-primary-container shadow-[0_0_15px_rgba(86,3,159,0.15)] flex items-center justify-center relative">
+<i class="fas fa-th-large"></i>
+</button>
+<button class="p-3 text-on-surface-variant hover:text-on-surface transition flex items-center justify-center relative">
+<i class="fas fa-search"></i>
+</button>
+<button class="p-3 text-on-surface-variant hover:text-on-surface transition flex items-center justify-center relative">
+<i class="far fa-square"></i>
+<div class="absolute top-2 right-2 w-1.5 h-1.5 bg-primary-container rounded-full shadow-[0_0_5px_#56039f]"></div>
+</button>
+<button class="p-3 text-on-surface-variant hover:text-on-surface transition flex items-center justify-center">
+<i class="fas fa-list-ul"></i>
+</button>
+<button class="p-3 text-on-surface-variant hover:text-on-surface transition flex items-center justify-center">
+<i class="fas fa-bullhorn"></i>
+</button>
+</div>
+<!-- Job Cards Grid -->
+<div class="w-full max-w-[1400px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="glass-card p-6 flex flex-col justify-between h-72 relative group hover:border-white/20 transition-all">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black font-bold text-xl">
+<i class="fas fa-bolt"></i>
+</div>
+<div>
+<h2 class="text-on-surface font-bold text-lg leading-tight">Projetos em Otimização</h2>
+<p class="text-on-surface-variant text-xs mt-1">Squad Alpha • Atualizado há 2 h</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/10 transition"><i class="fas fa-share-alt text-xs"></i></button>
+<button class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/10 transition"><i class="fas fa-ellipsis-v text-xs"></i></button>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 mt-6">
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Prioridade Alta</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Fase: Discovery</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Redução 30% tempo</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Automatizado</span>
+</div>
+</div>
+<div class="flex justify-between items-end mt-4">
+<div class="flex items-center text-xs text-on-surface-variant">
+<i class="fas fa-tasks mr-2"></i> 12/15 Requisitos validados
+          </div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full border border-primary-container/30 flex items-center justify-center text-primary-container hover:bg-primary-container/10 transition">
+<i class="far fa-bookmark"></i>
+</button>
+<!-- Match Circular Progress -->
+<div class="relative w-14 h-14">
+<svg class="w-full h-full" viewBox="0 0 36 36">
+<path class="text-surface-container-high" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<path class="text-primary-container drop-shadow-[0_0_4px_rgba(86,3,159,0.8)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="85, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="text-on-surface font-bold text-sm leading-none">85%</span>
+<span class="text-[0.4rem] text-primary-container font-bold uppercase mt-0.5" style="line-height: 1;">Eficiência</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="glass-card p-6 flex flex-col justify-between h-72 relative group hover:border-white/20 transition-all">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black font-bold text-xs p-1">
+<i class="fas fa-project-diagram text-xl"></i>
+</div>
+<div>
+<h2 class="text-on-surface font-bold text-lg leading-tight">Fluxos de Trabalho</h2>
+<p class="text-on-surface-variant text-xs mt-1">Squad Beta • há 1 d</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/10 transition"><i class="fas fa-share-alt text-xs"></i></button>
+<button class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/10 transition"><i class="fas fa-ellipsis-v text-xs"></i></button>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 mt-6">
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Prioridade Média</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Fase: Delivery</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Otimização UX</span>
+<span class="px-3 py-1 rounded-full border border-white/10 text-xs text-on-surface-variant bg-white/5">Manual</span>
+</div>
+</div>
+<div class="flex justify-between items-end mt-4">
+<div class="flex items-center text-xs text-on-surface-variant">
+<i class="fas fa-tasks mr-2"></i> 8/20 Requisitos validados
+          </div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition">
+<i class="far fa-bookmark"></i>
+</button>
+<!-- Match Circular Progress -->
+<div class="relative w-14 h-14">
+<svg class="w-full h-full" viewBox="0 0 36 36">
+<path class="text-surface-container-high" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<path class="text-primary-container drop-shadow-[0_0_4px_rgba(86,3,159,0.8)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="40, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="text-on-surface font-bold text-sm leading-none">40%</span>
+<span class="text-[0.4rem] text-primary-container font-bold uppercase mt-0.5" style="line-height: 1;">Eficiência</span>
+</div>
+</div></div></div></div></div></main>
+</body></html>
