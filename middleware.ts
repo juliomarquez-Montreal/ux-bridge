@@ -1,24 +1,36 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-// Protege /settings: exige login e role ADMIN. PO/UX autenticados recebem 403;
-// quem não está logado é mandado para /login.
+// Allowlist: só isso é acessível sem sessão. Tudo o mais exige login por padrão.
+const PUBLIC_PATHS = ["/login"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/api/auth/");
+}
+
+function isAdminOnlyPath(pathname: string): boolean {
+  return pathname.startsWith("/settings") || pathname.startsWith("/api/admin/");
+}
+
 export default withAuth(
   function middleware(req) {
-    const role = req.nextauth.token?.role;
-    if (role !== "ADMIN") {
+    // Além de logado, /settings e /api/admin/* exigem role ADMIN.
+    if (isAdminOnlyPath(req.nextUrl.pathname) && req.nextauth.token?.role !== "ADMIN") {
       return NextResponse.json({ error: "Acesso restrito a administradores." }, { status: 403 });
     }
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      // Só libera sem token as rotas da allowlist; qualquer outra rota exige sessão.
+      authorized: ({ token, req }) => isPublicPath(req.nextUrl.pathname) || !!token,
     },
     pages: { signIn: "/login" },
   }
 );
 
+// Roda em (quase) tudo — a exclusão aqui é só de assets estáticos do Next.js,
+// não de rotas da aplicação. A proteção de verdade é a allowlist acima.
 export const config = {
-  matcher: ["/settings/:path*", "/api/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
 };
