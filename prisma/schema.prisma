@@ -35,13 +35,14 @@ enum ApprovalDecision {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  role      Role
-  squadId   String?
-  squad     Squad?   @relation(fields: [squadId], references: [id])
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  role         Role
+  squadId      String?
+  squad        Squad?   @relation(fields: [squadId], references: [id])
+  createdAt    DateTime @default(now())
 }
 
 model Squad {
@@ -131,6 +132,16 @@ model MemoryPattern {
   confidence      Float        @default(0.5)
   sourceApprovalId String?
   createdAt       DateTime     @default(now())
+}
+
+model EngineConfig {
+  id          String   @id @default(cuid())
+  provider    String   @unique // gemini | openai | claude
+  apiKeyEnc   String?
+  apiKeyLast4 String?
+  enabled     Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
 }
 
 model GoalModeRun {

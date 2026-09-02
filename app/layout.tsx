@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
 
 // Fontes-base disponíveis para interfaces, textos e conteúdo técnico.
 const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
@@ -22,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
