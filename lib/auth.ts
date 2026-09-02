@@ -16,7 +16,8 @@ export const authOptions: AuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) return null;
 
-        const user = await db.user.findUnique({ where: { email: credentials.email } });
+        const email = credentials.email.trim().toLowerCase();
+        const user = await db.user.findUnique({ where: { email } });
         if (!user?.passwordHash) return null;
 
         const valid = await compare(credentials.password, user.passwordHash);

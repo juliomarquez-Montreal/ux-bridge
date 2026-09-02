@@ -1,3 +1,4 @@
+import Image from "next/image";
 import AbstractBackground from "@/components/AbstractBackground";
 import Badge from "@/components/Badge";
 import BarChart from "@/components/BarChart";
@@ -20,7 +21,7 @@ export default function Home() {
 
       <header className="border-b border-luminous-outline-variant/70 bg-luminous-surface/55 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-6 py-4 lg:px-8">
-          <div className="font-sora text-xl font-bold tracking-[0.16em]">MONTREAL</div>
+          <Image src="/Montreal-logo.png" alt="Montreal" width={108} height={24} priority />
           <div className="order-3 flex w-full items-center gap-2 rounded-full border border-white/10 bg-luminous-surface-container/70 px-4 py-2 text-sm sm:order-none sm:w-auto sm:min-w-[360px]">
             <span className="text-luminous-on-surface-variant">⌕</span><span className="flex-1 text-luminous-on-surface-variant">Projeto: Redesign Core</span><span className="h-5 w-px bg-luminous-outline-variant" /><span className="text-luminous-on-surface-variant">Squad Alpha⌄</span><PillButton className="px-4 py-1.5" variant="primary">Filtrar</PillButton>
           </div>

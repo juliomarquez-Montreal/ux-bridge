@@ -29,8 +29,11 @@ export default withAuth(
   }
 );
 
-// Roda em (quase) tudo — a exclusão aqui é só de assets estáticos do Next.js,
-// não de rotas da aplicação. A proteção de verdade é a allowlist acima.
+// Roda em (quase) tudo — a exclusão aqui é só de assets estáticos (Next.js e os
+// arquivos soltos em /public, como logos), não de rotas da aplicação. A
+// proteção de verdade é a allowlist acima.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpe?g|gif|svg|webp|ico|css|js|woff2?|ttf)$).*)",
+  ],
 };
