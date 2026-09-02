@@ -15,7 +15,7 @@ function ProgressRing({ value }: { value: number }) {
 // Dashboard de demonstração composto apenas por dados estáticos.
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-luminous-background text-luminous-on-surface">
+    <div className="relative min-h-screen overflow-hidden text-luminous-on-surface">
       <AbstractBackground />
 
       <header className="border-b border-luminous-outline-variant/70 bg-luminous-surface/55 backdrop-blur-sm">
