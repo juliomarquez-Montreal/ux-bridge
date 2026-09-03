@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth-helpers";
+import AbstractBackground from "@/components/AbstractBackground";
+import AppHeader from "@/components/AppHeader";
 import SettingsTabs from "./SettingsTabs";
 
 // Tela de Ajustes: qualquer usuário logado acessa (edita o próprio perfil na
@@ -13,11 +15,14 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-luminous-background px-6 py-10 text-luminous-on-surface lg:px-8">
-      <div className="mx-auto max-w-3xl">
+    <div className="relative min-h-screen overflow-hidden text-luminous-on-surface">
+      <AbstractBackground />
+      <AppHeader />
+
+      <main className="relative mx-auto max-w-3xl px-6 py-10 lg:px-8">
         <h1 className="mb-6 font-sora text-3xl font-bold">Ajustes</h1>
         <SettingsTabs isAdmin={user.permissionLevel === "ADMIN"} />
-      </div>
+      </main>
     </div>
   );
 }
