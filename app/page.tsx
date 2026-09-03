@@ -7,6 +7,7 @@ import KpiCard from "@/components/KpiCard";
 import LineChart from "@/components/LineChart";
 import PillButton from "@/components/PillButton";
 import TabGroup from "@/components/TabGroup";
+import UserMenu from "@/components/UserMenu";
 
 // Indicador circular de avanço para os cards de projeto.
 function ProgressRing({ value }: { value: number }) {
@@ -25,7 +26,7 @@ export default function Home() {
           <div className="order-3 flex w-full items-center gap-2 rounded-full border border-white/10 bg-luminous-surface-container/70 px-4 py-2 text-sm sm:order-none sm:w-auto sm:min-w-[360px]">
             <span className="text-luminous-on-surface-variant">⌕</span><span className="flex-1 text-luminous-on-surface-variant">Projeto: Redesign Core</span><span className="h-5 w-px bg-luminous-outline-variant" /><span className="text-luminous-on-surface-variant">Squad Alpha⌄</span><PillButton className="px-4 py-1.5" variant="primary">Filtrar</PillButton>
           </div>
-          <div className="flex gap-2"><button aria-label="Suporte" className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">?</button><button aria-label="Configurações" className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">⚙</button><div className="grid h-10 w-10 place-items-center rounded-full border border-luminous-primary/50 bg-luminous-primary-container font-mono text-xs">PO</div></div>
+          <div className="flex gap-2"><button aria-label="Suporte" className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">?</button><button aria-label="Configurações" className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10">⚙</button><UserMenu /></div>
         </div>
       </header>
 
@@ -34,7 +35,6 @@ export default function Home() {
           <div className="flex min-h-[420px] flex-col justify-between lg:col-span-7">
             <div className="flex flex-wrap items-center gap-3">
               <Image src="/logo-ux-bridge.png" alt="UX Bridge" width={1749} height={333} priority className="h-auto w-[280px] sm:w-[380px]" />
-              <Badge variant="info">Com IA</Badge>
               <sup className="align-top font-mono text-base tracking-normal text-luminous-primary">&#123;PO&#125;</sup>
             </div>
             <GlassCard className="mt-10 min-h-64 overflow-hidden"><div className="mb-4 flex items-center justify-between"><div><p className="font-mono text-[10px] uppercase tracking-[.1em] text-luminous-on-surface-variant">Métrica principal</p><h3 className="font-sora text-lg font-semibold">Eficiência de Requisitos (Dias)</h3></div><span className="grid h-8 w-8 place-items-center rounded-full bg-luminous-primary/15 text-luminous-primary">↗</span></div><div className="grid h-40 grid-cols-[auto_1fr] gap-4"><div className="flex flex-col justify-between pb-6 font-mono text-[10px] uppercase text-luminous-on-surface-variant"><span>Lento</span><span>Rápido</span></div><LineChart /></div><div className="ml-12 flex justify-between font-mono text-[10px] uppercase tracking-[.1em] text-luminous-on-surface-variant"><span>Mar</span><span>Abr</span><span>Mai</span><span>Jun</span><span>Jul</span><span>Ago</span></div></GlassCard>
