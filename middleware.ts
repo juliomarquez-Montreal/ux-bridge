@@ -9,13 +9,14 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function isAdminOnlyPath(pathname: string): boolean {
-  return pathname.startsWith("/settings") || pathname.startsWith("/api/admin/");
+  // /settings em si é liberado pra qualquer usuário logado (edita o próprio perfil);
+  // só a API do engine (usada pela aba ENGINE) exige permissionLevel ADMIN.
+  return pathname.startsWith("/api/admin/");
 }
 
 export default withAuth(
   function middleware(req) {
-    // Além de logado, /settings e /api/admin/* exigem role ADMIN.
-    if (isAdminOnlyPath(req.nextUrl.pathname) && req.nextauth.token?.role !== "ADMIN") {
+    if (isAdminOnlyPath(req.nextUrl.pathname) && req.nextauth.token?.permissionLevel !== "ADMIN") {
       return NextResponse.json({ error: "Acesso restrito a administradores." }, { status: 403 });
     }
     return NextResponse.next();

@@ -17,8 +17,8 @@ const passwordHash = await hash(password, 10);
 
 const user = await db.user.upsert({
   where: { email },
-  update: { passwordHash, role: "ADMIN" },
-  create: { email, name: name ?? email, passwordHash, role: "ADMIN" },
+  update: { passwordHash, permissionLevel: "ADMIN" },
+  create: { email, name: name ?? email, passwordHash, permissionLevel: "ADMIN", funcao: "OUTROS" },
 });
 
 console.log(`Usuário ADMIN pronto: ${user.email} (id: ${user.id})`);

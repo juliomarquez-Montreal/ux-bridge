@@ -8,10 +8,16 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
+enum PermissionLevel {
+  ADMIN
+  USER
+}
+
+enum Funcao {
   PO
   UX
-  ADMIN
+  GERENTE_PROJETOS
+  OUTROS
 }
 
 enum TranscriptionStatus {
@@ -36,14 +42,16 @@ enum ApprovalDecision {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String?
-  role         Role
-  squadId      String?
-  squad        Squad?   @relation(fields: [squadId], references: [id])
-  createdAt    DateTime @default(now())
+  id              String          @id @default(cuid())
+  name            String
+  email           String          @unique
+  passwordHash    String?
+  avatarUrl       String?
+  permissionLevel PermissionLevel @default(USER)
+  funcao          Funcao          @default(OUTROS)
+  squadId         String?
+  squad           Squad?          @relation(fields: [squadId], references: [id])
+  createdAt       DateTime        @default(now())
 }
 
 model Squad {

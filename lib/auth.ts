@@ -23,14 +23,22 @@ export const authOptions: AuthOptions = {
         const valid = await compare(credentials.password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role, squadId: user.squadId };
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          permissionLevel: user.permissionLevel,
+          funcao: user.funcao,
+          squadId: user.squadId,
+        };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        token.permissionLevel = user.permissionLevel;
+        token.funcao = user.funcao;
         token.squadId = user.squadId ?? null;
       }
       return token;
@@ -38,7 +46,8 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
-        session.user.role = token.role;
+        session.user.permissionLevel = token.permissionLevel;
+        session.user.funcao = token.funcao;
         session.user.squadId = token.squadId;
       }
       return session;

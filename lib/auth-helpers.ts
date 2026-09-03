@@ -11,6 +11,6 @@ export async function requireAdmin(): Promise<
 > {
   const user = await getCurrentUser();
   if (!user) return { ok: false, status: 401 };
-  if (user.role !== "ADMIN") return { ok: false, status: 403 };
+  if (user.permissionLevel !== "ADMIN") return { ok: false, status: 403 };
   return { ok: true, user };
 }

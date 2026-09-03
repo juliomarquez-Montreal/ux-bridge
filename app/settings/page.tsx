@@ -1,0 +1,23 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth-helpers";
+import SettingsTabs from "./SettingsTabs";
+
+// Tela de Ajustes: qualquer usuário logado acessa (edita o próprio perfil na
+// aba PERFIL). A aba ENGINE só aparece/funciona para permissionLevel=ADMIN
+// (a checagem real acontece na API — ver app/api/admin/settings/engine).
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login?callbackUrl=/settings");
+  }
+
+  return (
+    <div className="min-h-screen bg-luminous-background px-6 py-10 text-luminous-on-surface lg:px-8">
+      <div className="mx-auto max-w-3xl">
+        <h1 className="mb-6 font-sora text-3xl font-bold">Ajustes</h1>
+        <SettingsTabs isAdmin={user.permissionLevel === "ADMIN"} />
+      </div>
+    </div>
+  );
+}
