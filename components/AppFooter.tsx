@@ -13,8 +13,10 @@ export default function AppFooter() {
           background: "linear-gradient(to right, transparent, #9457DF, transparent)",
         }}
       />
-      <div className="mx-auto max-w-[1440px] px-6 py-6 lg:px-8">
-        <Image src="/Montreal-logo.png" alt="Montreal" width={90} height={20} />
+      <div className="mx-auto flex max-w-[1440px] justify-center px-6 py-6 lg:px-8">
+        <a href="https://www.montreal.com.br" target="_blank" rel="noopener noreferrer">
+          <Image src="/Montreal-logo.png" alt="Montreal" width={90} height={20} />
+        </a>
       </div>
     </footer>
   );
