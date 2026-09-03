@@ -1,5 +1,6 @@
 import Image from "next/image";
 import AbstractBackground from "@/components/AbstractBackground";
+import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
 import Badge from "@/components/Badge";
 import BarChart from "@/components/BarChart";
@@ -17,7 +18,7 @@ function ProgressRing({ value }: { value: number }) {
 // Dashboard de demonstração composto apenas por dados estáticos.
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-hidden text-luminous-on-surface">
+    <div className="relative flex min-h-screen flex-col text-luminous-on-surface">
       <AbstractBackground />
 
       <AppHeader />
@@ -42,6 +43,8 @@ export default function Home() {
 
         <section className="grid gap-6 md:grid-cols-2"><GlassCard className="min-h-72"><div className="flex items-start justify-between"><div className="flex gap-4"><div className="grid h-12 w-12 place-items-center rounded-lg bg-luminous-primary text-xl text-luminous-on-primary">ϟ</div><div><h3 className="font-sora text-lg font-semibold">Projetos em Otimização</h3><p className="mt-1 text-xs text-luminous-on-surface-variant">Squad Alpha • Atualizado há 2 h</p></div></div><span className="text-luminous-on-surface-variant">•••</span></div><div className="mt-7 flex flex-wrap gap-2"><Badge variant="warning">Prioridade Alta</Badge><Badge>Fase: Discovery</Badge><Badge variant="success">Redução 30% tempo</Badge><Badge variant="info">Automatizado</Badge></div><div className="mt-8 flex items-end justify-between"><span className="text-xs text-luminous-on-surface-variant">▣ 12/15 Requisitos validados</span><ProgressRing value={85} /></div></GlassCard><GlassCard className="min-h-72"><div className="flex items-start justify-between"><div className="flex gap-4"><div className="grid h-12 w-12 place-items-center rounded-lg bg-luminous-secondary text-xl text-luminous-on-secondary">⌘</div><div><h3 className="font-sora text-lg font-semibold">Fluxos de Trabalho</h3><p className="mt-1 text-xs text-luminous-on-surface-variant">Squad Beta • há 1 d</p></div></div><span className="text-luminous-on-surface-variant">•••</span></div><div className="mt-7 flex flex-wrap gap-2"><Badge>Prioridade Média</Badge><Badge>Fase: Delivery</Badge><Badge variant="info">Otimização UX</Badge><Badge>Manual</Badge></div><div className="mt-8 flex items-end justify-between"><span className="text-xs text-luminous-on-surface-variant">▣ 8/20 Requisitos validados</span><ProgressRing value={40} /></div></GlassCard></section>
       </main>
+
+      <AppFooter />
     </div>
   );
 }
