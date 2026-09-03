@@ -9,14 +9,14 @@ declare module "next-auth" {
       id: string;
       permissionLevel: PermissionLevel;
       funcao: Funcao;
-      squadId: string | null;
+      contextNodeId: string | null;
     } & DefaultSession["user"];
   }
 
   interface User {
     permissionLevel: PermissionLevel;
     funcao: Funcao;
-    squadId: string | null;
+    contextNodeId: string | null;
   }
 }
 
@@ -24,6 +24,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     permissionLevel: PermissionLevel;
     funcao: Funcao;
-    squadId: string | null;
+    contextNodeId: string | null;
   }
 }

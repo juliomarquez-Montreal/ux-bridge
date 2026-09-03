@@ -13,10 +13,10 @@ export async function GET() {
 
   try {
     const contextNode = await resolveContextNode({
-      squadId: "squad-teste",
-      domain: "Checkout",
-      artifactType: "BDD",
-      intent: "Redefinir senha",
+      universo: "Universo de Teste",
+      galaxia: "Galáxia de Teste",
+      estrela: "Checkout",
+      planeta: "Redefinir senha",
     });
 
     const contextPath = await getContextPath(contextNode.id);

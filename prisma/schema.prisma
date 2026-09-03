@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -41,6 +41,17 @@ enum ApprovalDecision {
   CORRECT
 }
 
+// Hierarquia da NOVA (Fase N1): Universo (organização/cliente) > Galáxia
+// (squad/área) > Estrela (categoria de trabalho) > Planeta (tarefa/artefato
+// específico). UNIVERSO e GALAXIA só ADMIN cria; ESTRELA e PLANETA qualquer
+// usuário autenticado cria (regra aplicada na Fase N2 — aqui só o schema).
+enum ContextNodeType {
+  UNIVERSO
+  GALAXIA
+  ESTRELA
+  PLANETA
+}
+
 model User {
   id              String          @id @default(cuid())
   name            String
@@ -49,98 +60,132 @@ model User {
   avatarUrl       String?
   permissionLevel PermissionLevel @default(USER)
   funcao          Funcao          @default(OUTROS)
-  squadId         String?
-  squad           Squad?          @relation(fields: [squadId], references: [id])
+  contextNodeId   String?
+  contextNode     ContextNode?    @relation(fields: [contextNodeId], references: [id])
   createdAt       DateTime        @default(now())
 }
 
-model Squad {
-  id    String @id @default(cuid())
-  name  String @unique
-  users User[]
+model ContextNode {
+  id           String          @id @default(cuid())
+  type         ContextNodeType
+  name         String
+  parentId     String?
+  parent       ContextNode?    @relation("ContextTree", fields: [parentId], references: [id])
+  children     ContextNode[]   @relation("ContextTree")
+  patterns     MemoryPattern[]
+  users        User[]
+  // Só preenchido quando type=PLANETA.
+  planetTypeId String?
+  planetType   PlanetType?     @relation(fields: [planetTypeId], references: [id])
 }
 
-model ContextNode {
-  id        String        @id @default(cuid())
-  type      String        // SQUAD | DOMAIN | ARTIFACT | INTENT
-  name      String
-  parentId  String?
-  parent    ContextNode?  @relation("ContextTree", fields: [parentId], references: [id])
-  children  ContextNode[] @relation("ContextTree")
-  patterns  MemoryPattern[]
+// Catálogo global de tipos de Planeta (reutilizável entre Universos/Galáxias
+// diferentes) — ex: "Listagem", "Formulário", "Dashboard". Vazio por
+// enquanto; será populado manualmente ou nas Fases N2/N3.
+model PlanetType {
+  id           String              @id @default(cuid())
+  name         String              @unique
+  description  String?
+  createdAt    DateTime            @default(now())
+  contextNodes ContextNode[]
+  examples     PlanetTypeExample[]
+}
+
+// Exemplos de referência por PlanetType (transcrição bruta, BDD/PBI final,
+// wireframe de referência). Estrutural agora — upload real vem na Fase N4.
+model PlanetTypeExample {
+  id           String     @id @default(cuid())
+  planetTypeId String
+  planetType   PlanetType @relation(fields: [planetTypeId], references: [id])
+  kind         String // "RAW_TRANSCRIPT" | "FINAL_BDD_PBI" | "WIREFRAME_REFERENCE"
+  fileUrl      String?
+  textContent  String?
+  createdAt    DateTime   @default(now())
+}
+
+// Componentes do design system (import do Figma). Estrutural agora —
+// integração real com Figma vem na Fase N5.
+model DesignSystemComponent {
+  id                String   @id @default(cuid())
+  name              String
+  figmaComponentKey String?  @unique
+  thumbnailUrl      String?
+  description       String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
 }
 
 model Transcription {
-  id           String   @id @default(cuid())
+  id           String              @id @default(cuid())
   squadId      String
   fileUrl      String
   rawText      String?
   status       TranscriptionStatus @default(UPLOADED)
-  createdAt    DateTime @default(now())
+  createdAt    DateTime            @default(now())
   extraction   Extraction?
   artifacts    Artifact[]
   goalModeRuns GoalModeRun[]
 }
 
 model Extraction {
-  id               String   @id @default(cuid())
-  transcriptionId  String   @unique
-  transcription    Transcription @relation(fields: [transcriptionId], references: [id])
-  entitiesJson     Json
-  rulesJson        Json
-  intent           String
-  contextNodeId    String?
-  modelUsed        String
-  createdAt        DateTime @default(now())
+  id              String        @id @default(cuid())
+  transcriptionId String        @unique
+  transcription   Transcription @relation(fields: [transcriptionId], references: [id])
+  entitiesJson    Json
+  rulesJson       Json
+  intent          String
+  contextNodeId   String?
+  modelUsed       String
+  createdAt       DateTime      @default(now())
 }
 
 model Artifact {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   transcriptionId String
   transcription   Transcription @relation(fields: [transcriptionId], references: [id])
   type            ArtifactType
   contentMd       String
-  version         Int      @default(1)
-  status          String   // DRAFT | PENDING_PO | APPROVED | REJECTED
-  createdByAi     Boolean  @default(true)
+  version         Int           @default(1)
+  status          String // DRAFT | PENDING_PO | APPROVED | REJECTED
+  createdByAi     Boolean       @default(true)
   approvedById    String?
   approvedAt      DateTime?
   wireframes      Wireframe[]
-  createdAt       DateTime @default(now())
+  createdAt       DateTime      @default(now())
 }
 
 model Wireframe {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   artifactId   String
-  artifact     Artifact @relation(fields: [artifactId], references: [id])
+  artifact     Artifact  @relation(fields: [artifactId], references: [id])
   htmlContent  String
-  version      Int      @default(1)
-  status       String   // DRAFT | PENDING_UX | APPROVED | REJECTED
+  version      Int       @default(1)
+  status       String // DRAFT | PENDING_UX | APPROVED | REJECTED
   approvedById String?
   approvedAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 }
 
 model ApprovalLog {
-  id             String            @id @default(cuid())
-  targetType     String            // ARTIFACT | WIREFRAME
+  id             String           @id @default(cuid())
+  targetType     String // ARTIFACT | WIREFRAME
   targetId       String
   approverId     String
   decision       ApprovalDecision
   comment        String?
   correctionDiff String?
-  createdAt      DateTime          @default(now())
+  createdAt      DateTime         @default(now())
 }
 
 model MemoryPattern {
-  id              String       @id @default(cuid())
-  contextNodeId   String
-  contextNode     ContextNode  @relation(fields: [contextNodeId], references: [id])
-  patternType     String
-  patternData     Json
-  confidence      Float        @default(0.5)
+  id               String      @id @default(cuid())
+  contextNodeId    String
+  contextNode      ContextNode @relation(fields: [contextNodeId], references: [id])
+  patternType      String
+  patternData      Json
+  confidence       Float       @default(0.5)
   sourceApprovalId String?
-  createdAt       DateTime     @default(now())
+  createdAt        DateTime    @default(now())
 }
 
 model EngineConfig {
@@ -154,12 +199,12 @@ model EngineConfig {
 }
 
 model GoalModeRun {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   transcriptionId String
   transcription   Transcription @relation(fields: [transcriptionId], references: [id])
   status          String
   startedById     String
-  startedAt       DateTime @default(now())
+  startedAt       DateTime      @default(now())
   completedAt     DateTime?
   logJson         Json?
 }
