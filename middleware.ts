@@ -9,9 +9,9 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function isAdminOnlyPath(pathname: string): boolean {
-  // /settings em si é liberado pra qualquer usuário logado (edita o próprio perfil);
-  // só a API do engine (usada pela aba ENGINE) exige permissionLevel ADMIN.
-  return pathname.startsWith("/api/admin/");
+  // /settings agora é só configuração do sistema (engine de IA) — exige ADMIN.
+  // /profile (dados pessoais) fica de fora daqui: qualquer logado acessa.
+  return pathname.startsWith("/settings") || pathname.startsWith("/api/admin/");
 }
 
 export default withAuth(

@@ -17,13 +17,16 @@ const QUICK_ITEMS: QuickItem[] = [
   { title: "Wireframes aprovados", subtitle: "Design", icon: CheckCircleIcon },
 ];
 
-// Dropdown de resultados, ancorado logo abaixo da barra de busca do header
-// (o pai precisa ter `position: relative`). O backdrop com blur é renderizado
-// à parte, direto no AppHeader — como irmão do <header>, não aninhado nele,
-// pra não escurecer o próprio header (ver nota de stacking context lá).
+// Dropdown de resultados. No mobile o gatilho é só um ícone (sem barra pra
+// ancorar embaixo), então aqui vira `fixed` com margens fixas nas laterais
+// pra nunca estourar a largura da tela; a partir de `sm` volta a ser
+// ancorado logo abaixo da barra de busca (o pai precisa ter `position:
+// relative`). O backdrop com blur é renderizado à parte, direto no
+// AppHeader — como irmão do <header>, não aninhado nele, pra não escurecer
+// o próprio header (ver nota de stacking context lá).
 export default function SearchPalette({ onClose }: { onClose: () => void }) {
   return (
-    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-luminous-surface-container shadow-2xl">
+    <div className="fixed inset-x-4 top-16 z-30 overflow-hidden rounded-2xl border border-white/10 bg-luminous-surface-container shadow-2xl sm:absolute sm:inset-x-0 sm:top-full sm:mt-2">
       <p className="px-5 pt-4 text-xs font-semibold uppercase tracking-[.1em] text-luminous-on-surface-variant">
         Acesso rápido
       </p>

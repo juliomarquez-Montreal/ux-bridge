@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { Settings } from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -45,13 +46,9 @@ export function BellIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+// Engrenagem de verdade (lucide-react), não o "sol" que tínhamos antes.
 export function GearIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...base(props)}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
-    </svg>
-  );
+  return <Settings strokeWidth={1.7} {...props} />;
 }
 
 export function EyeIcon(props: SVGProps<SVGSVGElement>) {

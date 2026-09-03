@@ -96,7 +96,7 @@ function LoginForm() {
         />
 
         <div className="w-full rounded-2xl border border-white/10 bg-luminous-surface-container/60 p-8 shadow-[0_0_90px_-25px_rgba(148,87,223,0.55)] backdrop-blur-xl sm:p-10">
-          <Image src="/Montreal-logo.png" alt="Montreal" width={108} height={24} className="mb-7" />
+          <Image src="/Montreal-logo.png" alt="Montreal" width={218} height={28} className="mb-7 h-7 w-auto" />
 
           <h1 className="mb-1 font-sora text-3xl font-bold sm:text-4xl">Bem-vindo</h1>
           <p className="mb-8 text-sm text-luminous-secondary">Entre para continuar sua jornada</p>
