@@ -58,14 +58,16 @@ export default function AppHeader() {
     <>
       <header className="sticky top-0 z-30 border-b border-luminous-outline-variant/70 bg-luminous-surface/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <Image
-            src="/logo-ux-bridge.png"
-            alt="UX Bridge"
-            width={1749}
-            height={333}
-            priority
-            className="h-5 w-auto shrink-0 sm:h-6"
-          />
+          <a href="/" className="shrink-0">
+            <Image
+              src="/logo-ux-bridge.png"
+              alt="UX Bridge"
+              width={1749}
+              height={333}
+              priority
+              className="h-5 w-auto sm:h-6"
+            />
+          </a>
 
           <button
             type="button"
