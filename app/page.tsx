@@ -20,7 +20,7 @@ export default function Home() {
     <div className="relative min-h-screen overflow-hidden text-luminous-on-surface">
       <AbstractBackground />
 
-      <header className="border-b border-luminous-outline-variant/70 bg-luminous-surface/55 backdrop-blur-sm">
+      <header className="relative z-20 border-b border-luminous-outline-variant/70 bg-luminous-surface/55 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-6 py-4 lg:px-8">
           <Image src="/Montreal-logo.png" alt="Montreal" width={108} height={24} priority />
           <div className="order-3 flex w-full items-center gap-2 rounded-full border border-white/10 bg-luminous-surface-container/70 px-4 py-2 text-sm sm:order-none sm:w-auto sm:min-w-[360px]">
