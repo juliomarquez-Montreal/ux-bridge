@@ -8,6 +8,7 @@ import { PlusIcon } from "@/components/icons";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import NodeFormModal from "./NodeFormModal";
 import NodeRow from "./NodeRow";
+import PlanetTypeManagerModal from "./PlanetTypeManagerModal";
 import { canCreateUniverso, flattenTree, getGalaxyAncestorId } from "./clientPermissions";
 import type { ApiContextNode, ApiPlanetType, FormModalState, NovaUser } from "./types";
 
@@ -18,6 +19,7 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [formModal, setFormModal] = useState<FormModalState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiContextNode | null>(null);
+  const [managingTypes, setManagingTypes] = useState(false);
 
   const refreshTree = useCallback(async () => {
     const res = await fetch("/api/nova/nodes");
@@ -44,14 +46,17 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
     });
   }, []);
 
+  const refreshPlanetTypes = useCallback(async () => {
+    const res = await fetch("/api/nova/planet-types");
+    if (!res.ok) throw new Error("Falha ao carregar tipos de planeta.");
+    const data = (await res.json()) as { planetTypes: ApiPlanetType[] };
+    setPlanetTypes(data.planetTypes);
+  }, []);
+
   useEffect(() => {
     refreshTree().catch(() => setLoadError("Não foi possível carregar a hierarquia. Tente recarregar a página."));
-
-    fetch("/api/nova/planet-types")
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data: { planetTypes: ApiPlanetType[] }) => setPlanetTypes(data.planetTypes))
-      .catch(() => setPlanetTypes([]));
-  }, [refreshTree]);
+    refreshPlanetTypes().catch(() => setPlanetTypes([]));
+  }, [refreshTree, refreshPlanetTypes]);
 
   const byId = useMemo(() => flattenTree(tree ?? []), [tree]);
   const userGalaxyId = useMemo(
@@ -95,15 +100,20 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
       {loadError && <p className="mb-3 text-sm text-luminous-error">{loadError}</p>}
 
       {canCreateUniverso(user) && (
-        <PillButton
-          type="button"
-          variant="secondary"
-          className="mb-4 inline-flex items-center gap-1.5"
-          onClick={() => setFormModal({ mode: "create", type: "UNIVERSO", parentId: null })}
-        >
-          <PlusIcon className="h-3.5 w-3.5" />
-          Novo Universo
-        </PillButton>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <PillButton
+            type="button"
+            variant="secondary"
+            className="inline-flex items-center gap-1.5"
+            onClick={() => setFormModal({ mode: "create", type: "UNIVERSO", parentId: null })}
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Novo Universo
+          </PillButton>
+          <PillButton type="button" variant="inactive" onClick={() => setManagingTypes(true)}>
+            Gerenciar Tipos de Planeta
+          </PillButton>
+        </div>
       )}
 
       {tree.length === 0 ? (
@@ -143,6 +153,13 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
 
       {deleteTarget && (
         <DeleteConfirmModal node={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={handleDeleted} />
+      )}
+
+      {managingTypes && (
+        <PlanetTypeManagerModal
+          onClose={() => setManagingTypes(false)}
+          onChanged={() => refreshPlanetTypes().catch(() => {})}
+        />
       )}
     </div>
   );

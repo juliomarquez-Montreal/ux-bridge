@@ -17,6 +17,18 @@ export interface ApiPlanetType {
   description: string | null;
 }
 
+export type ExampleKind = "RAW_TRANSCRIPT" | "FINAL_BDD_PBI" | "WIREFRAME_REFERENCE";
+
+export interface ApiPlanetExample {
+  id: string;
+  contextNodeId: string;
+  kind: ExampleKind;
+  fileUrl: string | null;
+  textContent: string | null;
+  uploadedById: string | null;
+  createdAt: string;
+}
+
 // Só o que a UI precisa da sessão pra decidir o que mostrar/habilitar.
 export interface NovaUser {
   id: string;

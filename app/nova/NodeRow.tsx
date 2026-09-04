@@ -12,6 +12,7 @@ import {
   TrashIcon,
   UniversoIcon,
 } from "@/components/icons";
+import PlanetExamplesPanel from "./PlanetExamplesPanel";
 import { CHILD_TYPE, TYPE_LABEL, canCreateChildOf, canModifyNode } from "./clientPermissions";
 import type { ApiContextNode, NovaUser } from "./types";
 
@@ -51,7 +52,11 @@ export default function NodeRow({
   const style = TYPE_STYLES[node.type];
   const Icon = style.icon;
   const isExpanded = expanded.has(node.id);
+  const isPlaneta = node.type === "PLANETA";
   const hasChildren = node.children.length > 0;
+  // Planeta não tem filhos na árvore, mas o "expandir" ainda serve pra
+  // mostrar/esconder os exemplos de treino anexados a ele.
+  const isExpandable = hasChildren || isPlaneta;
   const childType = CHILD_TYPE[node.type];
   const isUserGalaxy = node.type === "GALAXIA" && node.id === userGalaxyId;
 
@@ -68,10 +73,11 @@ export default function NodeRow({
         <button
           type="button"
           onClick={() => onToggleExpanded(node.id)}
-          disabled={!hasChildren}
-          aria-label={isExpanded ? "Recolher" : "Expandir"}
+          disabled={!isExpandable}
+          aria-label={isExpanded ? "Recolher" : isPlaneta ? "Ver exemplos de treino" : "Expandir"}
+          title={isPlaneta ? "Exemplos de treino" : undefined}
           className={`grid h-6 w-6 shrink-0 place-items-center rounded-md transition ${
-            hasChildren ? "hover:bg-white/10" : "opacity-0"
+            isExpandable ? "hover:bg-white/10" : "opacity-0"
           }`}
         >
           <ChevronDownIcon className={`h-4 w-4 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
@@ -141,6 +147,12 @@ export default function NodeRow({
               onRequestDelete={onRequestDelete}
             />
           ))}
+        </div>
+      )}
+
+      {isExpanded && isPlaneta && (
+        <div className="ml-5 mt-2 border-l border-white/10 pl-4">
+          <PlanetExamplesPanel node={node} canManage={canModify} />
         </div>
       )}
     </div>

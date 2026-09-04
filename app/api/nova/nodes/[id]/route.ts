@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canModifyNode } from "@/lib/nova/permissions";
+import { extractStoragePath, getSupabaseAdmin, PLANET_EXAMPLES_BUCKET } from "@/lib/supabase-admin";
 
 interface Params {
   params: { id: string };
@@ -81,6 +82,24 @@ export async function DELETE(_request: Request, { params }: Params) {
       { error: `Este nó tem ${childrenCount} filho(s). Remova-os primeiro ou use exclusão em cascata (ainda não implementada).` },
       { status: 409 }
     );
+  }
+
+  // Exemplos de treino (Fase N4) são anexos do Planeta, não filhos na árvore
+  // — não bloqueiam a exclusão, mas os arquivos no Storage precisam ser
+  // limpos manualmente antes (os registros no banco vão junto via onDelete:
+  // Cascade do schema).
+  if (node.type === "PLANETA") {
+    const examples = await db.planetExample.findMany({
+      where: { contextNodeId: node.id },
+      select: { fileUrl: true },
+    });
+    const paths = examples
+      .map((example) => (example.fileUrl ? extractStoragePath(example.fileUrl, PLANET_EXAMPLES_BUCKET) : null))
+      .filter((path): path is string => path !== null);
+    if (paths.length > 0) {
+      const { error } = await getSupabaseAdmin().storage.from(PLANET_EXAMPLES_BUCKET).remove(paths);
+      if (error) console.error("Falha ao remover arquivos de exemplos do Storage:", error.message);
+    }
   }
 
   await db.contextNode.delete({ where: { id: node.id } });

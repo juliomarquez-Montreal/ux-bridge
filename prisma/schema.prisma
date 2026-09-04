@@ -77,30 +77,41 @@ model ContextNode {
   // Só preenchido quando type=PLANETA.
   planetTypeId String?
   planetType   PlanetType?     @relation(fields: [planetTypeId], references: [id])
+  // Exemplos de treino anexados diretamente a este nó (só faz sentido para
+  // PLANETA). Vinculado ao nó, não ao PlanetType — cruzar exemplos entre
+  // Planetas do mesmo tipo é trabalho da Fase N6.
+  examples     PlanetExample[]
 }
 
 // Catálogo global de tipos de Planeta (reutilizável entre Universos/Galáxias
-// diferentes) — ex: "Listagem", "Formulário", "Dashboard". Vazio por
-// enquanto; será populado manualmente ou nas Fases N2/N3.
+// diferentes) — ex: "Listagem", "Formulário", "Dashboard".
 model PlanetType {
-  id           String              @id @default(cuid())
-  name         String              @unique
+  id           String        @id @default(cuid())
+  name         String        @unique
   description  String?
-  createdAt    DateTime            @default(now())
+  createdAt    DateTime      @default(now())
   contextNodes ContextNode[]
-  examples     PlanetTypeExample[]
 }
 
-// Exemplos de referência por PlanetType (transcrição bruta, BDD/PBI final,
-// wireframe de referência). Estrutural agora — upload real vem na Fase N4.
-model PlanetTypeExample {
-  id           String     @id @default(cuid())
-  planetTypeId String
-  planetType   PlanetType @relation(fields: [planetTypeId], references: [id])
-  kind         String // "RAW_TRANSCRIPT" | "FINAL_BDD_PBI" | "WIREFRAME_REFERENCE"
-  fileUrl      String?
-  textContent  String?
-  createdAt    DateTime   @default(now())
+// Exemplos de treino de um Planeta específico (transcrição bruta, BDD/PBI
+// final, wireframe de referência) — Fase N4. Vinculados ao ContextNode (o
+// Planeta), não ao PlanetType: cada Planeta acumula os próprios exemplos: já
+// que todo Planeta tem um planetTypeId, dá pra cruzar exemplos entre
+// Planetas do mesmo tipo depois (Fase N6) sem precisar duplicar o vínculo
+// aqui.
+model PlanetExample {
+  id            String      @id @default(cuid())
+  contextNodeId String
+  // onDelete: Cascade — exemplo é um anexo do Planeta, não uma entidade
+  // independente; se o Planeta for excluído (já sem filhos na árvore, regra
+  // aplicada em app/api/nova/nodes/[id]/route.ts), os exemplos vão junto. Os
+  // arquivos no Storage são removidos manualmente antes, na mesma rota.
+  contextNode   ContextNode @relation(fields: [contextNodeId], references: [id], onDelete: Cascade)
+  kind          String // "RAW_TRANSCRIPT" | "FINAL_BDD_PBI" | "WIREFRAME_REFERENCE"
+  fileUrl       String?
+  textContent   String?
+  uploadedById  String?
+  createdAt     DateTime    @default(now())
 }
 
 // Componentes do design system (import do Figma). Estrutural agora —
