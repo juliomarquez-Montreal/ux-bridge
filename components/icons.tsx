@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { Atom, ChevronDown, Globe, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
+import { Atom, ChevronDown, Globe, Link2, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -159,4 +159,8 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
 
 export function CloseIcon(props: SVGProps<SVGSVGElement>) {
   return <X strokeWidth={1.7} {...props} />;
+}
+
+export function LinkIcon(props: SVGProps<SVGSVGElement>) {
+  return <Link2 strokeWidth={1.7} {...props} />;
 }

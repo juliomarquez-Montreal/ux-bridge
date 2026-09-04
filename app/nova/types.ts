@@ -38,16 +38,23 @@ export interface ApiDesignSystemComponent {
   createdAt: string;
 }
 
+export interface ApiDesignSystemGalaxyLink {
+  galaxyId: string;
+  galaxyName: string;
+}
+
+// N:N com Galáxia via DesignSystemGalaxyLink — uma fonte não "pertence" mais
+// a uma única Galáxia, pode estar vinculada a várias (ou nenhuma ainda).
 export interface ApiDesignSystemSource {
   id: string;
   name: string;
   figmaFileKey: string;
   figmaUrl: string;
-  galaxyId: string;
   lastSyncedAt: string | null;
   addedById: string | null;
   createdAt: string;
   components: ApiDesignSystemComponent[];
+  galaxyLinks: ApiDesignSystemGalaxyLink[];
 }
 
 export interface DesignSystemSyncResult {

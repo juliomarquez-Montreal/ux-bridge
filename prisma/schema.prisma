@@ -81,8 +81,10 @@ model ContextNode {
   // PLANETA). Vinculado ao nó, não ao PlanetType — cruzar exemplos entre
   // Planetas do mesmo tipo é trabalho da Fase N6.
   examples     PlanetExample[]
-  // Fontes de Design System vinculadas (só faz sentido para GALAXIA) — Fase N5.
-  designSystemSources DesignSystemSource[]
+  // Vínculos com fontes de Design System (só faz sentido para GALAXIA) —
+  // Fase N5, N:N via DesignSystemGalaxyLink (uma fonte pode servir várias
+  // Galáxias, uma Galáxia pode ter várias fontes).
+  designSystemLinks DesignSystemGalaxyLink[]
 }
 
 // Catálogo global de tipos de Planeta (reutilizável entre Universos/Galáxias
@@ -116,22 +118,38 @@ model PlanetExample {
   createdAt     DateTime    @default(now())
 }
 
-// Fonte de Design System do Figma vinculada a UMA Galáxia (Fase N5) — cada
-// Galáxia pode ter suas próprias fontes; os componentes sincronizados só
-// "existem" para quem enxerga aquela Galáxia. Propósito é identificar QUAIS
-// componentes existem (referência estrutural pra wireframes simples), não
-// capturar protótipos de alta fidelidade.
+// Fonte de Design System do Figma (Fase N5) — catálogo global, gerenciado
+// por ADMIN (criar/sincronizar/remover). Vira visível pra uma Galáxia só
+// quando alguém cria um DesignSystemGalaxyLink pra ela (N:N: uma fonte pode
+// servir várias Galáxias, uma Galáxia pode usar várias fontes). Propósito é
+// identificar QUAIS componentes existem (referência estrutural pra
+// wireframes simples), não capturar protótipos de alta fidelidade.
 model DesignSystemSource {
-  id           String                  @id @default(cuid())
+  id           String                   @id @default(cuid())
   name         String
   figmaFileKey String
   figmaUrl     String
-  galaxyId     String
-  galaxy       ContextNode             @relation(fields: [galaxyId], references: [id])
   lastSyncedAt DateTime?
   addedById    String?
-  createdAt    DateTime                @default(now())
+  createdAt    DateTime                 @default(now())
   components   DesignSystemComponent[]
+  galaxyLinks  DesignSystemGalaxyLink[]
+}
+
+// Tabela de junção N:N entre DesignSystemSource e ContextNode (tipo
+// GALAXIA). Criar/remover um vínculo é a mesma permissão de
+// criar/editar Estrela/Planeta naquela Galáxia (ADMIN em qualquer uma,
+// usuário comum só na própria) — ver lib/nova/permissions.ts::canManageGalaxy.
+model DesignSystemGalaxyLink {
+  id         String             @id @default(cuid())
+  sourceId   String
+  source     DesignSystemSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  galaxyId   String
+  galaxy     ContextNode        @relation(fields: [galaxyId], references: [id], onDelete: Cascade)
+  linkedById String?
+  createdAt  DateTime           @default(now())
+
+  @@unique([sourceId, galaxyId])
 }
 
 // Componentes do design system (import do Figma), sempre vinculados a uma

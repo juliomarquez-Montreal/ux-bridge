@@ -1,65 +1,65 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-helpers";
-import { canManageGalaxy } from "@/lib/nova/permissions";
+import { getCurrentUser, requireAdmin } from "@/lib/auth-helpers";
+import { FigmaApiError } from "@/lib/figma/client";
 import { FigmaUrlError, parseFigmaFileKey } from "@/lib/figma/parseUrl";
+import { syncDesignSystemSource } from "@/lib/figma/sync";
 
-// GET /api/nova/design-system/sources?galaxyId=x -> fontes de UMA Galáxia
-// (qualquer usuário logado). Sem galaxyId, só ADMIN pode listar todas.
-export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+// A rota POST já sincroniza ao criar (busca no Figma + upsert em lote), então
+// pode levar alguns segundos num arquivo grande.
+export const maxDuration = 30;
 
-  const galaxyId = new URL(request.url).searchParams.get("galaxyId");
+const INCLUDE = {
+  components: { orderBy: { name: "asc" as const } },
+  galaxyLinks: { include: { galaxy: { select: { id: true, name: true } } } },
+} satisfies Prisma.DesignSystemSourceInclude;
 
-  if (!galaxyId) {
-    if (user.permissionLevel !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Informe galaxyId, ou seja administrador para listar todas as fontes." },
-        { status: 403 }
-      );
-    }
-    const sources = await db.designSystemSource.findMany({
-      orderBy: { name: "asc" },
-      include: { components: { orderBy: { name: "asc" } } },
-    });
-    return NextResponse.json({ sources });
-  }
+type SourceWithRelations = Prisma.DesignSystemSourceGetPayload<{ include: typeof INCLUDE }>;
 
-  const sources = await db.designSystemSource.findMany({
-    where: { galaxyId },
-    orderBy: { name: "asc" },
-    include: { components: { orderBy: { name: "asc" } } },
-  });
-  return NextResponse.json({ sources });
+function serializeSource(source: SourceWithRelations) {
+  return {
+    id: source.id,
+    name: source.name,
+    figmaFileKey: source.figmaFileKey,
+    figmaUrl: source.figmaUrl,
+    lastSyncedAt: source.lastSyncedAt,
+    addedById: source.addedById,
+    createdAt: source.createdAt,
+    components: source.components,
+    galaxyLinks: source.galaxyLinks.map((link) => ({ galaxyId: link.galaxyId, galaxyName: link.galaxy.name })),
+  };
 }
 
-// POST /api/nova/design-system/sources -> cria uma fonte vinculada a uma
-// Galáxia (name + figmaUrl + galaxyId). Mesma permissão de criar
-// Estrela/Planeta naquela Galáxia.
-export async function POST(request: Request) {
+// GET /api/nova/design-system/sources -> catálogo global de Design Systems
+// (qualquer usuário autenticado pode ver; só ADMIN gerencia via os outros
+// verbos). Cada fonte já vem com os componentes e as Galáxias vinculadas.
+export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+
+  const sources = await db.designSystemSource.findMany({ orderBy: { name: "asc" }, include: INCLUDE });
+  return NextResponse.json({ sources: sources.map(serializeSource) });
+}
+
+// POST /api/nova/design-system/sources -> cria uma fonte (ADMIN-only, catálogo
+// global) e já sincroniza automaticamente. Não recebe Galáxia aqui — o
+// vínculo com Galáxia(s) é feito depois, via .../sources/:id/galaxies.
+export async function POST(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return NextResponse.json(
+      { error: admin.status === 401 ? "Não autorizado." : "Só administradores podem criar Design Systems." },
+      { status: admin.status }
+    );
+  }
 
   const body = await request.json().catch(() => ({}));
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const figmaUrl = typeof body.figmaUrl === "string" ? body.figmaUrl.trim() : "";
-  const galaxyId = typeof body.galaxyId === "string" ? body.galaxyId : "";
 
   if (!name) return NextResponse.json({ error: "name é obrigatório." }, { status: 400 });
   if (!figmaUrl) return NextResponse.json({ error: "figmaUrl é obrigatório." }, { status: 400 });
-  if (!galaxyId) return NextResponse.json({ error: "galaxyId é obrigatório." }, { status: 400 });
-
-  const galaxy = await db.contextNode.findUnique({ where: { id: galaxyId } });
-  if (!galaxy) return NextResponse.json({ error: "Galáxia não encontrada." }, { status: 404 });
-  if (galaxy.type !== "GALAXIA") {
-    return NextResponse.json({ error: "galaxyId precisa referenciar um nó do tipo Galáxia." }, { status: 400 });
-  }
-
-  const permission = await canManageGalaxy({ galaxyId, user });
-  if (!permission.allowed) {
-    return NextResponse.json({ error: permission.reason }, { status: 403 });
-  }
 
   let figmaFileKey: string;
   try {
@@ -69,9 +69,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const source = await db.designSystemSource.create({
-    data: { name, figmaUrl, figmaFileKey, galaxyId, addedById: user.id },
+  const created = await db.designSystemSource.create({
+    data: { name, figmaUrl, figmaFileKey, addedById: admin.user.id },
   });
 
-  return NextResponse.json({ source: { ...source, components: [] } }, { status: 201 });
+  let sync = null;
+  let syncError: string | null = null;
+  try {
+    sync = await syncDesignSystemSource(created);
+  } catch (error) {
+    syncError =
+      error instanceof FigmaApiError ? error.message : "Falha inesperada ao sincronizar com o Figma agora.";
+  }
+
+  const fresh = await db.designSystemSource.findUniqueOrThrow({ where: { id: created.id }, include: INCLUDE });
+
+  return NextResponse.json({ source: serializeSource(fresh), sync, syncError }, { status: 201 });
 }

@@ -26,7 +26,7 @@ export default async function NovaPage() {
       <main className="relative mx-auto w-full max-w-4xl px-6 py-10 lg:px-8">
         <h1 className="mb-2 font-sora text-3xl font-bold">NOVA</h1>
         <p className="mb-6 text-sm text-luminous-on-surface-variant">
-          Hierarquia de contexto: Universo → Galáxia → Estrela → Planeta.
+          Organize o contexto que orienta a criação de PBIs e wireframes.
         </p>
 
         <NovaPanel
