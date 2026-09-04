@@ -12,6 +12,7 @@ import {
   TrashIcon,
   UniversoIcon,
 } from "@/components/icons";
+import GalaxyDesignSystemSection from "./GalaxyDesignSystemSection";
 import PlanetExamplesPanel from "./PlanetExamplesPanel";
 import { CHILD_TYPE, TYPE_LABEL, canCreateChildOf, canModifyNode } from "./clientPermissions";
 import type { ApiContextNode, NovaUser } from "./types";
@@ -53,10 +54,12 @@ export default function NodeRow({
   const Icon = style.icon;
   const isExpanded = expanded.has(node.id);
   const isPlaneta = node.type === "PLANETA";
+  const isGalaxia = node.type === "GALAXIA";
   const hasChildren = node.children.length > 0;
   // Planeta não tem filhos na árvore, mas o "expandir" ainda serve pra
-  // mostrar/esconder os exemplos de treino anexados a ele.
-  const isExpandable = hasChildren || isPlaneta;
+  // mostrar/esconder os exemplos de treino. Galáxia sempre expansível (mesmo
+  // sem Estrela ainda) pra poder chegar na seção de Design System dela.
+  const isExpandable = hasChildren || isPlaneta || isGalaxia;
   const childType = CHILD_TYPE[node.type];
   const isUserGalaxy = node.type === "GALAXIA" && node.id === userGalaxyId;
 
@@ -153,6 +156,12 @@ export default function NodeRow({
       {isExpanded && isPlaneta && (
         <div className="ml-5 mt-2 border-l border-white/10 pl-4">
           <PlanetExamplesPanel node={node} canManage={canModify} />
+        </div>
+      )}
+
+      {isExpanded && isGalaxia && (
+        <div className="ml-5 mt-2 border-l border-white/10 pl-4">
+          <GalaxyDesignSystemSection galaxyId={node.id} canManage={canCreateChild} />
         </div>
       )}
     </div>

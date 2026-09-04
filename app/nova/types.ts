@@ -29,6 +29,35 @@ export interface ApiPlanetExample {
   createdAt: string;
 }
 
+export interface ApiDesignSystemComponent {
+  id: string;
+  name: string;
+  figmaComponentKey: string | null;
+  thumbnailUrl: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface ApiDesignSystemSource {
+  id: string;
+  name: string;
+  figmaFileKey: string;
+  figmaUrl: string;
+  galaxyId: string;
+  lastSyncedAt: string | null;
+  addedById: string | null;
+  createdAt: string;
+  components: ApiDesignSystemComponent[];
+}
+
+export interface DesignSystemSyncResult {
+  created: number;
+  updated: number;
+  totalSynced: number;
+  missingFromLastSync: number;
+  warning?: string | null;
+}
+
 // Só o que a UI precisa da sessão pra decidir o que mostrar/habilitar.
 export interface NovaUser {
   id: string;

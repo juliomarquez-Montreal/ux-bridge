@@ -81,6 +81,8 @@ model ContextNode {
   // PLANETA). Vinculado ao nó, não ao PlanetType — cruzar exemplos entre
   // Planetas do mesmo tipo é trabalho da Fase N6.
   examples     PlanetExample[]
+  // Fontes de Design System vinculadas (só faz sentido para GALAXIA) — Fase N5.
+  designSystemSources DesignSystemSource[]
 }
 
 // Catálogo global de tipos de Planeta (reutilizável entre Universos/Galáxias
@@ -114,16 +116,38 @@ model PlanetExample {
   createdAt     DateTime    @default(now())
 }
 
-// Componentes do design system (import do Figma). Estrutural agora —
-// integração real com Figma vem na Fase N5.
+// Fonte de Design System do Figma vinculada a UMA Galáxia (Fase N5) — cada
+// Galáxia pode ter suas próprias fontes; os componentes sincronizados só
+// "existem" para quem enxerga aquela Galáxia. Propósito é identificar QUAIS
+// componentes existem (referência estrutural pra wireframes simples), não
+// capturar protótipos de alta fidelidade.
+model DesignSystemSource {
+  id           String                  @id @default(cuid())
+  name         String
+  figmaFileKey String
+  figmaUrl     String
+  galaxyId     String
+  galaxy       ContextNode             @relation(fields: [galaxyId], references: [id])
+  lastSyncedAt DateTime?
+  addedById    String?
+  createdAt    DateTime                @default(now())
+  components   DesignSystemComponent[]
+}
+
+// Componentes do design system (import do Figma), sempre vinculados a uma
+// DesignSystemSource — que por sua vez pertence a uma Galáxia.
 model DesignSystemComponent {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   name              String
-  figmaComponentKey String?  @unique
+  figmaComponentKey String?            @unique
   thumbnailUrl      String?
   description       String?
   metadata          Json?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime           @default(now())
+  sourceId          String
+  // onDelete: Cascade — componente é um item importado da fonte, não uma
+  // entidade independente; remover a fonte remove os componentes junto.
+  source            DesignSystemSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }
 
 model Transcription {

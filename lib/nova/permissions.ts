@@ -95,3 +95,23 @@ export async function canModifyNode(input: {
 
   return { allowed: true };
 }
+
+// Regra pra recursos anexados diretamente a uma Galáxia (Fase N5: fontes de
+// Design System) — mesmo escopo de criar/editar Estrela/Planeta: ADMIN em
+// qualquer Galáxia, usuário comum só na própria.
+export async function canManageGalaxy(input: { galaxyId: string; user: PermissionUser }): Promise<PermissionResult> {
+  const { galaxyId, user } = input;
+
+  if (user.permissionLevel === "ADMIN") return { allowed: true };
+
+  const userGalaxyId = await getUserGalaxyId(user);
+  if (!userGalaxyId) {
+    return { allowed: false, reason: "Você não está vinculado a nenhuma Galáxia." };
+  }
+
+  if (userGalaxyId !== galaxyId) {
+    return { allowed: false, reason: "Você só pode gerenciar recursos dentro da sua própria Galáxia." };
+  }
+
+  return { allowed: true };
+}
