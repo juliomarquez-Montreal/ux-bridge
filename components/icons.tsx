@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { Settings } from "lucide-react";
+import { Atom, ChevronDown, Globe, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -119,4 +119,44 @@ export function CheckCircleIcon(props: SVGProps<SVGSVGElement>) {
       <path d="m8.5 12.5 2.3 2.3L16 10" />
     </svg>
   );
+}
+
+// Ícones da hierarquia NOVA (Universo > Galáxia > Estrela > Planeta) e das
+// ações da tela app/nova — todos wrappers do lucide-react, mesmo padrão do
+// GearIcon acima.
+export function UniversoIcon(props: SVGProps<SVGSVGElement>) {
+  return <Globe strokeWidth={1.7} {...props} />;
+}
+
+export function GalaxiaIcon(props: SVGProps<SVGSVGElement>) {
+  return <Orbit strokeWidth={1.7} {...props} />;
+}
+
+export function EstrelaIcon(props: SVGProps<SVGSVGElement>) {
+  return <Star strokeWidth={1.7} {...props} />;
+}
+
+export function PlanetaIcon(props: SVGProps<SVGSVGElement>) {
+  return <Atom strokeWidth={1.7} {...props} />;
+}
+
+// Ícone do item "NOVA" na sidebar — distinto do GalaxiaIcon usado na árvore.
+export function NovaIcon(props: SVGProps<SVGSVGElement>) {
+  return <Network strokeWidth={1.7} {...props} />;
+}
+
+export function EditIcon(props: SVGProps<SVGSVGElement>) {
+  return <Pencil strokeWidth={1.7} {...props} />;
+}
+
+export function TrashIcon(props: SVGProps<SVGSVGElement>) {
+  return <Trash2 strokeWidth={1.7} {...props} />;
+}
+
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return <ChevronDown strokeWidth={1.7} {...props} />;
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return <X strokeWidth={1.7} {...props} />;
 }

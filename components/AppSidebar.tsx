@@ -11,6 +11,7 @@ import {
   GearIcon,
   GridIcon,
   LayersIcon,
+  NovaIcon,
 } from "@/components/icons";
 
 interface NavItem {
@@ -22,6 +23,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", icon: EyeIcon },
   { label: "Dashboard", icon: GridIcon, href: "/" },
+  { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Atividades", icon: ActivityIcon },
   { label: "Projetos", icon: FolderIcon },
   { label: "Transcrições", icon: DocumentIcon },
