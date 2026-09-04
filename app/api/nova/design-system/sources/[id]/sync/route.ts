@@ -1,17 +1,18 @@
+import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canManageGalaxy } from "@/lib/nova/permissions";
-import { fetchFigmaComponents, FigmaApiError } from "@/lib/figma/client";
+import { fetchFigmaComponents, FigmaApiError, type FigmaComponent } from "@/lib/figma/client";
 
 interface Params {
   params: { id: string };
 }
 
-// O upsert roda sequencial (ver comentário abaixo), então um arquivo com
-// muitos componentes pode levar dezenas de segundos — bem acima do limite
-// padrão de 10s do Vercel. Sobe o teto pra essa rota especificamente.
-export const maxDuration = 60;
+// Margem extra: mesmo com o upsert em lote (1 query), a busca no Figma de
+// um arquivo grande pode levar alguns segundos.
+export const maxDuration = 30;
 
 // POST /api/nova/design-system/sources/:id/sync -> busca os componentes
 // publicados do arquivo do Figma dessa fonte e faz upsert vinculado a ela.
@@ -61,33 +62,19 @@ export async function POST(_request: Request, { params }: Params) {
 
   let created = 0;
   let updated = 0;
-
-  // Upsert sequencial (não Promise.all): o pooler do Supabase em modo
-  // transaction com connection_limit=1 não lida bem com queries concorrentes
-  // do mesmo processo (ver histórico de "prepared statement already exists").
   for (const component of components) {
     if (existingKeySet.has(component.key)) updated++;
     else created++;
-
-    await db.designSystemComponent.upsert({
-      where: { figmaComponentKey: component.key },
-      create: {
-        name: component.name,
-        figmaComponentKey: component.key,
-        thumbnailUrl: component.thumbnailUrl,
-        description: component.description || null,
-        metadata: { nodeId: component.nodeId },
-        sourceId: source.id,
-      },
-      update: {
-        name: component.name,
-        thumbnailUrl: component.thumbnailUrl,
-        description: component.description || null,
-        metadata: { nodeId: component.nodeId },
-        sourceId: source.id,
-      },
-    });
   }
+
+  // Upsert em lote, numa única query (INSERT ... ON CONFLICT DO UPDATE) em
+  // vez de N chamadas sequenciais do Prisma: com ~100 componentes, upserts
+  // um por um levavam 25-30s e estouravam o timeout do gateway do Vercel
+  // (504) mesmo com maxDuration alto — o teto ali é da borda, não da função.
+  // Uma query só resolve isso e também evita concorrência contra o pooler
+  // em modo transaction (connection_limit=1 — ver histórico de "prepared
+  // statement already exists" em fases anteriores).
+  await upsertComponents(components, source.id);
 
   await db.designSystemSource.update({ where: { id: source.id }, data: { lastSyncedAt: new Date() } });
 
@@ -96,4 +83,26 @@ export async function POST(_request: Request, { params }: Params) {
   });
 
   return NextResponse.json({ created, updated, totalSynced: components.length, missingFromLastSync, warning: null });
+}
+
+// INSERT ... ON CONFLICT ("figmaComponentKey") DO UPDATE, numa query só pra
+// todos os componentes. figmaComponentKey já é @unique no schema, então esse
+// é o índice de conflito de verdade (id/createdAt de uma linha existente não
+// são tocados — só os campos do SET).
+async function upsertComponents(components: FigmaComponent[], sourceId: string): Promise<void> {
+  const rows = components.map(
+    (c) =>
+      Prisma.sql`(${randomUUID()}, ${c.name}, ${c.key}, ${c.thumbnailUrl}, ${c.description || null}, ${JSON.stringify({ nodeId: c.nodeId })}::jsonb, ${sourceId}, now())`
+  );
+
+  await db.$executeRaw`
+    INSERT INTO "DesignSystemComponent" (id, name, "figmaComponentKey", "thumbnailUrl", description, metadata, "sourceId", "createdAt")
+    VALUES ${Prisma.join(rows)}
+    ON CONFLICT ("figmaComponentKey") DO UPDATE SET
+      name = EXCLUDED.name,
+      "thumbnailUrl" = EXCLUDED."thumbnailUrl",
+      description = EXCLUDED.description,
+      metadata = EXCLUDED.metadata,
+      "sourceId" = EXCLUDED."sourceId"
+  `;
 }
