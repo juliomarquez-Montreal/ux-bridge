@@ -123,13 +123,19 @@ export default function NodeFormModal({ state, planetTypes, onClose, onSaved }: 
                   id="planet-type"
                   value={planetTypeId}
                   onChange={(event) => setPlanetTypeId(event.target.value)}
+                  // O menu suspenso de um <select> nativo é pintado pelo SO/navegador,
+                  // não pelo nosso CSS — sem isso ele assume tema claro (texto claro
+                  // sobre fundo claro = ilegível). color-scheme avisa o navegador pra
+                  // usar as cores nativas do tema escuro; bg/text nas <option> reforça
+                  // o contraste nos navegadores que aceitam estilizar item por item.
+                  style={{ colorScheme: "dark" }}
                   className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
                 >
-                  <option value="" disabled>
+                  <option value="" disabled className="bg-luminous-surface-container text-luminous-on-surface-variant">
                     Selecione um tipo...
                   </option>
                   {planetTypes.map((pt) => (
-                    <option key={pt.id} value={pt.id}>
+                    <option key={pt.id} value={pt.id} className="bg-luminous-surface-container text-luminous-on-surface">
                       {pt.name}
                     </option>
                   ))}
