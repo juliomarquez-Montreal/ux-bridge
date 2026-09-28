@@ -118,13 +118,13 @@ export default function AppHeader() {
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
               type="button"
-              aria-label="Criar novo"
+              aria-label="Criar novo Bridge"
               // TODO: ligar no fluxo real de criação (transcrição/PBI/etc.) quando o
               // pipeline de criação de transcrição existir. Por enquanto é só visual.
               className="flex items-center gap-1.5 rounded-full bg-luminous-primary px-3 py-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-primary hover:bg-luminous-primary-fixed sm:px-4"
             >
               <PlusIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Criar novo</span>
+              <span className="hidden sm:inline">Criar novo Bridge</span>
             </button>
 
             <button

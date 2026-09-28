@@ -91,10 +91,11 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (node.type === "PLANETA") {
     const examples = await db.planetExample.findMany({
       where: { contextNodeId: node.id },
-      select: { fileUrl: true },
+      select: { fileUrl: true, initialFileUrl: true, finalFileUrl: true },
     });
     const paths = examples
-      .map((example) => (example.fileUrl ? extractStoragePath(example.fileUrl, PLANET_EXAMPLES_BUCKET) : null))
+      .flatMap((example) => [example.fileUrl, example.initialFileUrl, example.finalFileUrl])
+      .map((url) => (url ? extractStoragePath(url, PLANET_EXAMPLES_BUCKET) : null))
       .filter((path): path is string => path !== null);
     if (paths.length > 0) {
       const { error } = await getSupabaseAdmin().storage.from(PLANET_EXAMPLES_BUCKET).remove(paths);

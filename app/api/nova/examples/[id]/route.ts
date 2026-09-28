@@ -26,14 +26,21 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: permission.reason }, { status: 403 });
   }
 
-  if (example.fileUrl) {
-    const path = extractStoragePath(example.fileUrl, PLANET_EXAMPLES_BUCKET);
-    if (path) {
+  // FINAL_BDD_PBI pode ter até 2 arquivos (par inicial/final); os outros
+  // kinds têm no máximo 1 (fileUrl). Remove todos os que existirem.
+  const fileUrls = [example.fileUrl, example.initialFileUrl, example.finalFileUrl].filter(
+    (url): url is string => Boolean(url)
+  );
+  if (fileUrls.length > 0) {
+    const paths = fileUrls
+      .map((url) => extractStoragePath(url, PLANET_EXAMPLES_BUCKET))
+      .filter((path): path is string => Boolean(path));
+    if (paths.length > 0) {
       const admin = getSupabaseAdmin();
       // Não bloqueia a exclusão do registro se o arquivo já não existir no
       // Storage por algum motivo — só loga, o registro é o que importa.
-      const { error } = await admin.storage.from(PLANET_EXAMPLES_BUCKET).remove([path]);
-      if (error) console.error("Falha ao remover arquivo do Storage:", error.message);
+      const { error } = await admin.storage.from(PLANET_EXAMPLES_BUCKET).remove(paths);
+      if (error) console.error("Falha ao remover arquivo(s) do Storage:", error.message);
     }
   }
 

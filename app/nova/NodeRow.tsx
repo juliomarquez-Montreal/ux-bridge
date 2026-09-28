@@ -13,10 +13,10 @@ import {
   LinkIcon,
   PlanetaIcon,
   PlusIcon,
-  TrashIcon,
   UniversoIcon,
 } from "@/components/icons";
 import DesignSystemLinkModal from "./DesignSystemLinkModal";
+import OverflowMenu from "./OverflowMenu";
 import PlanetExamplesPanel from "./PlanetExamplesPanel";
 import { CHILD_TYPE, TYPE_LABEL, canCreateChildOf, canModifyNode } from "./clientPermissions";
 import type { ApiContextNode, ApiDesignSystemSource, NovaUser } from "./types";
@@ -27,6 +27,12 @@ const TYPE_STYLES: Record<ContextNodeType, { icon: typeof UniversoIcon; accent: 
   ESTRELA: { icon: EstrelaIcon, accent: "text-luminous-tertiary", ring: "border-luminous-tertiary/25 bg-luminous-tertiary/5" },
   PLANETA: { icon: PlanetaIcon, accent: "text-emerald-300", ring: "border-emerald-300/20 bg-emerald-300/5" },
 };
+
+// Pluralização simples — os 3 nomes de tipo (galáxia/estrela/planeta) são
+// todos regulares em português (+s), não precisa de tabela irregular.
+function pluralize(word: string, count: number): string {
+  return count === 1 ? word : `${word}s`;
+}
 
 interface Props {
   node: ApiContextNode;
@@ -80,10 +86,15 @@ export default function NodeRow({
   const canLinkDesignSystem = isGalaxia && canCreateChild;
   const linkedSources = isGalaxia ? (sources ?? []).filter((s) => s.galaxyLinks.some((l) => l.galaxyId === node.id)) : [];
 
+  const childCountLabel =
+    childType && node.children.length > 0
+      ? `${node.children.length} ${pluralize(TYPE_LABEL[childType].toLowerCase(), node.children.length)}`
+      : null;
+
   return (
-    <div className={depth > 0 ? "ml-5 border-l border-white/10 pl-4" : ""}>
+    <div className={depth > 0 ? "ml-6 border-l border-white/10 pl-5" : ""}>
       <div
-        className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2.5 ${style.ring} ${
+        className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3.5 ${style.ring} ${
           isUserGalaxy ? "ring-1 ring-luminous-primary/50" : ""
         }`}
       >
@@ -93,40 +104,49 @@ export default function NodeRow({
           disabled={!isExpandable}
           aria-label={isExpanded ? "Recolher" : isPlaneta ? "Ver exemplos de treino" : "Expandir"}
           title={isPlaneta ? "Exemplos de treino" : undefined}
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-md transition ${
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-md transition ${
             isExpandable ? "hover:bg-white/10" : "opacity-0"
           }`}
         >
-          <ChevronDownIcon className={`h-4 w-4 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+          <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
         </button>
 
-        <Icon className={`h-4 w-4 shrink-0 ${style.accent}`} />
+        <Icon className={`h-5 w-5 shrink-0 ${style.accent}`} />
 
-        <span className="min-w-0 truncate text-sm font-medium text-luminous-on-surface">{node.name}</span>
+        <span className="min-w-0 truncate text-base font-medium text-luminous-on-surface">{node.name}</span>
 
-        <span className={`shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] ${style.accent}`}>
+        <span className={`shrink-0 font-mono text-xs uppercase tracking-[0.1em] ${style.accent}`}>
           {TYPE_LABEL[node.type]}
         </span>
 
         {isUserGalaxy && <Badge variant="info">Sua Galáxia</Badge>}
 
+        {childCountLabel && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-luminous-on-surface-variant/70">
+            <LayersIcon className="h-4 w-4" />
+            {childCountLabel}
+          </span>
+        )}
+
         {isGalaxia && (
-          <span className="shrink-0 text-[11px] text-luminous-on-surface-variant/70">
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-luminous-on-surface-variant/70">
+            <LayersIcon className="h-4 w-4" />
             {linkedSources.length === 0 ? "Sem Design System" : `${linkedSources.length} fonte(s) vinculada(s)`}
           </span>
         )}
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {canCreateChild && childType && (
-            <button
+            <PillButton
               type="button"
+              variant="secondary"
+              className="!rounded-lg !px-3.5 !py-2 !font-inter !text-sm !normal-case !tracking-normal inline-flex items-center gap-1.5"
               onClick={() => onRequestCreate(childType, node.id)}
               aria-label={`Criar ${TYPE_LABEL[childType]}`}
-              title={`+ ${TYPE_LABEL[childType]}`}
-              className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
             >
               <PlusIcon className="h-3.5 w-3.5" />
-            </button>
+              {TYPE_LABEL[childType]}
+            </PillButton>
           )}
           {canLinkDesignSystem && (
             <button
@@ -134,9 +154,9 @@ export default function NodeRow({
               onClick={() => setShowLinkModal(true)}
               aria-label="Vincular Design System"
               title="Vincular Design System"
-              className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
+              className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
             >
-              <LinkIcon className="h-3.5 w-3.5" />
+              <LinkIcon className="h-4 w-4" />
             </button>
           )}
           {canModify && (
@@ -146,19 +166,14 @@ export default function NodeRow({
                 onClick={() => onRequestEdit(node)}
                 aria-label={`Editar ${node.name}`}
                 title="Editar"
-                className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
+                className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
               >
-                <EditIcon className="h-3.5 w-3.5" />
+                <EditIcon className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => onRequestDelete(node)}
-                aria-label={`Excluir ${node.name}`}
-                title="Excluir"
-                className="grid h-7 w-7 place-items-center rounded-md border border-white/10 bg-white/5 text-luminous-error hover:bg-luminous-error/10"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </button>
+              <OverflowMenu
+                ariaLabel={`Mais ações para ${node.name}`}
+                items={[{ label: "Excluir", danger: true, onClick: () => onRequestDelete(node) }]}
+              />
             </>
           )}
         </div>
@@ -187,13 +202,13 @@ export default function NodeRow({
       )}
 
       {isExpanded && isPlaneta && (
-        <div className="ml-5 mt-2 border-l border-white/10 pl-4">
+        <div className="ml-6 mt-2 border-l border-white/10 pl-5">
           <PlanetExamplesPanel node={node} canManage={canModify} />
         </div>
       )}
 
       {isExpanded && isGalaxia && (
-        <div className="ml-5 mt-2 border-l border-white/10 pl-4">
+        <div className="ml-6 mt-2 border-l border-white/10 pl-5">
           <div className="space-y-3 py-2">
             <h4 className="text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
               Design System
@@ -210,7 +225,7 @@ export default function NodeRow({
                   <PillButton
                     type="button"
                     variant="primary"
-                    className="mx-auto mt-4 inline-flex items-center gap-1.5"
+                    className="!font-inter !normal-case !tracking-normal mx-auto mt-4 inline-flex items-center gap-1.5"
                     onClick={() => setShowLinkModal(true)}
                   >
                     <LinkIcon className="h-3.5 w-3.5" />
@@ -232,7 +247,7 @@ export default function NodeRow({
                   <PillButton
                     type="button"
                     variant="inactive"
-                    className="inline-flex items-center gap-1.5"
+                    className="!font-inter !normal-case !tracking-normal inline-flex items-center gap-1.5"
                     onClick={() => setShowLinkModal(true)}
                   >
                     <LinkIcon className="h-3.5 w-3.5" />

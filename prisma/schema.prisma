@@ -112,8 +112,23 @@ model PlanetExample {
   // arquivos no Storage são removidos manualmente antes, na mesma rota.
   contextNode   ContextNode @relation(fields: [contextNodeId], references: [id], onDelete: Cascade)
   kind          String // "RAW_TRANSCRIPT" | "FINAL_BDD_PBI" | "WIREFRAME_REFERENCE"
+  // Usados por RAW_TRANSCRIPT e WIREFRAME_REFERENCE. Para FINAL_BDD_PBI,
+  // usar o par inicial/final abaixo em vez destes (confirmado sem dados
+  // reais de FINAL_BDD_PBI no banco antes desta mudança).
   fileUrl       String?
   textContent   String?
+  // Só para kind=FINAL_BDD_PBI: par inicial (rascunho/versão extraída da
+  // transcrição) e final (aprovada), pra o sistema aprender a transformação.
+  // Cada lado é independentemente opcional — arquivo OU texto colado, dos
+  // dois lados, de só um, ou de nenhum.
+  initialTextContent String?
+  initialFileUrl     String?
+  finalTextContent   String?
+  finalFileUrl       String?
+  // Só para kind=WIREFRAME_REFERENCE: tipo livre (combobox com sugestões
+  // pré-definidas + criação de novo valor na hora — sem tabela de catálogo
+  // separada, as sugestões vêm dos valores distintos já usados aqui).
+  referenceType String?
   uploadedById  String?
   createdAt     DateTime    @default(now())
 }

@@ -159,10 +159,10 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
 
   return (
     <div>
-      {/* Abas: navegação, visualmente distinta de botões de ação (sublinhado
-          na aba ativa, sem preenchimento sólido — diferente do PillButton
-          primário abaixo). */}
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-white/10">
+      {/* Abas: a ativa vira uma caixa completa (fundo + borda), tipo
+          segmented control — visualmente bem distinta do PillButton
+          primário abaixo (esse é sólido/preenchido; a aba é contorno). */}
+      <div className="mb-6 flex gap-2 overflow-x-auto border-b border-white/10 pb-3">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -171,24 +171,24 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
               setActiveTab(key);
               setSearch("");
             }}
-            className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+            className={`flex shrink-0 items-center gap-2.5 rounded-xl border px-5 py-3.5 text-base font-medium transition ${
               activeTab === key
-                ? "border-luminous-primary text-luminous-on-surface"
+                ? "border-luminous-primary/50 bg-luminous-primary/10 text-luminous-on-surface"
                 : "border-transparent text-luminous-on-surface-variant hover:text-luminous-on-surface"
             }`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-5 w-5" />
             {label}
           </button>
         ))}
       </div>
 
       {activeTab === "universo" && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-5 py-4">
           {TRAIL.map(({ label, icon: Icon }, i) => (
-            <span key={label} className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs text-luminous-on-surface-variant">
-                <Icon className="h-3.5 w-3.5" />
+            <span key={label} className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-luminous-on-surface-variant">
+                <Icon className="h-4 w-4" />
                 {label}
               </span>
               {i < TRAIL.length - 1 && <span className="text-luminous-on-surface-variant/40">→</span>}
@@ -197,25 +197,25 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-5 flex flex-wrap gap-3">
         <div className="relative min-w-[200px] flex-1">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-luminous-on-surface-variant" />
+          <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-luminous-on-surface-variant" />
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={SEARCH_PLACEHOLDER[activeTab]}
-            className="w-full rounded-lg border border-white/10 bg-black/30 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-luminous-primary"
+            className="w-full rounded-xl border border-white/10 bg-black/30 py-3.5 pl-11 pr-4 text-sm outline-none focus:border-luminous-primary"
           />
         </div>
         {canUsePrimaryAction && (
           <PillButton
             type="button"
             variant="primary"
-            className="inline-flex items-center gap-1.5"
+            className="!rounded-xl !px-5 !py-3.5 !font-inter !text-sm !normal-case !tracking-normal inline-flex items-center gap-2"
             onClick={handlePrimaryAction}
           >
-            <PlusIcon className="h-3.5 w-3.5" />
+            <PlusIcon className="h-4 w-4" />
             {PRIMARY_LABEL[activeTab]}
           </PillButton>
         )}

@@ -72,10 +72,13 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
     if (!EXAMPLE_KINDS.includes(example.kind as PlanetExampleKind)) continue;
     const exampleGalaxy = example.contextNode.parent?.parent;
     if (!exampleGalaxy || exampleGalaxy.type !== "GALAXIA") continue;
+    // Espalha todos os campos escalares do PlanetExample (inclui o par
+    // inicial/final e referenceType automaticamente, sem listar campo a
+    // campo) — só troca o `contextNode` incluído pelo `origin` resumido.
+    const { contextNode, ...exampleFields } = example;
     trainingExamples[example.kind as PlanetExampleKind].push({
-      id: example.id, contextNodeId: example.contextNodeId, kind: example.kind, fileUrl: example.fileUrl,
-      textContent: example.textContent, uploadedById: example.uploadedById, createdAt: example.createdAt,
-      origin: { planet: { id: example.contextNode.id, name: example.contextNode.name }, galaxy: { id: exampleGalaxy.id, name: exampleGalaxy.name } },
+      ...exampleFields,
+      origin: { planet: { id: contextNode.id, name: contextNode.name }, galaxy: { id: exampleGalaxy.id, name: exampleGalaxy.name } },
     });
   }
 

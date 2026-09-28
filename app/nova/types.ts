@@ -23,8 +23,16 @@ export interface ApiPlanetExample {
   id: string;
   contextNodeId: string;
   kind: ExampleKind;
+  // RAW_TRANSCRIPT e WIREFRAME_REFERENCE usam estes dois.
   fileUrl: string | null;
   textContent: string | null;
+  // Só FINAL_BDD_PBI: par inicial/final, cada lado independentemente opcional.
+  initialTextContent: string | null;
+  initialFileUrl: string | null;
+  finalTextContent: string | null;
+  finalFileUrl: string | null;
+  // Só WIREFRAME_REFERENCE.
+  referenceType: string | null;
   uploadedById: string | null;
   createdAt: string;
 }
