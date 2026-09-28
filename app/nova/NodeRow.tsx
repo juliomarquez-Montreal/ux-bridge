@@ -73,9 +73,9 @@ export default function NodeRow({
   const isGalaxia = node.type === "GALAXIA";
   const hasChildren = node.children.length > 0;
   // Planeta não tem filhos na árvore, mas o "expandir" ainda serve pra
-  // mostrar/esconder os exemplos de treino. Galáxia sempre expansível (mesmo
-  // sem Estrela ainda) pra poder chegar na seção de Design System dela.
-  const isExpandable = hasChildren || isPlaneta || isGalaxia;
+  // mostrar/esconder os exemplos de treino. Design System da Galáxia vive
+  // só na aba dedicada — aqui na árvore ela só expande se tiver Estrelas.
+  const isExpandable = hasChildren || isPlaneta;
   const childType = CHILD_TYPE[node.type];
   const isUserGalaxy = node.type === "GALAXIA" && node.id === userGalaxyId;
 
@@ -204,59 +204,6 @@ export default function NodeRow({
       {isExpanded && isPlaneta && (
         <div className="ml-6 mt-2 border-l border-white/10 pl-5">
           <PlanetExamplesPanel node={node} canManage={canModify} />
-        </div>
-      )}
-
-      {isExpanded && isGalaxia && (
-        <div className="ml-6 mt-2 border-l border-white/10 pl-5">
-          <div className="space-y-3 py-2">
-            <h4 className="text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-              Design System
-            </h4>
-
-            {linkedSources.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-white/15 px-6 py-8 text-center">
-                <LayersIcon className="mx-auto mb-2 h-7 w-7 text-luminous-on-surface-variant/40" />
-                <p className="text-sm font-medium text-luminous-on-surface">Nenhuma fonte vinculada a esta galáxia.</p>
-                <p className="mx-auto mt-1 max-w-xs text-xs text-luminous-on-surface-variant">
-                  Conecte um Design System para enriquecer a memória visual do projeto.
-                </p>
-                {canLinkDesignSystem && (
-                  <PillButton
-                    type="button"
-                    variant="primary"
-                    className="!font-inter !normal-case !tracking-normal mx-auto mt-4 inline-flex items-center gap-1.5"
-                    onClick={() => setShowLinkModal(true)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Vincular Design System
-                  </PillButton>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {linkedSources.map((source) => (
-                  <div key={source.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <p className="truncate text-sm font-medium text-luminous-on-surface">{source.name}</p>
-                    <p className="text-[11px] text-luminous-on-surface-variant/70">
-                      {source.components.length} componente(s)
-                    </p>
-                  </div>
-                ))}
-                {canLinkDesignSystem && (
-                  <PillButton
-                    type="button"
-                    variant="inactive"
-                    className="!font-inter !normal-case !tracking-normal inline-flex items-center gap-1.5"
-                    onClick={() => setShowLinkModal(true)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Gerenciar vínculos
-                  </PillButton>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
