@@ -171,7 +171,11 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
       {/* Abas: a ativa ganha um "cartão" com gradiente + borda nas laterais e
           topo (sem borda embaixo) e um filete de 3px por baixo — igual ao
           mockup HTML NOVA.dc.html, não um segmented-control genérico. */}
-      <div className="relative mt-7 flex gap-0 overflow-x-auto border-b border-[#252231]">
+      {/* overflow-y-hidden é necessário aqui: por spec, um elemento com
+          overflow-x diferente de visible e overflow-y "visible" vira
+          overflow-y "auto" automaticamente — sem isso, alguns navegadores
+          desenhavam uma barra de rolagem vertical indevida ao lado das abas. */}
+      <div className="relative mt-7 flex gap-0 overflow-x-auto overflow-y-hidden border-b border-[#252231]">
         {TABS.map(({ key, label, icon: Icon }) => {
           const isActive = activeTab === key;
           return (

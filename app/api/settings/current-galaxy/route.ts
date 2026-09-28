@@ -30,14 +30,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  try {
-    await db.user.update({ where: { id: user.id }, data: { currentGalaxyId: galaxyId } });
-  } catch (err) {
-    // DIAGNÓSTICO TEMPORÁRIO (Fase N7): 500 opaco em produção neste update
-    // específico — expõe a mensagem real pra investigar, remover depois.
-    const e = err as { message?: string; code?: string; meta?: unknown };
-    return NextResponse.json({ error: "DEBUG", message: e?.message, code: e?.code, meta: e?.meta }, { status: 500 });
-  }
+  await db.user.update({ where: { id: user.id }, data: { currentGalaxyId: galaxyId } });
 
   return NextResponse.json({ ok: true, currentGalaxyId: galaxyId });
 }
