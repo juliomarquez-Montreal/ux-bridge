@@ -151,7 +151,7 @@ function RawTranscriptSection({ nodeId, examples, canManage, onChanged, onDelete
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-luminous-on-surface">Transcrição bruta</p>
+        <p className="text-sm font-medium text-luminous-on-surface">Arquivo de texto</p>
         {canManage && (
           <div className="flex items-center gap-2">
             <input ref={fileInputRef} type="file" accept=".txt,.docx" className="hidden" onChange={handleFileSelected} />
@@ -177,7 +177,9 @@ function RawTranscriptSection({ nodeId, examples, canManage, onChanged, onDelete
         )}
       </div>
 
-      <p className="mt-0.5 text-[11px] text-luminous-on-surface-variant/70">Arquivo .txt ou .docx, ou cole o texto direto.</p>
+      <p className="mt-0.5 text-[11px] text-luminous-on-surface-variant/70">
+        Arquivo .txt ou .docx, ou cole o texto direto — pode ser uma transcrição, anotações, rascunho ou qualquer material de texto bruto.
+      </p>
 
       {showTextArea && (
         <div className="mt-2 space-y-2">
