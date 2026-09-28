@@ -29,7 +29,6 @@ export const authOptions: AuthOptions = {
           email: user.email,
           permissionLevel: user.permissionLevel,
           funcao: user.funcao,
-          contextNodeId: user.contextNodeId,
         };
       },
     }),
@@ -39,7 +38,6 @@ export const authOptions: AuthOptions = {
       if (user) {
         token.permissionLevel = user.permissionLevel;
         token.funcao = user.funcao;
-        token.contextNodeId = user.contextNodeId ?? null;
       }
       return token;
     },
@@ -48,7 +46,6 @@ export const authOptions: AuthOptions = {
         session.user.id = token.sub as string;
         session.user.permissionLevel = token.permissionLevel;
         session.user.funcao = token.funcao;
-        session.user.contextNodeId = token.contextNodeId;
       }
       return session;
     },

@@ -28,7 +28,6 @@ export default async function NovaPage() {
           user={{
             id: user.id,
             permissionLevel: user.permissionLevel,
-            contextNodeId: user.contextNodeId,
           }}
         />
       </main>

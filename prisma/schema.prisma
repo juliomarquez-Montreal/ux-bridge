@@ -53,16 +53,36 @@ enum ContextNodeType {
 }
 
 model User {
-  id              String          @id @default(cuid())
+  id              String             @id @default(cuid())
   name            String
-  email           String          @unique
+  email           String             @unique
   passwordHash    String?
   avatarUrl       String?
-  permissionLevel PermissionLevel @default(USER)
-  funcao          Funcao          @default(OUTROS)
-  contextNodeId   String?
-  contextNode     ContextNode?    @relation(fields: [contextNodeId], references: [id])
-  createdAt       DateTime        @default(now())
+  permissionLevel PermissionLevel    @default(USER)
+  funcao          Funcao             @default(OUTROS)
+  // Galáxia selecionada no momento no seletor do header — só afeta o que a
+  // UI mostra por padrão, não é fonte de permissão (isso é galaxyAccess,
+  // abaixo). ADMIN não precisa de nenhum dos dois pra ter acesso total.
+  currentGalaxyId String?
+  currentGalaxy   ContextNode?       @relation("UserCurrentGalaxy", fields: [currentGalaxyId], references: [id])
+  // Galáxias às quais este usuário (não-ADMIN) tem acesso pra criar/editar
+  // Estrela e Planeta — substitui o antigo contextNodeId (uma única Galáxia
+  // fixa) por N:N (Fase N7).
+  galaxyAccess    UserGalaxyAccess[]
+  createdAt       DateTime           @default(now())
+}
+
+// Acesso de um usuário a uma Galáxia (N:N) — ver lib/nova/permissions.ts.
+// ADMIN não precisa de registro aqui (acesso total já é implícito).
+model UserGalaxyAccess {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  galaxyId  String
+  galaxy    ContextNode @relation(fields: [galaxyId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, galaxyId])
 }
 
 model ContextNode {
@@ -73,7 +93,10 @@ model ContextNode {
   parent       ContextNode?    @relation("ContextTree", fields: [parentId], references: [id])
   children     ContextNode[]   @relation("ContextTree")
   patterns     MemoryPattern[]
-  users        User[]
+  // Usuários com esta Galáxia selecionada no momento, e vínculos de acesso
+  // (N:N) — ver User.currentGalaxyId / UserGalaxyAccess acima.
+  currentForUsers  User[]             @relation("UserCurrentGalaxy")
+  galaxyAccess     UserGalaxyAccess[]
   // Só preenchido quando type=PLANETA.
   planetTypeId String?
   planetType   PlanetType?     @relation(fields: [planetTypeId], references: [id])

@@ -50,28 +50,33 @@ export function canCreateUniverso(user: NovaUser): boolean {
 }
 
 // Pode criar um filho dentro de `parent`? (o tipo do filho é CHILD_TYPE[parent.type])
+// `userGalaxyIds` é o conjunto de TODAS as Galáxias às quais o usuário tem
+// acesso (Fase N7: substitui a antiga Galáxia única) — ver
+// GET /api/nova/users/me/galaxies.
 export function canCreateChildOf(
   parent: ApiContextNode,
   user: NovaUser,
-  userGalaxyId: string | null,
+  userGalaxyIds: Set<string>,
   byId: Map<string, ApiContextNode>
 ): boolean {
   const childType = CHILD_TYPE[parent.type];
   if (!childType) return false; // Planeta não tem filho
   if (user.permissionLevel === "ADMIN") return true;
   if (childType === "GALAXIA") return false; // só ADMIN cria Galáxia (filha de Universo)
-  if (!userGalaxyId) return false;
-  return getGalaxyAncestorId(parent.id, byId) === userGalaxyId;
+  if (userGalaxyIds.size === 0) return false;
+  const galaxyId = getGalaxyAncestorId(parent.id, byId);
+  return galaxyId !== null && userGalaxyIds.has(galaxyId);
 }
 
 export function canModifyNode(
   node: ApiContextNode,
   user: NovaUser,
-  userGalaxyId: string | null,
+  userGalaxyIds: Set<string>,
   byId: Map<string, ApiContextNode>
 ): boolean {
   if (user.permissionLevel === "ADMIN") return true;
   if (node.type === "UNIVERSO" || node.type === "GALAXIA") return false;
-  if (!userGalaxyId) return false;
-  return getGalaxyAncestorId(node.id, byId) === userGalaxyId;
+  if (userGalaxyIds.size === 0) return false;
+  const galaxyId = getGalaxyAncestorId(node.id, byId);
+  return galaxyId !== null && userGalaxyIds.has(galaxyId);
 }

@@ -1,10 +1,10 @@
 import type { ContextNodeType, PermissionLevel } from "@prisma/client";
 import { getAncestors } from "@/lib/context";
+import { db } from "@/lib/db";
 
 export interface PermissionUser {
   id: string;
   permissionLevel: PermissionLevel;
-  contextNodeId: string | null;
 }
 
 export interface PermissionResult {
@@ -23,21 +23,26 @@ export const EXPECTED_PARENT_TYPE: Record<ContextNodeType, ContextNodeType | nul
 
 // Sobe a árvore a partir de um nó até achar o ancestral GALAXIA (inclui o
 // próprio nó na busca, então funciona tanto pra "qual galáxia é essa Estrela"
-// quanto pra "qual galáxia é o contextNodeId direto do usuário").
+// quanto pra "qual galáxia é este nó direto").
 export async function getGalaxyAncestorId(nodeId: string): Promise<string | null> {
   const ancestors = await getAncestors(nodeId);
   return ancestors.find((node) => node.type === "GALAXIA")?.id ?? null;
 }
 
-export async function getUserGalaxyId(user: PermissionUser): Promise<string | null> {
-  if (!user.contextNodeId) return null;
-  return getGalaxyAncestorId(user.contextNodeId);
+// Galáxias às quais este usuário (não-ADMIN) tem acesso — Fase N7:
+// substitui o antigo "uma única Galáxia fixa" (User.contextNodeId) por N:N
+// via UserGalaxyAccess. Consulta o banco direto (não a sessão), pra um
+// acesso concedido/revogado por um ADMIN valer imediatamente, sem precisar
+// logar de novo.
+export async function getUserGalaxyIds(user: PermissionUser): Promise<string[]> {
+  const rows = await db.userGalaxyAccess.findMany({ where: { userId: user.id }, select: { galaxyId: true } });
+  return rows.map((row) => row.galaxyId);
 }
 
 // Regra de criação: UNIVERSO/GALAXIA só ADMIN. ESTRELA/PLANETA qualquer
-// usuário autenticado, mas só dentro da própria Galáxia (comparando a
-// Galáxia ancestral do parentId alvo com a Galáxia do usuário). ADMIN pode
-// criar em qualquer Galáxia.
+// usuário autenticado, mas só dentro de uma Galáxia à qual ele tem acesso
+// (comparando a Galáxia ancestral do parentId alvo com as Galáxias do
+// usuário). ADMIN pode criar em qualquer Galáxia.
 export async function canCreateNode(input: {
   type: ContextNodeType;
   parentId: string | null;
@@ -55,14 +60,18 @@ export async function canCreateNode(input: {
     return { allowed: false, reason: "Nó pai é obrigatório para criar Estrela ou Planeta." };
   }
 
-  const userGalaxyId = await getUserGalaxyId(user);
-  if (!userGalaxyId) {
-    return { allowed: false, reason: "Você não está vinculado a nenhuma Galáxia." };
+  const targetGalaxyId = await getGalaxyAncestorId(parentId);
+  if (!targetGalaxyId) {
+    return { allowed: false, reason: "Não foi possível determinar a Galáxia do nó pai." };
   }
 
-  const targetGalaxyId = await getGalaxyAncestorId(parentId);
-  if (targetGalaxyId !== userGalaxyId) {
-    return { allowed: false, reason: "Você só pode criar Estrela/Planeta dentro da sua própria Galáxia." };
+  const userGalaxyIds = await getUserGalaxyIds(user);
+  if (userGalaxyIds.length === 0) {
+    return { allowed: false, reason: "Você não tem acesso a nenhuma Galáxia." };
+  }
+
+  if (!userGalaxyIds.includes(targetGalaxyId)) {
+    return { allowed: false, reason: "Você só pode criar Estrela/Planeta em Galáxias às quais tem acesso." };
   }
 
   return { allowed: true };
@@ -83,14 +92,18 @@ export async function canModifyNode(input: {
     return { allowed: false, reason: "Só administradores podem editar ou excluir Universo ou Galáxia." };
   }
 
-  const userGalaxyId = await getUserGalaxyId(user);
-  if (!userGalaxyId) {
-    return { allowed: false, reason: "Você não está vinculado a nenhuma Galáxia." };
+  const targetGalaxyId = await getGalaxyAncestorId(nodeId);
+  if (!targetGalaxyId) {
+    return { allowed: false, reason: "Não foi possível determinar a Galáxia deste nó." };
   }
 
-  const targetGalaxyId = await getGalaxyAncestorId(nodeId);
-  if (targetGalaxyId !== userGalaxyId) {
-    return { allowed: false, reason: "Você só pode editar/excluir dentro da sua própria Galáxia." };
+  const userGalaxyIds = await getUserGalaxyIds(user);
+  if (userGalaxyIds.length === 0) {
+    return { allowed: false, reason: "Você não tem acesso a nenhuma Galáxia." };
+  }
+
+  if (!userGalaxyIds.includes(targetGalaxyId)) {
+    return { allowed: false, reason: "Você só pode editar/excluir em Galáxias às quais tem acesso." };
   }
 
   return { allowed: true };
@@ -98,19 +111,19 @@ export async function canModifyNode(input: {
 
 // Regra pra recursos anexados diretamente a uma Galáxia (Fase N5: fontes de
 // Design System) — mesmo escopo de criar/editar Estrela/Planeta: ADMIN em
-// qualquer Galáxia, usuário comum só na própria.
+// qualquer Galáxia, usuário comum só nas que tem acesso.
 export async function canManageGalaxy(input: { galaxyId: string; user: PermissionUser }): Promise<PermissionResult> {
   const { galaxyId, user } = input;
 
   if (user.permissionLevel === "ADMIN") return { allowed: true };
 
-  const userGalaxyId = await getUserGalaxyId(user);
-  if (!userGalaxyId) {
-    return { allowed: false, reason: "Você não está vinculado a nenhuma Galáxia." };
+  const userGalaxyIds = await getUserGalaxyIds(user);
+  if (userGalaxyIds.length === 0) {
+    return { allowed: false, reason: "Você não tem acesso a nenhuma Galáxia." };
   }
 
-  if (userGalaxyId !== galaxyId) {
-    return { allowed: false, reason: "Você só pode gerenciar recursos dentro da sua própria Galáxia." };
+  if (!userGalaxyIds.includes(galaxyId)) {
+    return { allowed: false, reason: "Você só pode gerenciar recursos em Galáxias às quais tem acesso." };
   }
 
   return { allowed: true };

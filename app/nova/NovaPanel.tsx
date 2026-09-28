@@ -10,8 +10,8 @@ import NodeFormModal from "./NodeFormModal";
 import NodeRow from "./NodeRow";
 import PlanetTypesTab from "./PlanetTypesTab";
 import { collectAllIds, filterTreeBySearch } from "./search";
-import { canCreateUniverso, flattenTree, getGalaxyAncestorId } from "./clientPermissions";
-import type { ApiContextNode, ApiDesignSystemSource, ApiPlanetType, FormModalState, NovaUser } from "./types";
+import { canCreateUniverso, flattenTree } from "./clientPermissions";
+import type { ApiContextNode, ApiDesignSystemSource, ApiPlanetType, ApiUserGalaxy, FormModalState, NovaUser } from "./types";
 
 type Tab = "universo" | "design-system" | "planetas";
 
@@ -47,6 +47,7 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
   const [tree, setTree] = useState<ApiContextNode[] | null>(null);
   const [planetTypes, setPlanetTypes] = useState<ApiPlanetType[] | null>(null);
   const [sources, setSources] = useState<ApiDesignSystemSource[] | null>(null);
+  const [userGalaxyIds, setUserGalaxyIds] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -93,17 +94,21 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
     setSources(data.sources);
   }, []);
 
+  const refreshUserGalaxies = useCallback(async () => {
+    const res = await fetch("/api/nova/users/me/galaxies");
+    if (!res.ok) throw new Error("Falha ao carregar Galáxias do usuário.");
+    const data = (await res.json()) as { galaxies: ApiUserGalaxy[] };
+    setUserGalaxyIds(new Set(data.galaxies.map((g) => g.id)));
+  }, []);
+
   useEffect(() => {
     refreshTree().catch(() => setLoadError("Não foi possível carregar a hierarquia. Tente recarregar a página."));
     refreshPlanetTypes().catch(() => setPlanetTypes([]));
     refreshSources().catch(() => setSources([]));
-  }, [refreshTree, refreshPlanetTypes, refreshSources]);
+    refreshUserGalaxies().catch(() => setUserGalaxyIds(new Set()));
+  }, [refreshTree, refreshPlanetTypes, refreshSources, refreshUserGalaxies]);
 
   const byId = useMemo(() => flattenTree(tree ?? []), [tree]);
-  const userGalaxyId = useMemo(
-    () => (user.contextNodeId ? getGalaxyAncestorId(user.contextNodeId, byId) : null),
-    [user.contextNodeId, byId]
-  );
   const galaxies = useMemo(() => Array.from(byId.values()).filter((node) => node.type === "GALAXIA"), [byId]);
 
   const filteredTree = useMemo(() => filterTreeBySearch(tree ?? [], search), [tree, search]);
@@ -248,7 +253,7 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
                   node={node}
                   depth={0}
                   user={user}
-                  userGalaxyId={userGalaxyId}
+                  userGalaxyIds={userGalaxyIds}
                   byId={byId}
                   expanded={effectiveExpanded}
                   onToggleExpanded={toggleExpanded}
@@ -268,7 +273,7 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
           user={user}
           sources={sources}
           galaxies={galaxies}
-          userGalaxyId={userGalaxyId}
+          userGalaxyIds={userGalaxyIds}
           search={search}
           showCreateForm={showCreateForm}
           onCreateFormClose={() => setShowCreateForm(false)}

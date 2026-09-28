@@ -12,7 +12,7 @@ interface Props {
   user: NovaUser;
   sources: ApiDesignSystemSource[] | null;
   galaxies: ApiContextNode[];
-  userGalaxyId: string | null;
+  userGalaxyIds: Set<string>;
   search: string;
   showCreateForm: boolean;
   onCreateFormClose: () => void;
@@ -31,7 +31,7 @@ export default function DesignSystemTab({
   user,
   sources,
   galaxies,
-  userGalaxyId,
+  userGalaxyIds,
   search,
   showCreateForm,
   onCreateFormClose,
@@ -382,7 +382,7 @@ export default function DesignSystemTab({
             id: galaxy.id,
             label: galaxy.name,
             linked: linkingSource.galaxyLinks.some((link) => link.galaxyId === galaxy.id),
-            disabled: !isAdmin && galaxy.id !== userGalaxyId,
+            disabled: !isAdmin && !userGalaxyIds.has(galaxy.id),
           }))}
           onToggle={async (galaxyId, nextLinked) => {
             const res = nextLinked

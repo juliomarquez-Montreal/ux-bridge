@@ -45,7 +45,7 @@ interface Props {
   node: ApiContextNode;
   depth: number;
   user: NovaUser;
-  userGalaxyId: string | null;
+  userGalaxyIds: Set<string>;
   byId: Map<string, ApiContextNode>;
   expanded: Set<string>;
   onToggleExpanded: (id: string) => void;
@@ -64,7 +64,7 @@ export default function NodeRow({
   node,
   depth,
   user,
-  userGalaxyId,
+  userGalaxyIds,
   byId,
   expanded,
   onToggleExpanded,
@@ -88,10 +88,10 @@ export default function NodeRow({
   // vincular um Design System — nunca os dois ao mesmo tempo.
   const isExpandable = hasChildren || isPlaneta || isGalaxia;
   const childType = CHILD_TYPE[node.type];
-  const isUserGalaxy = node.type === "GALAXIA" && node.id === userGalaxyId;
+  const isUserGalaxy = node.type === "GALAXIA" && userGalaxyIds.has(node.id);
 
-  const canCreateChild = childType !== null && canCreateChildOf(node, user, userGalaxyId, byId);
-  const canModify = canModifyNode(node, user, userGalaxyId, byId);
+  const canCreateChild = childType !== null && canCreateChildOf(node, user, userGalaxyIds, byId);
+  const canModify = canModifyNode(node, user, userGalaxyIds, byId);
   // Vincular/desvincular Design System segue a mesma regra de criar
   // Estrela nesta Galáxia (ADMIN em qualquer uma, usuário comum só na própria).
   const canLinkDesignSystem = isGalaxia && canCreateChild;
@@ -229,7 +229,7 @@ export default function NodeRow({
                   node={child}
                   depth={depth + 1}
                   user={user}
-                  userGalaxyId={userGalaxyId}
+                  userGalaxyIds={userGalaxyIds}
                   byId={byId}
                   expanded={expanded}
                   onToggleExpanded={onToggleExpanded}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import UserMenu from "@/components/UserMenu";
 import AppSidebar from "@/components/AppSidebar";
+import GalaxySelector from "@/components/GalaxySelector";
 import SearchPalette from "@/components/SearchPalette";
 import { BellIcon, GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components/icons";
 
@@ -79,11 +80,7 @@ export default function AppHeader() {
             Menu
           </button>
 
-          <div className="hidden items-center gap-1.5 text-sm text-luminous-on-surface-variant sm:flex">
-            <span>Redesign Core</span>
-            <span>/</span>
-            <span>Squad Alpha</span>
-          </div>
+          <GalaxySelector />
 
           {/* Busca: ícone compacto no mobile (não ocupa a linha toda), barra completa a partir de sm. */}
           <div className="relative sm:ml-2 sm:flex-1 sm:max-w-md">

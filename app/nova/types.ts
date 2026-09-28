@@ -74,10 +74,21 @@ export interface DesignSystemSyncResult {
 }
 
 // Só o que a UI precisa da sessão pra decidir o que mostrar/habilitar.
+// Acesso a Galáxia não vem mais daqui (era contextNodeId, uma só Galáxia) —
+// é buscado à parte via GET /api/nova/users/me/galaxies (Fase N7).
 export interface NovaUser {
   id: string;
   permissionLevel: PermissionLevel;
-  contextNodeId: string | null;
+}
+
+// Resposta de GET /api/nova/users/me/galaxies — Galáxias que o usuário pode
+// selecionar no seletor do header, com o Universo pai pra montar a busca em
+// duas etapas (Universo -> Galáxia).
+export interface ApiUserGalaxy {
+  id: string;
+  name: string;
+  universoId: string;
+  universoName: string;
 }
 
 export type FormModalState =
