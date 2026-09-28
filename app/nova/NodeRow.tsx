@@ -150,7 +150,9 @@ export default function NodeRow({
             árvore num piscar de olhos, sem depender só do texto do badge. */}
         <span
           className={`shrink-0 rounded-[4px] border px-2.5 py-1 font-mono text-[11.5px] font-bold uppercase tracking-[0.6px] ${
-            isPlaneta ? "border-[#3a4673] bg-[#171d36] text-[#b1c1fb]" : "border-[#473a74] bg-[#1c1634] text-[#c3b1fb]"
+            isPlaneta
+              ? "border-luminous-tertiary/40 bg-luminous-tertiary/10 text-luminous-tertiary-fixed-dim"
+              : "border-[#473a74] bg-[#1c1634] text-[#c3b1fb]"
           }`}
         >
           {TYPE_LABEL[node.type]}

@@ -17,18 +17,21 @@ const config: Config = {
           "primary-container": "#56039f", "on-primary-container": "#c190ff",
           "inverse-primary": "#7a3bc4", secondary: "#d8baf9", "on-secondary": "#3c2559",
           "secondary-container": "#563e73", "on-secondary-container": "#c9acea",
-          // Terciária trocada de âmbar para azul (seed #0036ff) — mesmo H
-          // fixo (227°) e S/L por papel que a âmbar usava, pra manter o
-          // padrão de contraste (ver auditoria no commit desta mudança).
-          tertiary: "#8aa3ff", "on-tertiary": "#001252", "tertiary-container": "#001357",
-          "on-tertiary-container": "#6c86e5", error: "#ffb4ab", "on-error": "#690005",
+          // Terciária: azul vibrante (seed #0077ff), mesmo padrão de
+          // saturação/vibração que primary/secondary já usam — a versão
+          // anterior (#0036ff, H227) tinha reaproveitado a saturação/
+          // luminosidade da âmbar antiga, o que deixou o azul dessaturado/
+          // pastel; aqui as variações são derivadas do próprio seed, sem
+          // essa herança.
+          tertiary: "#0077ff", "on-tertiary": "#ffffff", "tertiary-container": "#033e82",
+          "on-tertiary-container": "#80bbff", error: "#ffb4ab", "on-error": "#690005",
           "error-container": "#93000a", "on-error-container": "#ffdad6",
           "primary-fixed": "#eedbff", "primary-fixed-dim": "#d9b9ff",
           "on-primary-fixed": "#2a0054", "on-primary-fixed-variant": "#611baa",
           "secondary-fixed": "#eedbff", "secondary-fixed-dim": "#d8baf9",
           "on-secondary-fixed": "#260e42", "on-secondary-fixed-variant": "#533c71",
-          "tertiary-fixed": "#c7d3ff", "tertiary-fixed-dim": "#8aa3ff",
-          "on-tertiary-fixed": "#000b33", "on-tertiary-fixed-variant": "#092071",
+          "tertiary-fixed": "#d6e9ff", "tertiary-fixed-dim": "#66adff",
+          "on-tertiary-fixed": "#002147", "on-tertiary-fixed-variant": "#0954aa",
           background: "#15121a", "on-background": "#e8e0eb", "surface-variant": "#37333c",
         },
       },
