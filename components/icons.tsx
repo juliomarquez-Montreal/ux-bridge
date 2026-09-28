@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { Atom, ChevronDown, Globe, Link2, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
+import { Atom, ChevronDown, Globe, Link2, Network, Pencil, Settings, Star, Trash2, X } from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -128,16 +128,26 @@ export function UniversoIcon(props: SVGProps<SVGSVGElement>) {
   return <Globe strokeWidth={1.7} {...props} />;
 }
 
+// Galáxia usa o átomo (órbitas cruzadas) — antes era o ícone do Planeta;
+// trocado porque o de órbita simples (Orbit) não lia bem como "galáxia".
 export function GalaxiaIcon(props: SVGProps<SVGSVGElement>) {
-  return <Orbit strokeWidth={1.7} {...props} />;
+  return <Atom strokeWidth={1.7} {...props} />;
 }
 
 export function EstrelaIcon(props: SVGProps<SVGSVGElement>) {
   return <Star strokeWidth={1.7} {...props} />;
 }
 
+// Planeta com anel (estilo Saturno) — lucide não tem um ícone de "planeta"
+// pronto, então é desenhado à mão, mesmo padrão dos outros ícones customizados
+// deste arquivo (base()).
 export function PlanetaIcon(props: SVGProps<SVGSVGElement>) {
-  return <Atom strokeWidth={1.7} {...props} />;
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="5" />
+      <ellipse cx="12" cy="12" rx="10" ry="3.5" transform="rotate(-20 12 12)" />
+    </svg>
+  );
 }
 
 // Ícone do item "NOVA" na sidebar — distinto do GalaxiaIcon usado na árvore.
