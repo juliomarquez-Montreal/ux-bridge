@@ -11,6 +11,7 @@ import {
   GearIcon,
   GridIcon,
   LayersIcon,
+  LinkIcon,
   NovaIcon,
 } from "@/components/icons";
 
@@ -24,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", icon: EyeIcon },
   { label: "Dashboard", icon: GridIcon, href: "/" },
   { label: "NOVA", icon: NovaIcon, href: "/nova" },
+  { label: "Bridges", icon: LinkIcon, href: "/bridges" },
   { label: "Atividades", icon: ActivityIcon },
   { label: "Projetos", icon: FolderIcon },
   { label: "Transcrições", icon: DocumentIcon },

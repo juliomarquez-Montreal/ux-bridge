@@ -85,6 +85,29 @@ model UserGalaxyAccess {
   @@unique([userId, galaxyId])
 }
 
+// Bridge-1: fluxo básico de criação de um Bridge (material bruto -> BDD/PBI
+// aprovado pelo PO). Sketch/wireframe vêm nas fases Bridge-3/Bridge-5 — por
+// enquanto o Bridge fica parado em AGUARDANDO_WIREFRAME depois de aprovado.
+model Bridge {
+  id                  String      @id @default(cuid())
+  planetContextNodeId String
+  planet              ContextNode @relation(fields: [planetContextNodeId], references: [id], onDelete: Cascade)
+  createdById         String
+  // GERANDO_BDD | AGUARDANDO_APROVACAO_PO | AGUARDANDO_WIREFRAME | ERRO_GERACAO
+  status              String
+  // Material de entrada — arquivo OU texto colado (nunca os dois).
+  rawMaterialText     String?
+  rawMaterialFileUrl  String?
+  generatedBddPbi     String?
+  // Mensagem de erro da IA quando status=ERRO_GERACAO (não faz sentido
+  // reaproveitar lastRejectionComment, que é do PO, não da falha técnica).
+  errorMessage          String?
+  attemptCount          Int      @default(0)
+  lastRejectionComment  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 model ContextNode {
   id           String          @id @default(cuid())
   type         ContextNodeType
@@ -97,6 +120,8 @@ model ContextNode {
   // (N:N) — ver User.currentGalaxyId / UserGalaxyAccess acima.
   currentForUsers  User[]             @relation("UserCurrentGalaxy")
   galaxyAccess     UserGalaxyAccess[]
+  // Bridges criados a partir deste Planeta (Bridge-1).
+  bridges          Bridge[]
   // Só preenchido quando type=PLANETA.
   planetTypeId String?
   planetType   PlanetType?     @relation(fields: [planetTypeId], references: [id])

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import UserMenu from "@/components/UserMenu";
 import AppSidebar from "@/components/AppSidebar";
+import CreateBridgeModal from "@/components/CreateBridgeModal";
 import GalaxySelector from "@/components/GalaxySelector";
 import SearchPalette from "@/components/SearchPalette";
 import { BellIcon, GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components/icons";
@@ -15,6 +16,7 @@ import { BellIcon, GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components
 export default function AppHeader() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [bridgeModalOpen, setBridgeModalOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,8 +118,7 @@ export default function AppHeader() {
             <button
               type="button"
               aria-label="Criar novo Bridge"
-              // TODO: ligar no fluxo real de criação (transcrição/PBI/etc.) quando o
-              // pipeline de criação de transcrição existir. Por enquanto é só visual.
+              onClick={() => setBridgeModalOpen(true)}
               className="flex items-center gap-1.5 rounded-full bg-luminous-primary px-3 py-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-primary hover:bg-luminous-primary-fixed sm:px-4"
             >
               <PlusIcon className="h-4 w-4" />
@@ -155,6 +156,8 @@ export default function AppHeader() {
       )}
 
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {bridgeModalOpen && <CreateBridgeModal onClose={() => setBridgeModalOpen(false)} />}
     </>
   );
 }

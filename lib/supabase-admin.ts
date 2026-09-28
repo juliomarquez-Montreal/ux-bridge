@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const AVATAR_BUCKET = "avatars";
 export const PLANET_EXAMPLES_BUCKET = "planet-examples";
+export const BRIDGE_MATERIALS_BUCKET = "bridge-materials";
 
 let cached: SupabaseClient | null = null;
 
@@ -46,6 +47,12 @@ export async function ensureAvatarBucket(): Promise<void> {
 // pra qualquer arquivo (texto, PDF, imagem) e com limite maior.
 export async function ensurePlanetExamplesBucket(): Promise<void> {
   await ensureBucket(PLANET_EXAMPLES_BUCKET, "15MB");
+}
+
+// Arquivo de texto (material bruto) de um Bridge (Bridge-1) — mesmo padrão,
+// limite igual ao usado para RAW_TRANSCRIPT na NOVA (só .txt/.docx).
+export async function ensureBridgeMaterialsBucket(): Promise<void> {
+  await ensureBucket(BRIDGE_MATERIALS_BUCKET, "5MB");
 }
 
 // Extrai o path dentro do bucket a partir de uma URL pública do Supabase

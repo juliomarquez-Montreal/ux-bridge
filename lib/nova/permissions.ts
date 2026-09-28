@@ -128,3 +128,24 @@ export async function canManageGalaxy(input: { galaxyId: string; user: Permissio
 
   return { allowed: true };
 }
+
+// Regra pra criar/ver/aprovar um Bridge (Bridge-1) a partir de um Planeta —
+// mesmo escopo de criar Estrela/Planeta: ADMIN em qualquer Galáxia, usuário
+// comum só na(s) que tem acesso. `planetId` é o ContextNode do tipo PLANETA.
+export async function canAccessBridgeForPlanet(input: { planetId: string; user: PermissionUser }): Promise<PermissionResult> {
+  const { planetId, user } = input;
+
+  if (user.permissionLevel === "ADMIN") return { allowed: true };
+
+  const galaxyId = await getGalaxyAncestorId(planetId);
+  if (!galaxyId) {
+    return { allowed: false, reason: "Não foi possível determinar a Galáxia deste Planeta." };
+  }
+
+  const userGalaxyIds = await getUserGalaxyIds(user);
+  if (!userGalaxyIds.includes(galaxyId)) {
+    return { allowed: false, reason: "Você só pode criar/gerenciar Bridges em Galáxias às quais tem acesso." };
+  }
+
+  return { allowed: true };
+}
