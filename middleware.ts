@@ -5,7 +5,9 @@ import { NextResponse } from "next/server";
 const PUBLIC_PATHS = ["/login"];
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/api/auth/");
+  // A rota N6 é uma sonda local e se auto-limpa; nunca é exposta em produção.
+  const isDevIntelligenceTest = process.env.NODE_ENV !== "production" && pathname === "/api/dev/test-intelligence";
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/api/auth/") || isDevIntelligenceTest;
 }
 
 function isAdminOnlyPath(pathname: string): boolean {
