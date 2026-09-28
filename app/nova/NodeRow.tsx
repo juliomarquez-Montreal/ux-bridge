@@ -3,7 +3,6 @@
 import type { ContextNodeType } from "@prisma/client";
 import { useState } from "react";
 import Badge from "@/components/Badge";
-import PillButton from "@/components/PillButton";
 import {
   ChevronDownIcon,
   EditIcon,
@@ -21,12 +20,20 @@ import PlanetExamplesPanel from "./PlanetExamplesPanel";
 import { CHILD_TYPE, TYPE_LABEL, canCreateChildOf, canModifyNode } from "./clientPermissions";
 import type { ApiContextNode, ApiDesignSystemSource, NovaUser } from "./types";
 
-const TYPE_STYLES: Record<ContextNodeType, { icon: typeof UniversoIcon; accent: string; ring: string }> = {
-  UNIVERSO: { icon: UniversoIcon, accent: "text-luminous-primary-fixed-dim", ring: "border-luminous-primary/30 bg-luminous-primary/5" },
-  GALAXIA: { icon: GalaxiaIcon, accent: "text-luminous-secondary", ring: "border-luminous-secondary/25 bg-luminous-secondary/5" },
-  ESTRELA: { icon: EstrelaIcon, accent: "text-luminous-tertiary", ring: "border-luminous-tertiary/25 bg-luminous-tertiary/5" },
-  PLANETA: { icon: PlanetaIcon, accent: "text-emerald-300", ring: "border-emerald-300/20 bg-emerald-300/5" },
+const TYPE_ICON: Record<ContextNodeType, typeof UniversoIcon> = {
+  UNIVERSO: UniversoIcon,
+  GALAXIA: GalaxiaIcon,
+  ESTRELA: EstrelaIcon,
+  PLANETA: PlanetaIcon,
 };
+
+// Botão quadrado neutro (chevron/editar/vincular) — cor muda um pouco quando
+// a linha está no estado "destacado" (expandida, com o card roxo por baixo).
+function squareButtonClass(highlighted: boolean) {
+  return highlighted
+    ? "border-[#362f4d] bg-[#1b1629] hover:bg-[#2b2346] hover:border-[#554878]"
+    : "border-[#2e2b3a] bg-[#171522] hover:bg-[#24212f] hover:border-[#433e57]";
+}
 
 // Pluralização simples — os 3 nomes de tipo (galáxia/estrela/planeta) são
 // todos regulares em português (+s), não precisa de tabela irregular.
@@ -50,6 +57,9 @@ interface Props {
 }
 
 // Uma linha da árvore NOVA, renderizada recursivamente para seus filhos.
+// Visual segue o mockup HTML NOVA.dc.html (Layout/HTML UI NOVA.zip): raiz
+// (Universo) sem card, filhos em cards conectados por linhas com marcador
+// circular, card ganha um tom roxo quando a linha está expandida.
 export default function NodeRow({
   node,
   depth,
@@ -66,16 +76,17 @@ export default function NodeRow({
 }: Props) {
   const [showLinkModal, setShowLinkModal] = useState(false);
 
-  const style = TYPE_STYLES[node.type];
-  const Icon = style.icon;
+  const Icon = TYPE_ICON[node.type];
   const isExpanded = expanded.has(node.id);
+  const isRoot = depth === 0;
   const isPlaneta = node.type === "PLANETA";
   const isGalaxia = node.type === "GALAXIA";
   const hasChildren = node.children.length > 0;
   // Planeta não tem filhos na árvore, mas o "expandir" ainda serve pra
-  // mostrar/esconder os exemplos de treino. Design System da Galáxia vive
-  // só na aba dedicada — aqui na árvore ela só expande se tiver Estrelas.
-  const isExpandable = hasChildren || isPlaneta;
+  // mostrar/esconder os exemplos de treino. Galáxia sem Estrela também é
+  // expansível: em vez da lista de filhos (vazia), mostra o convite pra
+  // vincular um Design System — nunca os dois ao mesmo tempo.
+  const isExpandable = hasChildren || isPlaneta || isGalaxia;
   const childType = CHILD_TYPE[node.type];
   const isUserGalaxy = node.type === "GALAXIA" && node.id === userGalaxyId;
 
@@ -91,62 +102,77 @@ export default function NodeRow({
       ? `${node.children.length} ${pluralize(TYPE_LABEL[childType].toLowerCase(), node.children.length)}`
       : null;
 
+  // Card só existe a partir da profundidade 1 — a raiz fica "solta" dentro
+  // do container da árvore. Quando expandida, o card ganha o tom roxo.
+  const highlighted = !isRoot && isExpanded;
+  const cardClass = isRoot
+    ? ""
+    : highlighted
+      ? "rounded-[6px] border border-[#3a2e62] bg-gradient-to-b from-[#1d1633] to-[#1b1530]"
+      : "rounded-[6px] border border-[#2a2735] bg-[#13111c]";
+
+  const nameSizeClass = isRoot ? "text-[21.5px] leading-7 tracking-[-0.2px]" : "text-[19px] leading-[26px] tracking-[-0.3px]";
+  const circleSizeClass = isRoot ? "h-[49px] w-[49px]" : "h-[43px] w-[43px]";
+  const circleIconSizeClass = isRoot ? "h-9 w-9" : "h-7 w-7";
+  const circleClass = isRoot
+    ? "border-[#2f2a45] bg-[#1a1729]"
+    : highlighted
+      ? "border-[#3b3060] bg-[#261e45]"
+      : "border-[#33294f] bg-[#1d1733]";
+
   return (
-    <div className={depth > 0 ? "ml-6 border-l border-white/10 pl-5" : ""}>
-      <div
-        className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3.5 ${style.ring} ${
-          isUserGalaxy ? "ring-1 ring-luminous-primary/50" : ""
-        }`}
-      >
+    <div className={cardClass}>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3.5">
         <button
           type="button"
           onClick={() => onToggleExpanded(node.id)}
           disabled={!isExpandable}
           aria-label={isExpanded ? "Recolher" : isPlaneta ? "Ver exemplos de treino" : "Expandir"}
           title={isPlaneta ? "Exemplos de treino" : undefined}
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-md transition ${
-            isExpandable ? "hover:bg-white/10" : "opacity-0"
+          className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[5px] border transition ${
+            isExpandable ? squareButtonClass(highlighted) : "border-transparent opacity-0"
           }`}
         >
-          <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+          <ChevronDownIcon className={`h-5 w-5 text-[#e8e6f0] transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
         </button>
 
-        <Icon className={`h-5 w-5 shrink-0 ${style.accent}`} />
+        <span className={`grid shrink-0 place-items-center rounded-full border ${circleSizeClass} ${circleClass}`}>
+          <Icon className={`${circleIconSizeClass} text-[#f0eef8]`} strokeWidth={1.4} />
+        </span>
 
-        <span className="min-w-0 truncate text-base font-medium text-luminous-on-surface">{node.name}</span>
+        <span className={`min-w-0 truncate font-medium text-[#f7f5fc] ${nameSizeClass}`}>{node.name}</span>
 
-        <span className={`shrink-0 font-mono text-xs uppercase tracking-[0.1em] ${style.accent}`}>
+        <span className="shrink-0 rounded-[4px] border border-[#473a74] bg-[#1c1634] px-2.5 py-1 font-mono text-[11.5px] font-bold uppercase tracking-[0.6px] text-[#c3b1fb]">
           {TYPE_LABEL[node.type]}
         </span>
 
         {isUserGalaxy && <Badge variant="info">Sua Galáxia</Badge>}
 
         {childCountLabel && (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-luminous-on-surface-variant/70">
-            <LayersIcon className="h-4 w-4" />
+          <span className="inline-flex shrink-0 items-center gap-[11px] text-[15px] text-[#b4b1c1]">
+            <LayersIcon className="h-[21px] w-[21px] text-[#b7b4c4]" />
             {childCountLabel}
           </span>
         )}
 
         {isGalaxia && (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-luminous-on-surface-variant/70">
-            <LayersIcon className="h-4 w-4" />
+          <span className="inline-flex shrink-0 items-center gap-[11px] text-[15px] text-[#b4b1c1]">
+            <LayersIcon className="h-[21px] w-[21px] text-[#b7b4c4]" />
             {linkedSources.length === 0 ? "Sem Design System" : `${linkedSources.length} fonte(s) vinculada(s)`}
           </span>
         )}
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
           {canCreateChild && childType && (
-            <PillButton
+            <button
               type="button"
-              variant="secondary"
-              className="!rounded-lg !px-3.5 !py-2 !font-inter !text-sm !normal-case !tracking-normal inline-flex items-center gap-1.5"
               onClick={() => onRequestCreate(childType, node.id)}
               aria-label={`Criar ${TYPE_LABEL[childType]}`}
+              className="inline-flex h-12 items-center gap-[11px] rounded-[5px] border border-[#7456d8] bg-[#1a1433] px-4 text-[17px] font-medium text-[#cbbaff] transition hover:border-[#9477f2] hover:bg-[#261d4a] hover:shadow-[0_0_0_3px_rgba(116,86,216,0.2)]"
             >
-              <PlusIcon className="h-3.5 w-3.5" />
+              <PlusIcon className="h-[17px] w-[17px] text-[#c7b6ff]" />
               {TYPE_LABEL[childType]}
-            </PillButton>
+            </button>
           )}
           {canLinkDesignSystem && (
             <button
@@ -154,9 +180,9 @@ export default function NodeRow({
               onClick={() => setShowLinkModal(true)}
               aria-label="Vincular Design System"
               title="Vincular Design System"
-              className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
+              className={`grid h-[47px] w-[47px] place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
             >
-              <LinkIcon className="h-4 w-4" />
+              <LinkIcon className="h-[18px] w-[18px] text-[#eeecf5]" />
             </button>
           )}
           {canModify && (
@@ -166,9 +192,9 @@ export default function NodeRow({
                 onClick={() => onRequestEdit(node)}
                 aria-label={`Editar ${node.name}`}
                 title="Editar"
-                className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/5 hover:bg-white/10"
+                className={`grid h-[47px] w-[47px] place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
               >
-                <EditIcon className="h-4 w-4" />
+                <EditIcon className="h-[18px] w-[18px] text-[#eeecf5]" />
               </button>
               <OverflowMenu
                 ariaLabel={`Mais ações para ${node.name}`}
@@ -179,30 +205,49 @@ export default function NodeRow({
         </div>
       </div>
 
+      {isExpanded && isGalaxia && !hasChildren && (
+        <div className="px-4 pb-8 pt-1 sm:px-6">
+          <GalaxyDesignSystemPanel
+            hasLinkedSources={linkedSources.length > 0}
+            canLink={canLinkDesignSystem}
+            onLinkClick={() => setShowLinkModal(true)}
+          />
+        </div>
+      )}
+
       {isExpanded && hasChildren && (
-        <div className="mt-2 space-y-2">
-          {node.children.map((child) => (
-            <NodeRow
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              user={user}
-              userGalaxyId={userGalaxyId}
-              byId={byId}
-              expanded={expanded}
-              onToggleExpanded={onToggleExpanded}
-              onRequestCreate={onRequestCreate}
-              onRequestEdit={onRequestEdit}
-              onRequestDelete={onRequestDelete}
-              sources={sources}
-              onSourcesChanged={onSourcesChanged}
-            />
-          ))}
+        <div className="relative mt-2 pl-9">
+          <div className="absolute bottom-0 left-[9px] top-0 w-[1.5px] bg-[#4a3b86]" />
+          <div className="space-y-2">
+            {node.children.map((child) => (
+              <div key={child.id} className="relative">
+                <span className="absolute left-[-27px] top-[26px] h-[1.5px] w-[27px] bg-[#4a3b86]" />
+                <span className="absolute left-[-36.5px] top-[16.5px] flex h-[19px] w-[19px] items-center justify-center rounded-full border-[1.5px] border-[#8d68f0] bg-[#1b1535]">
+                  <span className="h-2 w-2 rounded-full bg-[#9b78f6]" />
+                </span>
+                <NodeRow
+                  node={child}
+                  depth={depth + 1}
+                  user={user}
+                  userGalaxyId={userGalaxyId}
+                  byId={byId}
+                  expanded={expanded}
+                  onToggleExpanded={onToggleExpanded}
+                  onRequestCreate={onRequestCreate}
+                  onRequestEdit={onRequestEdit}
+                  onRequestDelete={onRequestDelete}
+                  sources={sources}
+                  onSourcesChanged={onSourcesChanged}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {isExpanded && isPlaneta && (
-        <div className="ml-6 mt-2 border-l border-white/10 pl-5">
+        <div className="relative mt-2 pl-9 pb-2">
+          <div className="absolute bottom-2 left-[9px] top-0 w-[1.5px] bg-[#4a3b86]" />
           <PlanetExamplesPanel node={node} canManage={canModify} />
         </div>
       )}
@@ -231,6 +276,51 @@ export default function NodeRow({
           }}
           onClose={() => setShowLinkModal(false)}
         />
+      )}
+    </div>
+  );
+}
+
+// Convite pra vincular um Design System, mostrado só quando a Galáxia
+// expandida não tem nenhuma Estrela — nunca junto da lista de filhos (isso
+// era o bug: o card aparecia duplicado, também dentro de galáxias com
+// conteúdo real). Visual e textos batem com o mockup HTML NOVA.dc.html.
+function GalaxyDesignSystemPanel({
+  hasLinkedSources,
+  canLink,
+  onLinkClick,
+}: {
+  hasLinkedSources: boolean;
+  canLink: boolean;
+  onLinkClick: () => void;
+}) {
+  return (
+    <div className="rounded-[4px] border border-[#2f2944] bg-[#110e1b] px-8 py-10">
+      <h4 className="mb-6 text-[19px] text-[#f1eff7]">Design System</h4>
+      {hasLinkedSources ? (
+        <p className="text-center text-[15.5px] text-[#aeabbc]">
+          Fontes já vinculadas — veja os detalhes na aba &quot;Design System&quot;.
+        </p>
+      ) : (
+        <div className="flex flex-col items-center">
+          <LayersIcon className="mb-4 h-14 w-14 text-[#a684fa]" strokeWidth={1.1} />
+          <p className="max-w-xl text-center text-[19.5px] font-semibold text-[#f7f5fc]">
+            Nenhuma fonte vinculada a esta galáxia.
+          </p>
+          <p className="mt-2 max-w-lg text-center text-[15.5px] text-[#aeabbc]">
+            Conecte um Design System para enriquecer a memória visual do projeto.
+          </p>
+          {canLink && (
+            <button
+              type="button"
+              onClick={onLinkClick}
+              className="mt-8 inline-flex h-[52px] items-center gap-[13px] rounded-[4px] border border-[#8a66ee] bg-[#6a3bd6] px-7 text-[18px] font-medium text-white transition hover:border-[#a78bfa] hover:bg-[#7a4ae8] hover:shadow-[0_0_0_3px_rgba(122,74,232,0.25),0_6px_20px_rgba(106,59,214,0.35)]"
+            >
+              <LinkIcon className="h-[21px] w-[21px]" />
+              Vincular Design System
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

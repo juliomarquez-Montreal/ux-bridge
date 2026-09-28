@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { Atom, ChevronDown, Globe, Link2, MoreHorizontal, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
+import { Atom, ChevronDown, Globe, Link2, Network, Orbit, Pencil, Settings, Star, Trash2, X } from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -165,6 +165,23 @@ export function LinkIcon(props: SVGProps<SVGSVGElement>) {
   return <Link2 strokeWidth={1.7} {...props} />;
 }
 
+// Três pontos preenchidos (não o outline do lucide) — bate com o mockup NOVA.
 export function MoreIcon(props: SVGProps<SVGSVGElement>) {
-  return <MoreHorizontal strokeWidth={1.7} {...props} />;
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <circle cx="5" cy="12" r="1.9" />
+      <circle cx="12" cy="12" r="1.9" />
+      <circle cx="19" cy="12" r="1.9" />
+    </svg>
+  );
+}
+
+// Seta longa (não chevron) usada como separador no breadcrumb do NOVA.
+export function ArrowRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 12h15" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
 }

@@ -23,12 +23,7 @@ export default async function NovaPage() {
       <AbstractBackground />
       <AppHeader />
 
-      <main className="relative mx-auto w-full max-w-4xl px-6 py-10 lg:px-8">
-        <h1 className="mb-2 font-sora text-3xl font-bold">NOVA</h1>
-        <p className="mb-6 text-sm text-luminous-on-surface-variant">
-          Organize o contexto que orienta a criação de PBIs e wireframes.
-        </p>
-
+      <main className="relative mx-auto w-full max-w-[1440px] px-6 py-10 lg:px-10">
         <NovaPanel
           user={{
             id: user.id,
