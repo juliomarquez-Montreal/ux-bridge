@@ -88,7 +88,10 @@ export default function NodeRow({
   // vincular um Design System — nunca os dois ao mesmo tempo.
   const isExpandable = hasChildren || isPlaneta || isGalaxia;
   const childType = CHILD_TYPE[node.type];
-  const isUserGalaxy = node.type === "GALAXIA" && userGalaxyIds.has(node.id);
+  // Badge "Sua Galáxia" só faz sentido pra usuário comum (vínculo explícito
+  // em UserGalaxyAccess) — ADMIN "tem acesso" a todas por definição, então
+  // mostrar em toda linha só viraria ruído sem significado.
+  const isUserGalaxy = node.type === "GALAXIA" && user.permissionLevel !== "ADMIN" && userGalaxyIds.has(node.id);
 
   const canCreateChild = childType !== null && canCreateChildOf(node, user, userGalaxyIds, byId);
   const canModify = canModifyNode(node, user, userGalaxyIds, byId);
