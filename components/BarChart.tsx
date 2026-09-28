@@ -1,2 +1,3 @@
-// Placeholder de barras com o ponto de destaque em violeta.
-export default function BarChart() { const heights = [38, 54, 35, 78, 64, 46, 28]; return <div aria-label="Gráfico de fluxos ilustrativo" className="flex h-20 items-end gap-2">{heights.map((height, index) => <div key={height} style={{ height: `${height}%` }} className={`flex-1 rounded-t-sm ${index === 4 ? "bg-luminous-primary shadow-[0_0_16px_rgba(148,87,223,.5)]" : "bg-white/15"}`} />)}</div>; }
+// Placeholder de barras com o ponto de destaque em azul (tertiary) — quebra
+// a monotonia roxa e diferencia esta barra (o pico) das demais.
+export default function BarChart() { const heights = [38, 54, 35, 78, 64, 46, 28]; return <div aria-label="Gráfico de fluxos ilustrativo" className="flex h-20 items-end gap-2">{heights.map((height, index) => <div key={height} style={{ height: `${height}%` }} className={`flex-1 rounded-t-sm ${index === 4 ? "bg-luminous-tertiary shadow-[0_0_16px_rgba(138,163,255,.5)]" : "bg-white/15"}`} />)}</div>; }

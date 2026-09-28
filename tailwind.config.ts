@@ -17,15 +17,18 @@ const config: Config = {
           "primary-container": "#56039f", "on-primary-container": "#c190ff",
           "inverse-primary": "#7a3bc4", secondary: "#d8baf9", "on-secondary": "#3c2559",
           "secondary-container": "#563e73", "on-secondary-container": "#c9acea",
-          tertiary: "#ffb688", "on-tertiary": "#512400", "tertiary-container": "#632d00",
-          "on-tertiary-container": "#e39460", error: "#ffb4ab", "on-error": "#690005",
+          // Terciária trocada de âmbar para azul (seed #0036ff) — mesmo H
+          // fixo (227°) e S/L por papel que a âmbar usava, pra manter o
+          // padrão de contraste (ver auditoria no commit desta mudança).
+          tertiary: "#8aa3ff", "on-tertiary": "#001252", "tertiary-container": "#001357",
+          "on-tertiary-container": "#6c86e5", error: "#ffb4ab", "on-error": "#690005",
           "error-container": "#93000a", "on-error-container": "#ffdad6",
           "primary-fixed": "#eedbff", "primary-fixed-dim": "#d9b9ff",
           "on-primary-fixed": "#2a0054", "on-primary-fixed-variant": "#611baa",
           "secondary-fixed": "#eedbff", "secondary-fixed-dim": "#d8baf9",
           "on-secondary-fixed": "#260e42", "on-secondary-fixed-variant": "#533c71",
-          "tertiary-fixed": "#ffdbc7", "tertiary-fixed-dim": "#ffb688",
-          "on-tertiary-fixed": "#311300", "on-tertiary-fixed-variant": "#703709",
+          "tertiary-fixed": "#c7d3ff", "tertiary-fixed-dim": "#8aa3ff",
+          "on-tertiary-fixed": "#000b33", "on-tertiary-fixed-variant": "#092071",
           background: "#15121a", "on-background": "#e8e0eb", "surface-variant": "#37333c",
         },
       },
