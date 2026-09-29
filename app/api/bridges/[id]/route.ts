@@ -25,3 +25,19 @@ export async function GET(_request: Request, { params }: Params) {
 
   return NextResponse.json({ bridge });
 }
+
+// DELETE /api/bridges/:id -> exclui um Bridge (tela /bridges, ação "lixeira",
+// com confirmação já feita no client antes de chamar esta rota).
+export async function DELETE(_request: Request, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+
+  const bridge = await db.bridge.findUnique({ where: { id: params.id } });
+  if (!bridge) return NextResponse.json({ error: "Bridge não encontrado." }, { status: 404 });
+
+  const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
+  if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
+
+  await db.bridge.delete({ where: { id: bridge.id } });
+  return NextResponse.json({ success: true });
+}

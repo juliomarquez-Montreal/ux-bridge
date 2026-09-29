@@ -55,11 +55,20 @@ export async function GET() {
     },
   });
 
+  // Bridge.createdById não tem relação formal com User no schema (só o
+  // scalar id) — resolve os nomes num segundo select em vez de duplicar a
+  // FK, já que é só pra exibição na coluna "Criado por".
+  const creatorIds = Array.from(new Set(bridges.map((bridge) => bridge.createdById)));
+  const creators = await db.user.findMany({ where: { id: { in: creatorIds } }, select: { id: true, name: true } });
+  const creatorNameById = new Map(creators.map((creator) => [creator.id, creator.name]));
+
   const result = bridges.map((bridge) => ({
     id: bridge.id,
     status: bridge.status,
     createdAt: bridge.createdAt,
     attemptCount: bridge.attemptCount,
+    bddApprovedAt: bridge.bddApprovedAt,
+    createdBy: creatorNameById.get(bridge.createdById) ?? "—",
     planeta: { id: bridge.planet.id, name: bridge.planet.name },
     estrela: bridge.planet.parent ? { id: bridge.planet.parent.id, name: bridge.planet.parent.name } : null,
     galaxia: bridge.planet.parent?.parent

@@ -5,8 +5,9 @@ import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
 import BridgesPanel from "./BridgesPanel";
 
-// /bridges: lista de todos os Bridges do usuário (ou de todos, se ADMIN) —
-// Bridge-1. Clicar numa linha leva pra /bridges/[id] (revisão pendente ou
+// /bridges: lista de todos os Bridges do usuário (ou de todos, se ADMIN),
+// com busca, filtro por status, ordenação, paginação e exclusão. O botão
+// "olho" de cada linha leva pra /bridges/[id] (revisão pendente ou
 // resultado final, dependendo do status).
 export default async function BridgesPage() {
   const user = await getCurrentUser();

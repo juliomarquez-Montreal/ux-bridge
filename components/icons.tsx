@@ -1,5 +1,23 @@
 import type { SVGProps } from "react";
-import { Atom, ChevronDown, Globe, Link2, Network, Pencil, Settings, Star, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  Atom,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Filter,
+  Globe,
+  Link2,
+  Network,
+  Package,
+  Pencil,
+  Settings,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 
 // Ícones de contorno simples, mesmo estilo dos usados em app/login/page.tsx
 // (stroke fino, sem preenchimento), pra manter tudo consistente sem depender
@@ -194,4 +212,34 @@ export function ArrowRightIcon(props: SVGProps<SVGSVGElement>) {
       <path d="m13 6 6 6-6 6" />
     </svg>
   );
+}
+
+// Ícones da tela /bridges (estatísticas, badges de status, busca/ordenação
+// e paginação da tabela) — todos wrappers do lucide-react.
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
+  return <Clock strokeWidth={1.7} {...props} />;
+}
+
+export function PackageIcon(props: SVGProps<SVGSVGElement>) {
+  return <Package strokeWidth={1.7} {...props} />;
+}
+
+export function AlertIcon(props: SVGProps<SVGSVGElement>) {
+  return <AlertTriangle strokeWidth={1.7} {...props} />;
+}
+
+export function FilterIcon(props: SVGProps<SVGSVGElement>) {
+  return <Filter strokeWidth={1.7} {...props} />;
+}
+
+export function SortIcon(props: SVGProps<SVGSVGElement>) {
+  return <ArrowUpDown strokeWidth={1.7} {...props} />;
+}
+
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return <ChevronLeft strokeWidth={1.7} {...props} />;
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return <ChevronRight strokeWidth={1.7} {...props} />;
 }

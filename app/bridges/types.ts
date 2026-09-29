@@ -27,6 +27,8 @@ export interface ApiBridgeListItem {
   status: BridgeStatus;
   createdAt: string;
   attemptCount: number;
+  bddApprovedAt: string | null;
+  createdBy: string;
   planeta: { id: string; name: string };
   estrela: { id: string; name: string } | null;
   galaxia: { id: string; name: string } | null;
