@@ -2,20 +2,18 @@ import type { SketchBlock, SketchBlockSize, SketchData, SketchRegion } from "@/a
 
 // Renderiza o sketch estrutural gerado pela IA (Bridge-3a) como um layout 2D
 // de verdade — não uma lista vertical — usando CSS Grid com áreas nomeadas
-// pra posicionar cada bloco na zona real de tela que sua "region" representa
-// (header no topo, sidebar à esquerda, toolbar(s) lado a lado, main-table
-// como conteúdo principal, footer na base). Caixas cinzas sem estilo de
-// design system, cada uma com uma seta vermelha + label vermelho embaixo —
-// estilo educativo de pré-visualização.
+// pra posicionar cada bloco na zona/linha real de tela que sua "region"
+// representa: header (topo, largura total), sidebar (coluna estreita à
+// esquerda, altura cheia) e page-header/toolbar/tabs/footer (linhas
+// horizontais — cada uma pode ter vários blocos lado a lado, ordenados por
+// "order"), com main-table como conteúdo principal. Caixas cinzas sem estilo
+// de design system, cada uma com uma seta vermelha + label vermelho embaixo
+// — estilo educativo de pré-visualização.
 const HEIGHT_BY_SIZE: Record<SketchBlockSize, string> = { small: "h-12", medium: "h-20", large: "h-36" };
 
-// Um único componente de bloco pra TODAS as regiões (antes header/main-table/
-// footer usavam um estilo "caixa + label ao lado" com largura menor que o
-// estilo "caixa + label embaixo" da sidebar/toolbar — o que fazia a caixa do
-// conteúdo principal ficar visivelmente mais estreita e desalinhada da
-// toolbar acima dela, mesmo as duas ocupando a mesma coluna da grade). Com
-// um só estilo, a caixa sempre ocupa 100% da largura disponível, garantindo
-// alinhamento entre toolbar e conteúdo principal.
+// Um único componente de bloco pra TODAS as regiões — garante que toda
+// caixa numa mesma coluna de conteúdo tem exatamente a mesma largura
+// disponível, então uma linha alinha perfeitamente com a linha abaixo dela.
 function Block({ block, fill }: { block: SketchBlock; fill?: boolean }) {
   return (
     <div className={`flex flex-col gap-1.5 ${fill ? "flex-1" : ""}`}>
@@ -32,6 +30,22 @@ function Block({ block, fill }: { block: SketchBlock; fill?: boolean }) {
   );
 }
 
+// Linha horizontal de blocos (page-header/toolbar/tabs) — ordenados por
+// "order" (0 = mais à esquerda) antes de desenhar, e dividindo a largura
+// total da linha entre si.
+function BlockRow({ blocks }: { blocks: SketchBlock[] }) {
+  const sorted = [...blocks].sort((a, b) => a.order - b.order);
+  return (
+    <div className="flex items-start gap-3">
+      {sorted.map((block, index) => (
+        <div key={index} className="flex-1">
+          <Block block={block} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SketchPreview({ sketchData }: { sketchData: SketchData | null }) {
   const blocks = Array.isArray(sketchData?.blocks) ? sketchData.blocks : [];
 
@@ -42,7 +56,9 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
   const byRegion: Record<SketchRegion, SketchBlock[]> = {
     header: [],
     sidebar: [],
+    "page-header": [],
     toolbar: [],
+    tabs: [],
     "main-table": [],
     footer: [],
   };
@@ -52,18 +68,35 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
 
   const hasHeader = byRegion.header.length > 0;
   const hasSidebar = byRegion.sidebar.length > 0;
+  const hasPageHeader = byRegion["page-header"].length > 0;
   const hasToolbar = byRegion.toolbar.length > 0;
+  const hasTabs = byRegion.tabs.length > 0;
   const hasFooter = byRegion.footer.length > 0;
+  const columns = hasSidebar ? 2 : 1;
+
+  // header/footer sempre ocupam a largura TOTAL da tela (não só a área de
+  // conteúdo) — por isso não entram na coluna da sidebar.
+  function fullWidthRow(area: string): string {
+    return columns === 2 ? `"${area} ${area}"` : `"${area}"`;
+  }
+  // page-header/toolbar/tabs/main ficam dentro da área de conteúdo, ao lado
+  // da sidebar quando ela existe.
+  function contentRow(area: string): string {
+    return hasSidebar ? `"sidebar ${area}"` : `"${area}"`;
+  }
 
   // Grade 2D montada dinamicamente: só entram linhas pras regiões realmente
-  // presentes nesse sketch, e a coluna "sidebar" (quando existe) se estende
-  // por todas as linhas de conteúdo, ficando do tamanho da toolbar+main
-  // combinadas.
+  // presentes nesse sketch, na ordem real de uma tela (header → page-header
+  // → toolbar → tabs → main-table → footer), e a coluna "sidebar" (quando
+  // existe) se estende por todas as linhas de conteúdo, ficando do tamanho
+  // delas combinadas.
   const rows: string[] = [];
-  if (hasHeader) rows.push('"header header"');
-  if (hasToolbar) rows.push(hasSidebar ? '"sidebar toolbar"' : '"toolbar toolbar"');
-  rows.push(hasSidebar ? '"sidebar main"' : '"main main"');
-  if (hasFooter) rows.push('"footer footer"');
+  if (hasHeader) rows.push(fullWidthRow("header"));
+  if (hasPageHeader) rows.push(contentRow("page-header"));
+  if (hasToolbar) rows.push(contentRow("toolbar"));
+  if (hasTabs) rows.push(contentRow("tabs"));
+  rows.push(contentRow("main"));
+  if (hasFooter) rows.push(fullWidthRow("footer"));
 
   return (
     <div
@@ -75,18 +108,19 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
         gap: "1rem",
       }}
     >
+      {/* header pode ter mais de um bloco lado a lado (ex: logo à esquerda,
+          notificações/avatar à direita) — mesma linha horizontal do
+          page-header/toolbar/tabs, não empilhado. */}
       {hasHeader && (
-        <div style={{ gridArea: "header" }} className="space-y-3">
-          {byRegion.header.map((block, index) => (
-            <Block key={index} block={block} />
-          ))}
+        <div style={{ gridArea: "header" }}>
+          <BlockRow blocks={byRegion.header} />
         </div>
       )}
 
       {/* fill=true: a(s) caixa(s) da sidebar esticam pra preencher 100% da
-          altura reservada (linha(s) da toolbar + linha do conteúdo
-          principal), sem sobrar espaço vazio embaixo mesmo quando a IA
-          sugere só um bloco de menu. */}
+          altura reservada (todas as linhas de conteúdo combinadas), sem
+          sobrar espaço vazio embaixo mesmo quando a IA sugere só um bloco
+          de menu. */}
       {hasSidebar && (
         <div style={{ gridArea: "sidebar" }} className="flex h-full flex-col gap-3">
           {byRegion.sidebar.map((block, index) => (
@@ -95,15 +129,21 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
         </div>
       )}
 
-      {/* Toolbars dividem a largura total da área de conteúdo entre si —
-          uma só ocupa 100%, duas ficam 50%/50%, etc. */}
+      {hasPageHeader && (
+        <div style={{ gridArea: "page-header" }}>
+          <BlockRow blocks={byRegion["page-header"]} />
+        </div>
+      )}
+
       {hasToolbar && (
-        <div style={{ gridArea: "toolbar" }} className="flex items-start gap-3">
-          {byRegion.toolbar.map((block, index) => (
-            <div key={index} className="flex-1">
-              <Block block={block} />
-            </div>
-          ))}
+        <div style={{ gridArea: "toolbar" }}>
+          <BlockRow blocks={byRegion.toolbar} />
+        </div>
+      )}
+
+      {hasTabs && (
+        <div style={{ gridArea: "tabs" }}>
+          <BlockRow blocks={byRegion.tabs} />
         </div>
       )}
 
@@ -113,11 +153,11 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
         ))}
       </div>
 
+      {/* footer também pode ter mais de um bloco lado a lado (ex: seletor de
+          itens por página + contador + paginação numa linha só). */}
       {hasFooter && (
-        <div style={{ gridArea: "footer" }} className="space-y-3">
-          {byRegion.footer.map((block, index) => (
-            <Block key={index} block={block} />
-          ))}
+        <div style={{ gridArea: "footer" }}>
+          <BlockRow blocks={byRegion.footer} />
         </div>
       )}
     </div>

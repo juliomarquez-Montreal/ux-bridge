@@ -7,15 +7,18 @@ export type BridgeStatus =
   | "ERRO_GERACAO";
 
 // Vocabulário fixo de regiões do Sketch (Bridge-3a) — espelha
-// lib/bridges/generate.ts (SKETCH_REGIONS). Cada uma mapeia pra uma zona
-// fixa da grade 2D desenhada pelo SketchPreview.
-export type SketchRegion = "header" | "sidebar" | "toolbar" | "main-table" | "footer";
+// lib/bridges/generate.ts (SKETCH_REGIONS). Cada uma mapeia pra uma linha ou
+// zona fixa da grade 2D desenhada pelo SketchPreview.
+export type SketchRegion = "header" | "sidebar" | "page-header" | "toolbar" | "tabs" | "main-table" | "footer";
 export type SketchBlockSize = "small" | "medium" | "large";
 
 export interface SketchBlock {
   label: string;
   region: SketchRegion;
   size: SketchBlockSize;
+  // Posição horizontal dentro da mesma region (0 = mais à esquerda) — usado
+  // pra ordenar blocos de uma mesma linha (page-header/toolbar/tabs).
+  order: number;
 }
 
 export interface SketchData {

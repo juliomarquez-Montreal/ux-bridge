@@ -5,12 +5,16 @@ import { getAIProvider } from "@/lib/ai/provider";
 import { buildContextPackage, type ContextPackage } from "@/lib/nova/buildContextPackage";
 
 // Vocabulário fixo de regiões pro Sketch (Bridge-3a) — cada uma mapeia pra
-// uma zona fixa da grade 2D desenhada pelo SketchPreview (nunca uma lista
-// vertical simples): header (topo, largura total), sidebar (coluna estreita
-// à esquerda), toolbar (barra de controles no topo da área de conteúdo —
-// pode haver mais de um bloco, lado a lado), main-table (conteúdo principal,
-// abaixo da toolbar) e footer (rodapé, largura total).
-const SKETCH_REGIONS = ["header", "sidebar", "toolbar", "main-table", "footer"] as const;
+// uma linha ou zona fixa da grade 2D desenhada pelo SketchPreview (nunca uma
+// lista vertical simples): header (cabeçalho global, topo, largura total),
+// sidebar (coluna estreita à esquerda), page-header (linha do título da
+// página + botão de ação principal), toolbar (linha de busca/filtros),
+// tabs (linha de abas de navegação/visualização, quando houver), main-table
+// (conteúdo principal) e footer (rodapé/paginação, largura total).
+// page-header/toolbar/tabs são linhas SEPARADAS mesmo quando próximas na
+// tela real — antes só existia "toolbar" pra isso, o que forçava a IA a
+// espremer 3 conceitos diferentes numa única linha.
+const SKETCH_REGIONS = ["header", "sidebar", "page-header", "toolbar", "tabs", "main-table", "footer"] as const;
 const SKETCH_SIZES = ["small", "medium", "large"] as const;
 
 // Monta o prompt de geração do BDD/PBI. O pacote de contexto completo (posição
@@ -52,15 +56,17 @@ function buildBddPrompt(rawMaterialText: string | null, rawMaterialFileUrl: stri
 // garantir que a renderização (SketchPreview) seja sempre confiável.
 function buildSketchPrompt(bddPbiText: string, lastSketchRejectionComment: string | null, hasWireframeReference: boolean): string {
   const parts: string[] = [
-    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "region": "header|sidebar|toolbar|main-table|footer", "size": "small|medium|large"}]}`,
-    `"region" precisa vir EXATAMENTE deste vocabulário fixo, sem inventar outros nomes — cada um mapeia pra uma zona fixa do layout: "header" (cabeçalho, topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral), "toolbar" (barra de controles/filtros/ações no topo da área de conteúdo — se houver mais de um bloco de toolbar, eles ficam lado a lado na mesma linha), "main-table" (o conteúdo principal da tela — tabela, gráfico, cards, formulário, qualquer coisa que não seja header/sidebar/toolbar/footer) e "footer" (rodapé, largura total).`,
+    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "region": "header|sidebar|page-header|toolbar|tabs|main-table|footer", "size": "small|medium|large", "order": 0}]}`,
+    `"region" precisa vir EXATAMENTE deste vocabulário fixo, sem inventar outros nomes — cada um mapeia pra uma linha ou zona fixa do layout, de cima pra baixo: "header" (cabeçalho GLOBAL do sistema — logo, notificações, perfil do usuário — topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral), "page-header" (a linha do TÍTULO da página + o botão de ação principal, ex: "Listagem de Projetos" + botão "Novo projeto"), "toolbar" (a linha de busca e filtros), "tabs" (a linha de abas de navegação/visualização, SÓ se a tela realmente tiver abas), "main-table" (o conteúdo principal — tabela, gráfico, cards, formulário) e "footer" (rodapé/paginação, largura total). "page-header", "toolbar" e "tabs" são linhas DIFERENTES E SEPARADAS mesmo quando aparecem próximas ou coladas na tela real — NUNCA junte o título da página com os filtros de busca, ou as abas com a busca, numa linha só.`,
+    `Cada bloco representa UM ÚNICO elemento de interface real, com um nome SIMPLES e SINGULAR (ex: "Campo de busca", "Botão Filtros", "Dropdown Filtrar por Status", "Botão Novo projeto", "Título da página"). NUNCA combine dois elementos diferentes num nome só usando "+", "e" ou "/" (ex: nunca "Busca+Status" ou "Ações e status") — se uma linha tem busca E filtro, são DOIS blocos separados na mesma region (ex: os dois com region "toolbar", "order" diferente cada um). Badges/tags de status coloridos DENTRO das linhas de uma tabela são CONTEÚDO DE DADO da tabela, não elementos de navegação — nunca crie um bloco separado pra eles; se quiser, mencione isso só dentro do label do próprio bloco "main-table" (ex: "Tabela de listagem com coluna de status colorido"), nunca como bloco da toolbar.`,
+    `"order" é um número inteiro indicando a posição HORIZONTAL do bloco dentro da mesma "region" (0 = mais à esquerda, 1 = o próximo à direita dele, etc.) — blocos de regions diferentes podem repetir o mesmo "order" sem problema, isso não importa entre regions diferentes. Observe a imagem de referência (quando houver) com atenção pra preencher esse campo refletindo a ordem visual real da esquerda pra direita — nunca invente uma ordem, replique a que está na imagem.`,
     `Liste os blocos na ordem visual de cima para baixo e da esquerda para a direita. Use o pacote de contexto fornecido — especialmente os componentes do Design System da Galáxia, quando houver — para nomear cada bloco com a terminologia real da equipe (ex: o nome exato de um componente do Figma). Se não houver Design System vinculado, use terminologia genérica de UI (ex: "Campo de busca", "Botão de filtro", "Tabela de listagem", "Coluna de ID").`,
     `BDD/PBI aprovado que este sketch precisa representar:\n"""\n${bddPbiText}\n"""`,
   ];
 
   if (hasWireframeReference) {
     parts.push(
-      `Uma imagem de wireframe de referência real foi anexada a esta mensagem (arquivo enviado, não apenas mencionado). Use-a como referência da DISPOSIÇÃO REAL dos elementos — replique a estrutura (posições, proporção do menu lateral vs. área de conteúdo, alinhamento entre os blocos), mas mantenha o resultado como um sketch simples de caixas (label/region/size), nunca uma descrição da aparência visual ou cópia de estilo.`
+      `Uma imagem de wireframe de referência real foi anexada a esta mensagem (arquivo enviado, não apenas mencionado). Use-a como referência da DISPOSIÇÃO REAL dos elementos — replique a estrutura (posições, proporção do menu lateral vs. área de conteúdo, alinhamento entre os blocos, ordem horizontal esquerda/direita dentro de cada linha), mas mantenha o resultado como um sketch simples de caixas (label/region/size/order), nunca uma descrição da aparência visual ou cópia de estilo.`
     );
   }
 
@@ -146,8 +152,8 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
     throw new Error("O JSON do sketch não contém nenhum bloco.");
   }
 
-  const blocks = blocksRaw.map((item) => {
-    const raw = item as { label?: unknown; region?: unknown; size?: unknown };
+  const blocks = blocksRaw.map((item, index) => {
+    const raw = item as { label?: unknown; region?: unknown; size?: unknown; order?: unknown };
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
     const region = SKETCH_REGIONS.includes(raw.region as (typeof SKETCH_REGIONS)[number])
       ? (raw.region as (typeof SKETCH_REGIONS)[number])
@@ -155,7 +161,11 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
     const size = SKETCH_SIZES.includes(raw.size as (typeof SKETCH_SIZES)[number])
       ? (raw.size as (typeof SKETCH_SIZES)[number])
       : "medium";
-    return { label, region, size };
+    // Índice no array como fallback — mantém a ordem visual "de cima pra
+    // baixo / esquerda pra direita" que a IA já lista mesmo se "order" vier
+    // ausente ou inválido.
+    const order = typeof raw.order === "number" && Number.isFinite(raw.order) ? raw.order : index;
+    return { label, region, size, order };
   });
 
   return { blocks } as Prisma.InputJsonValue;
