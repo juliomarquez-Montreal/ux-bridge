@@ -3,9 +3,13 @@ import { db } from "@/lib/db";
 import { getAIProvider } from "@/lib/ai/provider";
 import { buildContextPackage } from "@/lib/nova/buildContextPackage";
 
-// Vocabulário fixo de regiões pro Sketch (Bridge-3a) — mantém o layout
-// consistente entre gerações e Planetas diferentes.
-const SKETCH_REGIONS = ["header", "toolbar", "sidebar", "main-content", "main-table", "footer"] as const;
+// Vocabulário fixo de regiões pro Sketch (Bridge-3a) — cada uma mapeia pra
+// uma zona fixa da grade 2D desenhada pelo SketchPreview (nunca uma lista
+// vertical simples): header (topo, largura total), sidebar (coluna estreita
+// à esquerda), toolbar (barra de controles no topo da área de conteúdo —
+// pode haver mais de um bloco, lado a lado), main-table (conteúdo principal,
+// abaixo da toolbar) e footer (rodapé, largura total).
+const SKETCH_REGIONS = ["header", "sidebar", "toolbar", "main-table", "footer"] as const;
 const SKETCH_SIZES = ["small", "medium", "large"] as const;
 
 // Monta o prompt de geração do BDD/PBI. O pacote de contexto completo (posição
@@ -47,7 +51,8 @@ function buildBddPrompt(rawMaterialText: string | null, rawMaterialFileUrl: stri
 // garantir que a renderização (SketchPreview) seja sempre confiável.
 function buildSketchPrompt(bddPbiText: string, lastSketchRejectionComment: string | null): string {
   const parts: string[] = [
-    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "region": "header|toolbar|sidebar|main-content|main-table|footer", "size": "small|medium|large"}]}`,
+    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "region": "header|sidebar|toolbar|main-table|footer", "size": "small|medium|large"}]}`,
+    `"region" precisa vir EXATAMENTE deste vocabulário fixo, sem inventar outros nomes — cada um mapeia pra uma zona fixa do layout: "header" (cabeçalho, topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral), "toolbar" (barra de controles/filtros/ações no topo da área de conteúdo — se houver mais de um bloco de toolbar, eles ficam lado a lado na mesma linha), "main-table" (o conteúdo principal da tela — tabela, gráfico, cards, formulário, qualquer coisa que não seja header/sidebar/toolbar/footer) e "footer" (rodapé, largura total).`,
     `Liste os blocos na ordem visual de cima para baixo e da esquerda para a direita. Use o pacote de contexto fornecido — especialmente os componentes do Design System da Galáxia, quando houver — para nomear cada bloco com a terminologia real da equipe (ex: o nome exato de um componente do Figma). Se não houver Design System vinculado, use terminologia genérica de UI (ex: "Campo de busca", "Botão de filtro", "Tabela de listagem", "Coluna de ID").`,
     `BDD/PBI aprovado que este sketch precisa representar:\n"""\n${bddPbiText}\n"""`,
   ];
@@ -90,7 +95,7 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
     const region = SKETCH_REGIONS.includes(raw.region as (typeof SKETCH_REGIONS)[number])
       ? (raw.region as (typeof SKETCH_REGIONS)[number])
-      : "main-content";
+      : "main-table";
     const size = SKETCH_SIZES.includes(raw.size as (typeof SKETCH_SIZES)[number])
       ? (raw.size as (typeof SKETCH_SIZES)[number])
       : "medium";

@@ -11,9 +11,13 @@
 .float-slow { animation: float-slow 26s ease-in-out infinite alternate; transform-origin: center; }
 .float-reverse { animation: float-reverse 22s ease-in-out infinite alternate; transform-origin: center; }
 .drift-line { animation: drift-line 30s linear infinite; }
+/* Barra de progresso indeterminada (GeneratingProgress) — a duração real de
+   uma geração de IA é desconhecida, então ela só comunica "em andamento". */
+.progress-bar-indeterminate { animation: progress-indeterminate 1.4s ease-in-out infinite; }
 
 @keyframes float-slow { from { transform: translate3d(-2%, -1%, 0) rotate(-5deg); } to { transform: translate3d(4%, 3%, 0) rotate(7deg); } }
 @keyframes float-reverse { from { transform: translate3d(3%, 2%, 0) rotate(6deg); } to { transform: translate3d(-3%, -3%, 0) rotate(-7deg); } }
 @keyframes drift-line { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes progress-indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 
-@media (prefers-reduced-motion: reduce) { .float-slow, .float-reverse, .drift-line { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .float-slow, .float-reverse, .drift-line, .progress-bar-indeterminate { animation: none; } }

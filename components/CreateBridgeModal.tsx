@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import GeneratingProgress from "@/components/GeneratingProgress";
 import PillButton from "@/components/PillButton";
 import { CloseIcon } from "@/components/icons";
 import { flattenTree } from "@/app/nova/clientPermissions";
@@ -41,6 +42,12 @@ export default function CreateBridgeModal({ onClose }: { onClose: () => void }) 
   const [materialText, setMaterialText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Evita setState depois que o usuário clica "Fechar e continuar depois" e
+  // o modal desmonta enquanto a geração (fetch em andamento) ainda não voltou.
+  const mountedRef = useRef(true);
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
   async function refreshTree(): Promise<ApiContextNode[]> {
     const res = await fetch("/api/nova/nodes");
@@ -137,14 +144,26 @@ export default function CreateBridgeModal({ onClose }: { onClose: () => void }) 
 
       const res = await fetch("/api/bridges", { method: "POST", body: formData });
       const data = await res.json().catch(() => ({}));
+      // Se o usuário já clicou "Fechar e continuar depois" e navegou pra
+      // /bridges, não force outra navegação quando esta resposta chegar.
+      if (!mountedRef.current) return;
       if (!res.ok) throw new Error(data.error ?? "Falha ao criar o Bridge.");
       onClose();
       router.push(`/bridges/${data.bridge.id}`);
     } catch (err) {
+      if (!mountedRef.current) return;
       setSubmitError(err instanceof Error ? err.message : "Falha ao criar o Bridge.");
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
+  }
+
+  // O Bridge já foi criado no banco (status GERANDO_BDD) antes da resposta
+  // desta requisição voltar — fechar e sair pra /bridges não perde nada, a
+  // geração continua no servidor independente do cliente estar conectado.
+  function handleCloseAndContinueLater() {
+    onClose();
+    router.push("/bridges");
   }
 
   return (
@@ -292,6 +311,15 @@ export default function CreateBridgeModal({ onClose }: { onClose: () => void }) 
               </PillButton>
             </div>
           </div>
+        ) : submitting ? (
+          <div className="space-y-4">
+            <GeneratingProgress label="Gerando BDD/PBI..." />
+            <div className="flex justify-end pt-2">
+              <PillButton type="button" variant="inactive" onClick={handleCloseAndContinueLater}>
+                Fechar e continuar depois
+              </PillButton>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             <div>
@@ -344,16 +372,16 @@ export default function CreateBridgeModal({ onClose }: { onClose: () => void }) 
             {submitError && <p className="text-sm text-luminous-error">{submitError}</p>}
 
             <div className="flex justify-end gap-2 pt-2">
-              <PillButton type="button" variant="inactive" onClick={() => setStep("select")} disabled={submitting}>
+              <PillButton type="button" variant="inactive" onClick={() => setStep("select")}>
                 Voltar
               </PillButton>
               <PillButton
                 type="button"
                 variant="primary"
-                disabled={submitting || (materialMode === "text" ? !materialText.trim() : !materialFile)}
+                disabled={materialMode === "text" ? !materialText.trim() : !materialFile}
                 onClick={handleSubmitMaterial}
               >
-                {submitting ? "Gerando BDD/PBI..." : "Criar Bridge"}
+                Criar Bridge
               </PillButton>
             </div>
           </div>

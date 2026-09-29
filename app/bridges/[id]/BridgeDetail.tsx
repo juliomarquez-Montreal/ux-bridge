@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Badge from "@/components/Badge";
+import GeneratingProgress from "@/components/GeneratingProgress";
 import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
 import SketchPreview from "@/components/SketchPreview";
@@ -16,6 +18,7 @@ const MANUAL_EDIT_HINT_THRESHOLD = 2;
 const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_SKETCH"];
 
 export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
+  const router = useRouter();
   const [bridge, setBridge] = useState<ApiBridge | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -129,13 +132,13 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       {actionError && <p className="mt-4 text-sm text-luminous-error">{actionError}</p>}
 
       {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_SKETCH") && (
-        <GlassCard className="mt-6 text-center">
-          <p className="text-sm text-luminous-on-surface">
-            {bridge.status === "GERANDO_BDD" ? "Gerando BDD/PBI..." : "Gerando sketch..."} isso pode levar um pouco.
-          </p>
-          <p className="mt-1 text-xs text-luminous-on-surface-variant">
-            Pode fechar esta tela e voltar depois — o progresso continua no servidor.
-          </p>
+        <GlassCard className="mt-6">
+          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando BDD/PBI..." : "Gerando sketch..."} />
+          <div className="mt-4 flex justify-end">
+            <PillButton type="button" variant="inactive" onClick={() => router.push("/bridges")}>
+              Fechar e continuar depois
+            </PillButton>
+          </div>
         </GlassCard>
       )}
 
