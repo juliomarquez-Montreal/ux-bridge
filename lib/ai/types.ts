@@ -3,10 +3,20 @@
 
 export type AIProviderName = "gemini" | "openai" | "claude";
 
+// Parte de imagem/PDF pra uma chamada multimodal (texto + arquivo) — hoje só
+// o provider gemini de fato envia isso pro modelo (ver
+// lib/ai/providers/gemini.ts); os demais ignoram o campo com segurança.
+export interface AIImagePart {
+  mimeType: string;
+  // Bytes do arquivo em base64 (sem o prefixo "data:...;base64,").
+  data: string;
+}
+
 export interface AIGenerateInput {
   prompt: string;
   context?: unknown;
   memoryPatterns?: unknown[];
+  images?: AIImagePart[];
 }
 
 export interface AIGenerateOutput {

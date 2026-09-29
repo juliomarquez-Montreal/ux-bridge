@@ -26,7 +26,18 @@ export function createGeminiProvider(apiKey: string): AIProvider {
       const client = new GoogleGenerativeAI(apiKey);
       const model = client.getGenerativeModel({ model: DEFAULT_MODEL });
 
-      const result = await model.generateContent(buildPrompt(input));
+      // Multimodal: texto + partes de imagem/PDF na mesma chamada (ex: o
+      // wireframe de referência do Bridge-3a). Sem isso, uma imagem só
+      // chegava como URL em texto dentro do `context` — o modelo nunca via
+      // os pixels de verdade.
+      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+        { text: buildPrompt(input) },
+      ];
+      for (const image of input.images ?? []) {
+        parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+      }
+
+      const result = await model.generateContent(parts);
 
       return { text: result.response.text(), raw: result.response };
     },
