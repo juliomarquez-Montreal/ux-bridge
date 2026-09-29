@@ -1,8 +1,14 @@
-import type { Prisma } from "@prisma/client";
+import type { MemoryPattern, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { AIImagePart } from "@/lib/ai/types";
 import { getAIProvider } from "@/lib/ai/provider";
 import { buildContextPackage, type ContextPackage } from "@/lib/nova/buildContextPackage";
+import type { SketchBlock } from "@/app/bridges/types";
+
+// patternType gravado no MemoryPattern quando o PO edita um Sketch
+// manualmente (Bridge-3b) — ver runSketchGeneration (uso no prompt) e
+// app/api/bridges/[id]/sketch-edit/route.ts (gravação).
+export const SKETCH_LAYOUT_CORRECTION_PATTERN_TYPE = "SKETCH_LAYOUT_CORRECTION";
 
 // Modelo genérico de layout do Sketch (Bridge-3a) — só 4 zonas estruturais
 // universais, sem lista fixa de "tipos de linha" (nada de "toolbar"/"tabs"/
@@ -54,7 +60,12 @@ function buildBddPrompt(rawMaterialText: string | null, rawMaterialFileUrl: stri
 // Monta o prompt de geração do Sketch (Bridge-3a) — pede um JSON estruturado
 // descrevendo a disposição da tela em blocos, nunca HTML/SVG livre, pra
 // garantir que a renderização (SketchPreview) seja sempre confiável.
-function buildSketchPrompt(bddPbiText: string, lastSketchRejectionComment: string | null, hasWireframeReference: boolean): string {
+function buildSketchPrompt(
+  bddPbiText: string,
+  lastSketchRejectionComment: string | null,
+  hasWireframeReference: boolean,
+  layoutCorrections: MemoryPattern[]
+): string {
   const parts: string[] = [
     `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "zone": "header|sidebar|footer|content", "row": 0, "order": 0, "widthHint": "fill|auto", "heightHint": "compact|fill"}]}`,
     `"zone" só tem 4 valores possíveis, sem exceção: "header" (cabeçalho GLOBAL do sistema, topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral, altura total), "footer" (rodapé/paginação, base, largura total) e "content" (TUDO o resto — título da página, botões, busca, filtros, abas, tabela, formulário, gráfico, cards — qualquer elemento específico dessa tela em particular). A maioria dos blocos vai em "content".`,
@@ -69,6 +80,23 @@ function buildSketchPrompt(bddPbiText: string, lastSketchRejectionComment: strin
   if (hasWireframeReference) {
     parts.push(
       `Uma imagem de wireframe de referência real foi anexada a esta mensagem (arquivo enviado, não apenas mencionado). Use-a como referência da DISPOSIÇÃO REAL dos elementos — replique a estrutura (quantas linhas existem, o que fica emparelhado na mesma linha vs. em linhas separadas, proporção do menu lateral vs. área de conteúdo, proporção de altura entre um controle compacto e o conteúdo principal, ordem horizontal esquerda/direita dentro de cada linha), mas mantenha o resultado como um sketch simples de caixas (label/zone/row/order/widthHint/heightHint), nunca uma descrição da aparência visual ou cópia de estilo.`
+    );
+  }
+
+  if (layoutCorrections.length > 0) {
+    // Correção manual do PO (Bridge-3b) = verdade absoluta, prioridade
+    // máxima — sempre veio com confidence 1.0 (ver
+    // app/api/bridges/[id]/sketch-edit/route.ts), então aparece aqui em
+    // destaque, separado do resto dos memoryPatterns (que o provider já
+    // inclui genericamente via JSON.stringify no context).
+    const correctionsText = layoutCorrections
+      .map((pattern, index) => {
+        const data = pattern.patternData as { before?: unknown; after?: unknown };
+        return `Correção ${index + 1} — o sketch gerado pela IA (ANTES) era:\n${JSON.stringify(data.before)}\ne o PO editou manualmente pra (DEPOIS):\n${JSON.stringify(data.after)}`;
+      })
+      .join("\n\n");
+    parts.push(
+      `IMPORTANTE — O PO já CORRIGIU MANUALMENTE sketches anteriores deste mesmo Tipo de Planeta. Trate isso como a preferência REAL da equipe, com prioridade MÁXIMA sobre qualquer outra inferência sua (inclusive sobre a imagem de referência, se as duas coisas conflitarem):\n\n${correctionsText}\n\nCompare o "antes" e o "depois" de cada correção — o que mudou de posição (zone/row/order), de proporção (widthHint/heightHint) ou de nome (label) é exatamente o que o PO considera certo. Replique esse padrão sempre que a situação for parecida nesta nova geração.`
     );
   }
 
@@ -98,6 +126,26 @@ const REFERENCE_MIME_BY_EXTENSION: Record<string, string> = {
 function extensionOf(url: string): string {
   const withoutQuery = url.split("?")[0];
   return withoutQuery.split(".").pop()?.toLowerCase() ?? "";
+}
+
+// Busca correções manuais de layout (Bridge-3b) CRUZANDO Planetas do mesmo
+// Tipo — mesmo escopo já usado pros WIREFRAME_REFERENCE em
+// buildContextPackage.ts. `getRelevantPatterns`/`contextPackage.memoryPatterns`
+// (usado pro BDD) só olha o Planeta exato, o que faria uma correção feita
+// num Planeta nunca ensinar outro Planeta do mesmo Tipo — exatamente o
+// oposto do que uma correção de layout deveria fazer.
+async function fetchLayoutCorrectionPatterns(planetContextNodeId: string): Promise<MemoryPattern[]> {
+  const planet = await db.contextNode.findUnique({ where: { id: planetContextNodeId }, select: { planetTypeId: true } });
+  if (!planet?.planetTypeId) return [];
+
+  return db.memoryPattern.findMany({
+    where: {
+      patternType: SKETCH_LAYOUT_CORRECTION_PATTERN_TYPE,
+      contextNode: { type: "PLANETA", planetTypeId: planet.planetTypeId },
+    },
+    orderBy: { confidence: "desc" },
+    take: 2,
+  });
 }
 
 // Busca a imagem/PDF de referência de wireframe mais relevante pro Planeta
@@ -132,29 +180,17 @@ async function fetchWireframeReferenceImage(
   }
 }
 
-// Extrai e valida o JSON de blocos retornado pela IA. Tolerante a cercas de
-// código markdown (```json ... ```) que alguns providers ainda incluem mesmo
-// quando instruídos a não fazê-lo. Lança erro (-> ERRO_GERACAO) se o
-// resultado não puder ser interpretado como um sketch válido.
-function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
-  const stripped = rawText.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  const firstBrace = stripped.indexOf("{");
-  const lastBrace = stripped.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1) throw new Error("A IA não retornou um JSON válido para o sketch.");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripped.slice(firstBrace, lastBrace + 1));
-  } catch {
-    throw new Error("A IA retornou um JSON inválido para o sketch.");
-  }
-
-  const blocksRaw = (parsed as { blocks?: unknown })?.blocks;
+// Extrai e valida uma lista de blocos de sketch a partir de um valor bruto
+// (a resposta em JSON da IA, ou o corpo enviado pelo editor manual —
+// Bridge-3b) — mesma normalização nos dois casos, então o formato salvo no
+// banco é sempre consistente independente de quem gerou. Lança erro se não
+// houver pelo menos um bloco.
+export function normalizeSketchBlocks(blocksRaw: unknown): SketchBlock[] {
   if (!Array.isArray(blocksRaw) || blocksRaw.length === 0) {
-    throw new Error("O JSON do sketch não contém nenhum bloco.");
+    throw new Error("O sketch precisa ter pelo menos um bloco.");
   }
 
-  const blocks = blocksRaw.map((item, index) => {
+  return blocksRaw.map((item, index) => {
     const raw = item as {
       label?: unknown;
       zone?: unknown;
@@ -176,8 +212,8 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
       ? (raw.widthHint as (typeof SKETCH_WIDTH_HINTS)[number])
       : "fill";
     // header/footer são sempre compactos por definição (linha fixa, largura
-    // total) — mesmo que a IA sugira "fill" por engano, ignora e força
-    // "compact" pra essas duas zonas.
+    // total) — mesmo que a IA (ou o editor manual) sugira "fill" por engano,
+    // ignora e força "compact" pra essas duas zonas.
     const heightHint =
       zone === "header" || zone === "footer"
         ? "compact"
@@ -186,8 +222,27 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
           : "compact";
     return { label, zone, row, order, widthHint, heightHint };
   });
+}
 
-  return { blocks } as Prisma.InputJsonValue;
+// Extrai e valida o JSON de blocos retornado pela IA. Tolerante a cercas de
+// código markdown (```json ... ```) que alguns providers ainda incluem mesmo
+// quando instruídos a não fazê-lo. Lança erro (-> ERRO_GERACAO) se o
+// resultado não puder ser interpretado como um sketch válido.
+function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
+  const stripped = rawText.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const firstBrace = stripped.indexOf("{");
+  const lastBrace = stripped.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1) throw new Error("A IA não retornou um JSON válido para o sketch.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripped.slice(firstBrace, lastBrace + 1));
+  } catch {
+    throw new Error("A IA retornou um JSON inválido para o sketch.");
+  }
+
+  const blocks = normalizeSketchBlocks((parsed as { blocks?: unknown })?.blocks);
+  return { blocks } as unknown as Prisma.InputJsonValue;
 }
 
 // Roda a geração (ou regeração) do BDD/PBI de um Bridge e grava o resultado
@@ -247,7 +302,15 @@ export async function runSketchGeneration(bridgeId: string): Promise<void> {
     const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
     const provider = await getAIProvider();
     const wireframeImage = await fetchWireframeReferenceImage(contextPackage, bridge.planetContextNodeId);
-    const prompt = buildSketchPrompt(bridge.generatedBddPbi, bridge.lastSketchRejectionComment, wireframeImage !== null);
+    // Cruza Planetas do mesmo Tipo (não só o Planeta exato deste Bridge) —
+    // ver fetchLayoutCorrectionPatterns.
+    const layoutCorrections = await fetchLayoutCorrectionPatterns(bridge.planetContextNodeId);
+    const prompt = buildSketchPrompt(
+      bridge.generatedBddPbi,
+      bridge.lastSketchRejectionComment,
+      wireframeImage !== null,
+      layoutCorrections
+    );
 
     const { text } = await provider.generate({
       prompt,

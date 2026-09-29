@@ -6,13 +6,14 @@ import Badge from "@/components/Badge";
 import GeneratingProgress from "@/components/GeneratingProgress";
 import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
+import SketchEditor from "@/components/SketchEditor";
 import SketchPreview from "@/components/SketchPreview";
 import { STATUS_BADGE_VARIANT, STATUS_LABEL } from "../statusMeta";
 import type { ApiBridge } from "../types";
 
-// Depois de 2 tentativas rejeitadas (BDD ou Sketch, contadas separadamente),
-// sugere edição manual (aviso, sem implementar edição de verdade ainda —
-// fase futura: Bridge-3b).
+// Depois de 2 tentativas rejeitadas do Sketch, destaca o aviso pra editar
+// manualmente (Bridge-3b) — o botão em si já fica disponível desde a
+// primeira geração, isso só chama mais atenção pra essa alternativa.
 const MANUAL_EDIT_HINT_THRESHOLD = 2;
 
 const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_SKETCH"];
@@ -25,6 +26,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -213,19 +215,22 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
               <p className="text-sm text-[#ffb688]">
                 Já são {bridge.sketchAttemptCount} tentativas — considere editar manualmente.
               </p>
-              <PillButton type="button" variant="inactive" className="mt-3" disabled>
-                Editar manualmente (em breve)
+              <PillButton type="button" variant="inactive" className="mt-3" onClick={() => setEditorOpen(true)} disabled={busy}>
+                Editar manualmente
               </PillButton>
             </div>
           )}
 
           {!showRejectForm ? (
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <PillButton type="button" variant="primary" onClick={handleApprove} disabled={busy}>
                 {busy ? "Aprovando..." : "Aprovar"}
               </PillButton>
               <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
                 Rejeitar e comentar
+              </PillButton>
+              <PillButton type="button" variant="inactive" onClick={() => setEditorOpen(true)} disabled={busy}>
+                Editar manualmente
               </PillButton>
             </div>
           ) : busy ? (
@@ -271,6 +276,18 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
             <SketchPreview sketchData={bridge.sketchData} />
           </GlassCard>
         </>
+      )}
+
+      {editorOpen && bridge.status === "AGUARDANDO_APROVACAO_SKETCH" && (
+        <SketchEditor
+          bridgeId={bridge.id}
+          initialSketchData={bridge.sketchData}
+          onClose={() => setEditorOpen(false)}
+          onSaved={(updated) => {
+            setBridge(updated);
+            setEditorOpen(false);
+          }}
+        />
       )}
     </div>
   );

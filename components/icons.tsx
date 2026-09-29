@@ -9,6 +9,7 @@ import {
   Clock,
   Filter,
   Globe,
+  GripVertical,
   Link2,
   Network,
   Package,
@@ -242,4 +243,9 @@ export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
 
 export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   return <ChevronRight strokeWidth={1.7} {...props} />;
+}
+
+// Alça de arrastar — usada no editor manual do Sketch (Bridge-3b).
+export function GripIcon(props: SVGProps<SVGSVGElement>) {
+  return <GripVertical strokeWidth={1.7} {...props} />;
 }
