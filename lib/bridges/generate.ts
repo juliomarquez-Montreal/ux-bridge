@@ -4,18 +4,18 @@ import type { AIImagePart } from "@/lib/ai/types";
 import { getAIProvider } from "@/lib/ai/provider";
 import { buildContextPackage, type ContextPackage } from "@/lib/nova/buildContextPackage";
 
-// Vocabulário fixo de regiões pro Sketch (Bridge-3a) — cada uma mapeia pra
-// uma linha ou zona fixa da grade 2D desenhada pelo SketchPreview (nunca uma
-// lista vertical simples): header (cabeçalho global, topo, largura total),
-// sidebar (coluna estreita à esquerda), page-header (linha do título da
-// página + botão de ação principal), toolbar (linha de busca/filtros),
-// tabs (linha de abas de navegação/visualização, quando houver), main-table
-// (conteúdo principal) e footer (rodapé/paginação, largura total).
-// page-header/toolbar/tabs são linhas SEPARADAS mesmo quando próximas na
-// tela real — antes só existia "toolbar" pra isso, o que forçava a IA a
-// espremer 3 conceitos diferentes numa única linha.
-const SKETCH_REGIONS = ["header", "sidebar", "page-header", "toolbar", "tabs", "main-table", "footer"] as const;
-const SKETCH_SIZES = ["small", "medium", "large"] as const;
+// Modelo genérico de layout do Sketch (Bridge-3a) — só 4 zonas estruturais
+// universais, sem lista fixa de "tipos de linha" (nada de "toolbar"/"tabs"/
+// etc: isso variava por tela e forçava vocabulário novo a cada estrutura
+// diferente). header/sidebar/footer são sempre largura-total-no-topo,
+// coluna-estreita-à-esquerda-e-altura-cheia, e largura-total-na-base,
+// respectivamente. Tudo o mais é "content", onde a IA decide livremente
+// quantas linhas existem (via "row") e a disposição de cada uma (via
+// "order"/widthHint/heightHint) observando a imagem de referência — nunca
+// um nome de região fixo que não existe na tela real.
+const SKETCH_ZONES = ["header", "sidebar", "footer", "content"] as const;
+const SKETCH_WIDTH_HINTS = ["fill", "auto"] as const;
+const SKETCH_HEIGHT_HINTS = ["compact", "fill"] as const;
 
 // Monta o prompt de geração do BDD/PBI. O pacote de contexto completo (posição
 // na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta
@@ -56,17 +56,19 @@ function buildBddPrompt(rawMaterialText: string | null, rawMaterialFileUrl: stri
 // garantir que a renderização (SketchPreview) seja sempre confiável.
 function buildSketchPrompt(bddPbiText: string, lastSketchRejectionComment: string | null, hasWireframeReference: boolean): string {
   const parts: string[] = [
-    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "region": "header|sidebar|page-header|toolbar|tabs|main-table|footer", "size": "small|medium|large", "order": 0}]}`,
-    `"region" precisa vir EXATAMENTE deste vocabulário fixo, sem inventar outros nomes — cada um mapeia pra uma linha ou zona fixa do layout, de cima pra baixo: "header" (cabeçalho GLOBAL do sistema — logo, notificações, perfil do usuário — topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral), "page-header" (a linha do TÍTULO da página + o botão de ação principal, ex: "Listagem de Projetos" + botão "Novo projeto"), "toolbar" (a linha de busca e filtros), "tabs" (a linha de abas de navegação/visualização, SÓ se a tela realmente tiver abas), "main-table" (o conteúdo principal — tabela, gráfico, cards, formulário) e "footer" (rodapé/paginação, largura total). "page-header", "toolbar" e "tabs" são linhas DIFERENTES E SEPARADAS mesmo quando aparecem próximas ou coladas na tela real — NUNCA junte o título da página com os filtros de busca, ou as abas com a busca, numa linha só.`,
-    `Cada bloco representa UM ÚNICO elemento de interface real, com um nome SIMPLES e SINGULAR (ex: "Campo de busca", "Botão Filtros", "Dropdown Filtrar por Status", "Botão Novo projeto", "Título da página"). NUNCA combine dois elementos diferentes num nome só usando "+", "e" ou "/" (ex: nunca "Busca+Status" ou "Ações e status") — se uma linha tem busca E filtro, são DOIS blocos separados na mesma region (ex: os dois com region "toolbar", "order" diferente cada um). Badges/tags de status coloridos DENTRO das linhas de uma tabela são CONTEÚDO DE DADO da tabela, não elementos de navegação — nunca crie um bloco separado pra eles; se quiser, mencione isso só dentro do label do próprio bloco "main-table" (ex: "Tabela de listagem com coluna de status colorido"), nunca como bloco da toolbar.`,
-    `"order" é um número inteiro indicando a posição HORIZONTAL do bloco dentro da mesma "region" (0 = mais à esquerda, 1 = o próximo à direita dele, etc.) — blocos de regions diferentes podem repetir o mesmo "order" sem problema, isso não importa entre regions diferentes. Observe a imagem de referência (quando houver) com atenção pra preencher esse campo refletindo a ordem visual real da esquerda pra direita — nunca invente uma ordem, replique a que está na imagem.`,
+    `Você projeta a estrutura básica de tela (sketch) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "zone": "header|sidebar|footer|content", "row": 0, "order": 0, "widthHint": "fill|auto", "heightHint": "compact|fill"}]}`,
+    `"zone" só tem 4 valores possíveis, sem exceção: "header" (cabeçalho GLOBAL do sistema, topo, largura total), "sidebar" (coluna estreita à esquerda, ex: menu lateral, altura total), "footer" (rodapé/paginação, base, largura total) e "content" (TUDO o resto — título da página, botões, busca, filtros, abas, tabela, formulário, gráfico, cards — qualquer elemento específico dessa tela em particular). A maioria dos blocos vai em "content".`,
+    `Dentro de "content", você decide livremente quantas LINHAS existem e o que tem em cada uma, observando a estrutura real da tela (ou da imagem de referência, quando houver) — não existe uma lista fixa de nomes de linha. Use "row" (0, 1, 2, 3... quantas forem necessárias) pra dizer em qual linha vertical o bloco está, de cima pra baixo. Elementos que ficam VISUALMENTE na mesma linha horizontal (ex: título da página + botão de ação ao lado; ou campo de busca + botão de filtro lado a lado) recebem o MESMO "row" e "order" diferentes. Elementos que ficam em linhas diferentes (ex: um botão de ação ABAIXO do título, não ao lado) recebem "row" diferentes — preste muita atenção nisso: só use o mesmo "row" quando os elementos realmente estão emparelhados horizontalmente na tela real, nunca por suposição.`,
+    `Cada bloco representa UM ÚNICO elemento de interface real, com um nome SIMPLES e SINGULAR (ex: "Campo de busca", "Botão Filtros", "Dropdown Filtrar por Status", "Botão Novo projeto", "Título da página"). NUNCA combine dois elementos diferentes num nome só usando "+", "e" ou "/" (ex: nunca "Busca+Status" ou "Ações e status") — se uma linha tem busca E filtro, são DOIS blocos separados com o mesmo "row" e "order" diferente. Badges/tags de status coloridos DENTRO das linhas de uma tabela são CONTEÚDO DE DADO da tabela, não elementos de navegação — nunca crie um bloco separado pra eles; se quiser, mencione isso só dentro do label do próprio bloco de tabela (ex: "Tabela de listagem com coluna de status colorido"), nunca como um bloco à parte.`,
+    `"order" é um número inteiro indicando a posição HORIZONTAL do bloco dentro da mesma zone+row (0 = mais à esquerda, 1 = o próximo à direita dele, etc.). Observe a imagem de referência (quando houver) com atenção pra preencher "row" e "order" refletindo a disposição visual real — nunca invente, replique o que está na imagem.`,
+    `"widthHint": "fill" quando o elemento deve esticar pra ocupar o espaço disponível na linha (ex: um campo de busca, uma tabela); "auto" quando o elemento é compacto, do tamanho do próprio texto/ícone (ex: um botão pequeno, um dropdown, um ícone). "heightHint": IMPORTANTE PRA FINS EDUCATIVOS — o PO precisa aprender a reconhecer proporções reais de componentes, então observe as PROPORÇÕES REAIS da tela (ou imagem de referência) com atenção. Use "compact" pra elementos de controle — botões, campos de texto, títulos, abas — que são sempre baixos/rasos. Use "fill" SÓ pro conteúdo principal — tabela, gráfico, lista, formulário grande — que deve ocupar a MAIOR PARTE do espaço vertical disponível, muito maior que uma linha de botões ou filtros. Tamanhos desproporcionais atrapalham o aprendizado, então nunca marque uma tabela como "compact" nem um botão como "fill".`,
     `Liste os blocos na ordem visual de cima para baixo e da esquerda para a direita. Use o pacote de contexto fornecido — especialmente os componentes do Design System da Galáxia, quando houver — para nomear cada bloco com a terminologia real da equipe (ex: o nome exato de um componente do Figma). Se não houver Design System vinculado, use terminologia genérica de UI (ex: "Campo de busca", "Botão de filtro", "Tabela de listagem", "Coluna de ID").`,
     `BDD/PBI aprovado que este sketch precisa representar:\n"""\n${bddPbiText}\n"""`,
   ];
 
   if (hasWireframeReference) {
     parts.push(
-      `Uma imagem de wireframe de referência real foi anexada a esta mensagem (arquivo enviado, não apenas mencionado). Use-a como referência da DISPOSIÇÃO REAL dos elementos — replique a estrutura (posições, proporção do menu lateral vs. área de conteúdo, alinhamento entre os blocos, ordem horizontal esquerda/direita dentro de cada linha), mas mantenha o resultado como um sketch simples de caixas (label/region/size/order), nunca uma descrição da aparência visual ou cópia de estilo.`
+      `Uma imagem de wireframe de referência real foi anexada a esta mensagem (arquivo enviado, não apenas mencionado). Use-a como referência da DISPOSIÇÃO REAL dos elementos — replique a estrutura (quantas linhas existem, o que fica emparelhado na mesma linha vs. em linhas separadas, proporção do menu lateral vs. área de conteúdo, proporção de altura entre um controle compacto e o conteúdo principal, ordem horizontal esquerda/direita dentro de cada linha), mas mantenha o resultado como um sketch simples de caixas (label/zone/row/order/widthHint/heightHint), nunca uma descrição da aparência visual ou cópia de estilo.`
     );
   }
 
@@ -153,19 +155,36 @@ function parseSketchResponse(rawText: string): Prisma.InputJsonValue {
   }
 
   const blocks = blocksRaw.map((item, index) => {
-    const raw = item as { label?: unknown; region?: unknown; size?: unknown; order?: unknown };
+    const raw = item as {
+      label?: unknown;
+      zone?: unknown;
+      row?: unknown;
+      order?: unknown;
+      widthHint?: unknown;
+      heightHint?: unknown;
+    };
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
-    const region = SKETCH_REGIONS.includes(raw.region as (typeof SKETCH_REGIONS)[number])
-      ? (raw.region as (typeof SKETCH_REGIONS)[number])
-      : "main-table";
-    const size = SKETCH_SIZES.includes(raw.size as (typeof SKETCH_SIZES)[number])
-      ? (raw.size as (typeof SKETCH_SIZES)[number])
-      : "medium";
+    const zone = SKETCH_ZONES.includes(raw.zone as (typeof SKETCH_ZONES)[number])
+      ? (raw.zone as (typeof SKETCH_ZONES)[number])
+      : "content";
+    const row = zone === "content" && typeof raw.row === "number" && Number.isFinite(raw.row) ? raw.row : 0;
     // Índice no array como fallback — mantém a ordem visual "de cima pra
     // baixo / esquerda pra direita" que a IA já lista mesmo se "order" vier
     // ausente ou inválido.
     const order = typeof raw.order === "number" && Number.isFinite(raw.order) ? raw.order : index;
-    return { label, region, size, order };
+    const widthHint = SKETCH_WIDTH_HINTS.includes(raw.widthHint as (typeof SKETCH_WIDTH_HINTS)[number])
+      ? (raw.widthHint as (typeof SKETCH_WIDTH_HINTS)[number])
+      : "fill";
+    // header/footer são sempre compactos por definição (linha fixa, largura
+    // total) — mesmo que a IA sugira "fill" por engano, ignora e força
+    // "compact" pra essas duas zonas.
+    const heightHint =
+      zone === "header" || zone === "footer"
+        ? "compact"
+        : SKETCH_HEIGHT_HINTS.includes(raw.heightHint as (typeof SKETCH_HEIGHT_HINTS)[number])
+          ? (raw.heightHint as (typeof SKETCH_HEIGHT_HINTS)[number])
+          : "compact";
+    return { label, zone, row, order, widthHint, heightHint };
   });
 
   return { blocks } as Prisma.InputJsonValue;

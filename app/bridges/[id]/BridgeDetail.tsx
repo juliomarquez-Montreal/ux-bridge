@@ -181,6 +181,10 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
                 Rejeitar e comentar
               </PillButton>
             </div>
+          ) : busy ? (
+            <div className="mt-4">
+              <GeneratingProgress label="Gerando BDD/PBI..." />
+            </div>
           ) : (
             <RejectForm
               value={rejectComment}
@@ -223,6 +227,10 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
               <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
                 Rejeitar e comentar
               </PillButton>
+            </div>
+          ) : busy ? (
+            <div className="mt-4">
+              <GeneratingProgress label="Gerando sketch..." />
             </div>
           ) : (
             <RejectForm

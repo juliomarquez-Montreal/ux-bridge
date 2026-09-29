@@ -6,19 +6,30 @@ export type BridgeStatus =
   | "AGUARDANDO_WIREFRAME"
   | "ERRO_GERACAO";
 
-// Vocabulário fixo de regiões do Sketch (Bridge-3a) — espelha
-// lib/bridges/generate.ts (SKETCH_REGIONS). Cada uma mapeia pra uma linha ou
-// zona fixa da grade 2D desenhada pelo SketchPreview.
-export type SketchRegion = "header" | "sidebar" | "page-header" | "toolbar" | "tabs" | "main-table" | "footer";
-export type SketchBlockSize = "small" | "medium" | "large";
+// Modelo genérico de layout do Sketch (Bridge-3a) — espelha
+// lib/bridges/generate.ts (SKETCH_ZONES). Só 4 zonas estruturais universais;
+// tudo que é específico de uma tela em particular (quantas linhas, o que
+// tem em cada uma) é decidido pela IA via row/order/hints, não por um
+// vocabulário fixo de nomes de região.
+export type SketchZone = "header" | "sidebar" | "footer" | "content";
+export type SketchWidthHint = "fill" | "auto";
+export type SketchHeightHint = "compact" | "fill";
 
 export interface SketchBlock {
   label: string;
-  region: SketchRegion;
-  size: SketchBlockSize;
-  // Posição horizontal dentro da mesma region (0 = mais à esquerda) — usado
-  // pra ordenar blocos de uma mesma linha (page-header/toolbar/tabs).
+  zone: SketchZone;
+  // Só relevante quando zone="content": linha vertical dentro da área de
+  // conteúdo (0 = primeira linha, de cima pra baixo).
+  row: number;
+  // Posição horizontal dentro da mesma zone+row (0 = mais à esquerda).
   order: number;
+  // "fill": ocupa o espaço restante da linha, dividido entre os blocos
+  // "fill" dela. "auto": largura compacta, do tamanho do próprio conteúdo.
+  widthHint: SketchWidthHint;
+  // "compact": elemento de controle (botão, campo, título, aba) — baixo.
+  // "fill": conteúdo principal (tabela, gráfico, lista) — deve dominar o
+  // espaço vertical disponível.
+  heightHint: SketchHeightHint;
 }
 
 export interface SketchData {
