@@ -45,7 +45,7 @@ export async function POST(request: Request, { params }: Params) {
 
   let blocks: ReturnType<typeof normalizeSketchBlocks>;
   try {
-    blocks = normalizeSketchBlocks(body.blocks);
+    blocks = normalizeSketchBlocks(body.blocks, { allowManualSizing: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Blocos do sketch inválidos." }, { status: 400 });
   }

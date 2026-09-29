@@ -185,10 +185,18 @@ async function fetchWireframeReferenceImage(
 // Bridge-3b) — mesma normalização nos dois casos, então o formato salvo no
 // banco é sempre consistente independente de quem gerou. Lança erro se não
 // houver pelo menos um bloco.
-export function normalizeSketchBlocks(blocksRaw: unknown): SketchBlock[] {
+//
+// `allowManualSizing` controla se manualWidthPercent/manualHeightPx (Bridge-3b,
+// redimensionamento livre por arraste) são aceitos do valor bruto — só true
+// quando vem do editor manual (app/api/bridges/[id]/sketch-edit/route.ts).
+// A resposta da IA (parseSketchResponse) nunca passa essa opção, então esses
+// campos são sempre descartados de qualquer coisa que a IA gerar, mesmo que
+// ela inclua por engano — a IA nunca deve decidir tamanho exato em pixels.
+export function normalizeSketchBlocks(blocksRaw: unknown, options?: { allowManualSizing?: boolean }): SketchBlock[] {
   if (!Array.isArray(blocksRaw) || blocksRaw.length === 0) {
     throw new Error("O sketch precisa ter pelo menos um bloco.");
   }
+  const allowManualSizing = options?.allowManualSizing ?? false;
 
   return blocksRaw.map((item, index) => {
     const raw = item as {
@@ -198,6 +206,8 @@ export function normalizeSketchBlocks(blocksRaw: unknown): SketchBlock[] {
       order?: unknown;
       widthHint?: unknown;
       heightHint?: unknown;
+      manualWidthPercent?: unknown;
+      manualHeightPx?: unknown;
     };
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
     const zone = SKETCH_ZONES.includes(raw.zone as (typeof SKETCH_ZONES)[number])
@@ -220,7 +230,17 @@ export function normalizeSketchBlocks(blocksRaw: unknown): SketchBlock[] {
         : SKETCH_HEIGHT_HINTS.includes(raw.heightHint as (typeof SKETCH_HEIGHT_HINTS)[number])
           ? (raw.heightHint as (typeof SKETCH_HEIGHT_HINTS)[number])
           : "compact";
-    return { label, zone, row, order, widthHint, heightHint };
+
+    const block: SketchBlock = { label, zone, row, order, widthHint, heightHint };
+    if (allowManualSizing) {
+      if (typeof raw.manualWidthPercent === "number" && Number.isFinite(raw.manualWidthPercent)) {
+        block.manualWidthPercent = Math.min(100, Math.max(0, raw.manualWidthPercent));
+      }
+      if (typeof raw.manualHeightPx === "number" && Number.isFinite(raw.manualHeightPx) && raw.manualHeightPx > 0) {
+        block.manualHeightPx = raw.manualHeightPx;
+      }
+    }
+    return block;
   });
 }
 

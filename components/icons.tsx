@@ -249,3 +249,15 @@ export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
 export function GripIcon(props: SVGProps<SVGSVGElement>) {
   return <GripVertical strokeWidth={1.7} {...props} />;
 }
+
+// Alça de redimensionar livre (canto inferior direito) — três traços
+// diagonais, estilo Figma/Canva. Usada no editor manual do Sketch (Bridge-3b).
+export function ResizeHandleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" {...props}>
+      <path d="M14 2 2 14" />
+      <path d="M14 7 7 14" />
+      <path d="M14 12l-2 2" />
+    </svg>
+  );
+}

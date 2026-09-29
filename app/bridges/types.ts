@@ -30,6 +30,13 @@ export interface SketchBlock {
   // "fill": conteúdo principal (tabela, gráfico, lista) — deve dominar o
   // espaço vertical disponível.
   heightHint: SketchHeightHint;
+  // Redimensionamento livre (Bridge-3b) — só existe depois que o PO arrasta
+  // a alça de um bloco no editor manual. Quando presente, TEM PRIORIDADE
+  // sobre widthHint/heightHint na renderização (editor e visualização
+  // normal). A IA nunca gera esses campos — normalizeSketchBlocks
+  // (lib/bridges/generate.ts) só os aceita vindos do editor manual.
+  manualWidthPercent?: number; // 0-100, % do espaço disponível na linha/coluna
+  manualHeightPx?: number; // altura exata em pixels
 }
 
 export interface SketchData {

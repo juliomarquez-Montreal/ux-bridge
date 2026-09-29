@@ -17,13 +17,23 @@ import type { SketchBlock, SketchData } from "@/app/bridges/types";
 // PO precisa reconhecer que uma tabela/gráfico não tem a altura de um botão).
 const FILL_MIN_HEIGHT = "min-h-56";
 
+// Redimensionamento livre (Bridge-3b, manualWidthPercent/manualHeightPx) tem
+// prioridade sobre widthHint/heightHint sempre que presente — só existe
+// depois que o PO ajustou o bloco pela alça no editor manual; Sketches
+// antigos (sem esses campos) continuam usando só a lógica de hints.
+function hasManualHeight(block: SketchBlock): boolean {
+  return typeof block.manualHeightPx === "number";
+}
+
 function BlockContent({ block }: { block: SketchBlock }) {
+  const manualHeight = hasManualHeight(block);
   return (
     <>
       <div
         className={`w-full rounded-md border-2 border-dashed border-white/25 bg-white/5 ${
-          block.heightHint === "fill" ? `flex-1 ${FILL_MIN_HEIGHT}` : "h-14 shrink-0"
+          manualHeight ? "shrink-0" : block.heightHint === "fill" ? `flex-1 ${FILL_MIN_HEIGHT}` : "h-14 shrink-0"
         }`}
+        style={manualHeight ? { height: `${block.manualHeightPx}px` } : undefined}
       />
       <div className="flex items-start justify-center gap-1 text-center text-red-400">
         <span aria-hidden className="leading-none">↑</span>
@@ -38,19 +48,24 @@ function BlockContent({ block }: { block: SketchBlock }) {
 // compacta fixa, do tamanho típico de um botão/dropdown pequeno.
 function Row({ blocks }: { blocks: SketchBlock[] }) {
   const sorted = [...blocks].sort((a, b) => a.order - b.order);
-  const hasFillHeight = sorted.some((block) => block.heightHint === "fill");
+  const hasFillHeight = sorted.some((block) => block.heightHint === "fill" && !hasManualHeight(block));
   return (
     <div className={`flex items-stretch gap-3 ${hasFillHeight ? "h-full" : ""}`}>
-      {sorted.map((block, index) => (
-        <div
-          key={index}
-          className={`flex flex-col gap-1.5 ${block.widthHint === "fill" ? "flex-1" : "w-40 shrink-0"} ${
-            block.heightHint === "fill" ? "h-full" : ""
-          }`}
-        >
-          <BlockContent block={block} />
-        </div>
-      ))}
+      {sorted.map((block, index) => {
+        const manualWidth = typeof block.manualWidthPercent === "number";
+        const manualHeight = hasManualHeight(block);
+        return (
+          <div
+            key={index}
+            style={manualWidth ? { width: `${block.manualWidthPercent}%`, flex: "0 0 auto" } : undefined}
+            className={`flex flex-col gap-1.5 ${manualWidth ? "" : block.widthHint === "fill" ? "flex-1" : "w-40 shrink-0"} ${
+              manualHeight ? "" : block.heightHint === "fill" ? "h-full" : ""
+            }`}
+          >
+            <BlockContent block={block} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -61,11 +76,19 @@ function Column({ blocks }: { blocks: SketchBlock[] }) {
   const sorted = [...blocks].sort((a, b) => a.order - b.order);
   return (
     <div className="flex h-full flex-col gap-3">
-      {sorted.map((block, index) => (
-        <div key={index} className={`flex flex-col gap-1.5 ${block.heightHint === "fill" ? "flex-1" : "shrink-0"}`}>
-          <BlockContent block={block} />
-        </div>
-      ))}
+      {sorted.map((block, index) => {
+        const manualWidth = typeof block.manualWidthPercent === "number";
+        const manualHeight = hasManualHeight(block);
+        return (
+          <div
+            key={index}
+            style={manualWidth ? { width: `${block.manualWidthPercent}%` } : undefined}
+            className={`flex flex-col gap-1.5 ${manualHeight ? "" : block.heightHint === "fill" ? "flex-1" : "shrink-0"}`}
+          >
+            <BlockContent block={block} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -96,7 +119,9 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
   // Só reserva uma altura mínima pro miolo (sidebar + content) quando tem
   // alguma linha "fill" de verdade pra crescer — senão deixa a altura
   // natural do conteúdo, sem espaço vazio sobrando embaixo à toa.
-  const hasAnyFillRow = rowKeys.some((rowKey) => contentByRow.get(rowKey)!.some((block) => block.heightHint === "fill"));
+  const hasAnyFillRow = rowKeys.some((rowKey) =>
+    contentByRow.get(rowKey)!.some((block) => block.heightHint === "fill" && !hasManualHeight(block))
+  );
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-5">
@@ -119,7 +144,7 @@ export default function SketchPreview({ sketchData }: { sketchData: SketchData |
           ) : (
             rowKeys.map((rowKey) => {
               const rowBlocks = contentByRow.get(rowKey)!;
-              const isFillRow = rowBlocks.some((block) => block.heightHint === "fill");
+              const isFillRow = rowBlocks.some((block) => block.heightHint === "fill" && !hasManualHeight(block));
               return (
                 <div key={rowKey} className={isFillRow ? "flex-1" : "shrink-0"}>
                   <Row blocks={rowBlocks} />

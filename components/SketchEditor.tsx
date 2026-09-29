@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ApiBridge, SketchBlock, SketchData, SketchHeightHint, SketchWidthHint, SketchZone } from "@/app/bridges/types";
-import { CloseIcon, GripIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import { CloseIcon, GripIcon, PlusIcon, ResizeHandleIcon, TrashIcon } from "@/components/icons";
 import PillButton from "@/components/PillButton";
 
 // Editor visual manual do Sketch (Bridge-3b) — estilo Canva/Figma
@@ -192,6 +192,76 @@ export default function SketchEditor({
           </button>
         </div>
 
+        <div className="border-b border-white/10 px-6 py-4">
+          {!addOpen ? (
+            <PillButton type="button" variant="inactive" onClick={() => setAddOpen(true)}>
+              <span className="flex items-center gap-1.5">
+                <PlusIcon className="h-3.5 w-3.5" /> Adicionar bloco
+              </span>
+            </PillButton>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
+              <input
+                type="text"
+                value={newLabel}
+                onChange={(event) => setNewLabel(event.target.value)}
+                placeholder="Nome do componente..."
+                autoFocus
+                className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
+              />
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={newZone}
+                  onChange={(event) => setNewZone(event.target.value as SketchZone)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+                >
+                  {(Object.keys(ZONE_LABEL) as SketchZone[]).map((zone) => (
+                    <option key={zone} value={zone} className="bg-luminous-surface-container">
+                      {ZONE_LABEL[zone]}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={newWidthHint}
+                  onChange={(event) => setNewWidthHint(event.target.value as SketchWidthHint)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+                >
+                  <option value="fill" className="bg-luminous-surface-container">Largura: Preencher</option>
+                  <option value="auto" className="bg-luminous-surface-container">Largura: Compacta</option>
+                </select>
+                {newZone !== "header" && newZone !== "footer" && (
+                  <select
+                    value={newHeightHint}
+                    onChange={(event) => setNewHeightHint(event.target.value as SketchHeightHint)}
+                    style={{ colorScheme: "dark" }}
+                    className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+                  >
+                    <option value="compact" className="bg-luminous-surface-container">Altura: Compacta</option>
+                    <option value="fill" className="bg-luminous-surface-container">Altura: Preencher</option>
+                  </select>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <PillButton
+                  type="button"
+                  variant="inactive"
+                  onClick={() => {
+                    setAddOpen(false);
+                    setNewLabel("");
+                  }}
+                >
+                  Cancelar
+                </PillButton>
+                <PillButton type="button" variant="primary" onClick={handleAddBlock} disabled={!newLabel.trim()}>
+                  Adicionar
+                </PillButton>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto p-6">
           {header.length > 0 && (
             <div className="mb-3">
@@ -228,7 +298,7 @@ export default function SketchEditor({
               <DropStrip onDrop={() => moveToNewContentRow(0)} />
               {rowKeys.length === 0 && (
                 <p className="rounded-lg border border-dashed border-white/15 px-4 py-6 text-center text-sm text-luminous-on-surface-variant">
-                  Nenhum bloco de conteúdo — use &quot;+ Adicionar bloco&quot; abaixo.
+                  Nenhum bloco de conteúdo — use &quot;+ Adicionar bloco&quot; acima.
                 </p>
               )}
               {rowKeys.map((rowKey, index) => (
@@ -263,76 +333,6 @@ export default function SketchEditor({
               />
             </div>
           )}
-
-          <div className="mt-4">
-            {!addOpen ? (
-              <PillButton type="button" variant="inactive" onClick={() => setAddOpen(true)}>
-                <span className="flex items-center gap-1.5">
-                  <PlusIcon className="h-3.5 w-3.5" /> Adicionar bloco
-                </span>
-              </PillButton>
-            ) : (
-              <div className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
-                <input
-                  type="text"
-                  value={newLabel}
-                  onChange={(event) => setNewLabel(event.target.value)}
-                  placeholder="Nome do componente..."
-                  autoFocus
-                  className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
-                />
-                <div className="flex flex-wrap gap-2">
-                  <select
-                    value={newZone}
-                    onChange={(event) => setNewZone(event.target.value as SketchZone)}
-                    style={{ colorScheme: "dark" }}
-                    className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
-                  >
-                    {(Object.keys(ZONE_LABEL) as SketchZone[]).map((zone) => (
-                      <option key={zone} value={zone} className="bg-luminous-surface-container">
-                        {ZONE_LABEL[zone]}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={newWidthHint}
-                    onChange={(event) => setNewWidthHint(event.target.value as SketchWidthHint)}
-                    style={{ colorScheme: "dark" }}
-                    className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
-                  >
-                    <option value="fill" className="bg-luminous-surface-container">Largura: Preencher</option>
-                    <option value="auto" className="bg-luminous-surface-container">Largura: Compacta</option>
-                  </select>
-                  {newZone !== "header" && newZone !== "footer" && (
-                    <select
-                      value={newHeightHint}
-                      onChange={(event) => setNewHeightHint(event.target.value as SketchHeightHint)}
-                      style={{ colorScheme: "dark" }}
-                      className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
-                    >
-                      <option value="compact" className="bg-luminous-surface-container">Altura: Compacta</option>
-                      <option value="fill" className="bg-luminous-surface-container">Altura: Preencher</option>
-                    </select>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <PillButton
-                    type="button"
-                    variant="inactive"
-                    onClick={() => {
-                      setAddOpen(false);
-                      setNewLabel("");
-                    }}
-                  >
-                    Cancelar
-                  </PillButton>
-                  <PillButton type="button" variant="primary" onClick={handleAddBlock} disabled={!newLabel.trim()}>
-                    Adicionar
-                  </PillButton>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="border-t border-white/10 px-6 py-4">
@@ -388,8 +388,44 @@ function EditableBlockCard({
   fill?: boolean;
 }) {
   const canToggleHeight = block.zone !== "header" && block.zone !== "footer";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const hasManualWidth = typeof block.manualWidthPercent === "number";
+  const hasManualHeight = typeof block.manualHeightPx === "number";
+  const hasManualSize = hasManualWidth || hasManualHeight;
+
+  // Redimensionamento livre por arraste (estilo Figma/Canva) — a alça no
+  // canto inferior direito atualiza manualWidthPercent/manualHeightPx em
+  // tempo real conforme o mouse se move, com listeners no window (não no
+  // elemento) pra continuar funcionando mesmo se o cursor sair da alça.
+  function handleResizeStart(event: ReactMouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const card = cardRef.current;
+    const container = card?.parentElement;
+    if (!card || !container) return;
+
+    const containerWidth = container.clientWidth;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startRect = card.getBoundingClientRect();
+
+    function onMove(moveEvent: MouseEvent) {
+      const newWidthPx = Math.max(40, startRect.width + (moveEvent.clientX - startX));
+      const newHeightPx = Math.max(24, startRect.height + (moveEvent.clientY - startY));
+      const widthPercent = Math.min(100, Math.max(5, Math.round((newWidthPx / containerWidth) * 100)));
+      onUpdate(block.id, { manualWidthPercent: widthPercent, manualHeightPx: Math.round(newHeightPx) });
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   return (
     <div
+      ref={cardRef}
       draggable
       onDragStart={(event) => {
         event.dataTransfer.setData("text/plain", block.id);
@@ -402,9 +438,15 @@ function EditableBlockCard({
         event.stopPropagation();
         onDropOnBlock(block.id);
       }}
-      className={`flex cursor-grab flex-col gap-1.5 rounded-md border-2 border-dashed p-2 active:cursor-grabbing ${
+      style={{
+        ...(hasManualWidth ? { width: `${block.manualWidthPercent}%`, flex: "0 0 auto" } : {}),
+        ...(hasManualHeight ? { height: `${block.manualHeightPx}px` } : {}),
+      }}
+      className={`relative flex cursor-grab flex-col gap-1.5 rounded-md border-2 border-dashed p-2 active:cursor-grabbing ${
         draggedId === block.id ? "border-luminous-primary bg-luminous-primary/10 opacity-50" : "border-white/25 bg-white/5"
-      } ${fill ? "flex-1" : "w-44 shrink-0"} ${block.heightHint === "fill" ? "min-h-[160px]" : ""}`}
+      } ${hasManualWidth ? "" : fill ? "flex-1" : "w-44 shrink-0"} ${
+        hasManualHeight ? "" : block.heightHint === "fill" ? "min-h-[160px]" : ""
+      }`}
     >
       <div className="flex items-center gap-1">
         <GripIcon className="h-3.5 w-3.5 shrink-0 text-white/30" />
@@ -423,21 +465,25 @@ function EditableBlockCard({
           <TrashIcon className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <button
           type="button"
-          onClick={() => onUpdate(block.id, { widthHint: block.widthHint === "fill" ? "auto" : "fill" })}
+          onClick={() =>
+            onUpdate(block.id, { widthHint: block.widthHint === "fill" ? "auto" : "fill", manualWidthPercent: undefined })
+          }
           className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[9px] uppercase text-luminous-on-surface-variant hover:text-luminous-on-surface"
         >
-          L: {block.widthHint === "fill" ? "preencher" : "compacta"}
+          L: {hasManualWidth ? `${block.manualWidthPercent}%` : block.widthHint === "fill" ? "preencher" : "compacta"}
         </button>
         {canToggleHeight && (
           <button
             type="button"
-            onClick={() => onUpdate(block.id, { heightHint: block.heightHint === "fill" ? "compact" : "fill" })}
+            onClick={() =>
+              onUpdate(block.id, { heightHint: block.heightHint === "fill" ? "compact" : "fill", manualHeightPx: undefined })
+            }
             className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[9px] uppercase text-luminous-on-surface-variant hover:text-luminous-on-surface"
           >
-            A: {block.heightHint === "fill" ? "preencher" : "compacta"}
+            A: {hasManualHeight ? `${block.manualHeightPx}px` : block.heightHint === "fill" ? "preencher" : "compacta"}
           </button>
         )}
         <select
@@ -456,6 +502,25 @@ function EditableBlockCard({
             </option>
           ))}
         </select>
+        {hasManualSize && (
+          <button
+            type="button"
+            onClick={() => onUpdate(block.id, { manualWidthPercent: undefined, manualHeightPx: undefined })}
+            className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[9px] uppercase text-luminous-on-surface-variant hover:text-luminous-on-surface"
+          >
+            Redefinir tamanho
+          </button>
+        )}
+      </div>
+
+      <div
+        role="presentation"
+        draggable={false}
+        onDragStart={(event) => event.preventDefault()}
+        onMouseDown={handleResizeStart}
+        className="absolute bottom-0.5 right-0.5 cursor-nwse-resize text-white/30 hover:text-luminous-primary"
+      >
+        <ResizeHandleIcon className="h-3 w-3" />
       </div>
     </div>
   );
