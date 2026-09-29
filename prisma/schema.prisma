@@ -85,20 +85,32 @@ model UserGalaxyAccess {
   @@unique([userId, galaxyId])
 }
 
-// Bridge-1: fluxo básico de criação de um Bridge (material bruto -> BDD/PBI
-// aprovado pelo PO). Sketch/wireframe vêm nas fases Bridge-3/Bridge-5 — por
-// enquanto o Bridge fica parado em AGUARDANDO_WIREFRAME depois de aprovado.
+// Bridge-1 + Bridge-3a: fluxo de criação de um Bridge (material bruto ->
+// BDD/PBI aprovado pelo PO -> Sketch aprovado pelo PO). Wireframe de verdade
+// vem no Bridge-5 — por enquanto o Bridge fica parado em
+// AGUARDANDO_WIREFRAME depois do Sketch aprovado.
 model Bridge {
   id                  String      @id @default(cuid())
   planetContextNodeId String
   planet              ContextNode @relation(fields: [planetContextNodeId], references: [id], onDelete: Cascade)
   createdById         String
-  // GERANDO_BDD | AGUARDANDO_APROVACAO_PO | AGUARDANDO_WIREFRAME | ERRO_GERACAO
+  // GERANDO_BDD | AGUARDANDO_APROVACAO_BDD | GERANDO_SKETCH |
+  // AGUARDANDO_APROVACAO_SKETCH | AGUARDANDO_WIREFRAME | ERRO_GERACAO
   status              String
   // Material de entrada — arquivo OU texto colado (nunca os dois).
   rawMaterialText     String?
   rawMaterialFileUrl  String?
   generatedBddPbi     String?
+  // Primeira versão gerada do BDD/PBI (antes de qualquer rejeição) — mantida
+  // à parte de generatedBddPbi (que é sobrescrito a cada regeração) pra
+  // alimentar o par inicial/final do PlanetExample quando o BDD é aprovado.
+  firstGeneratedBddPbi String?
+  bddApprovedAt         DateTime?
+  // Estrutura do sketch gerada pela IA (blocos com label/region/size) — ver
+  // lib/bridges/generate.ts. Renderizada pelo componente SketchPreview.
+  sketchData             Json?
+  sketchAttemptCount     Int      @default(0)
+  lastSketchRejectionComment String?
   // Mensagem de erro da IA quando status=ERRO_GERACAO (não faz sentido
   // reaproveitar lastRejectionComment, que é do PO, não da falha técnica).
   errorMessage          String?

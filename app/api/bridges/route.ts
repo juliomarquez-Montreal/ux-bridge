@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { ensureBridgeMaterialsBucket, getSupabaseAdmin, BRIDGE_MATERIALS_BUCKET } from "@/lib/supabase-admin";
-import { runBridgeGeneration } from "@/lib/bridges/generate";
+import { runBddGeneration } from "@/lib/bridges/generate";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 
 // A geração roda dentro da própria requisição (sem fila) — pode levar
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     await db.bridge.update({ where: { id: bridge.id }, data: { rawMaterialText: textContent } });
   }
 
-  await runBridgeGeneration(bridge.id);
+  await runBddGeneration(bridge.id);
 
   const finalBridge = await db.bridge.findUnique({ where: { id: bridge.id }, include: BRIDGE_WITH_PLANET_INCLUDE });
   return NextResponse.json({ bridge: finalBridge }, { status: 201 });

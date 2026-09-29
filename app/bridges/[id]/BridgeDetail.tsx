@@ -4,12 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Badge from "@/components/Badge";
 import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
+import SketchPreview from "@/components/SketchPreview";
 import { STATUS_BADGE_VARIANT, STATUS_LABEL } from "../statusMeta";
 import type { ApiBridge } from "../types";
 
-// Depois de 2 tentativas rejeitadas, sugere edição manual (aviso, sem
-// implementar edição de verdade ainda — fase futura).
+// Depois de 2 tentativas rejeitadas (BDD ou Sketch, contadas separadamente),
+// sugere edição manual (aviso, sem implementar edição de verdade ainda —
+// fase futura: Bridge-3b).
 const MANUAL_EDIT_HINT_THRESHOLD = 2;
+
+const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_SKETCH"];
 
 export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   const [bridge, setBridge] = useState<ApiBridge | null>(null);
@@ -32,10 +36,11 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
     refresh().catch(() => setLoadError("Não foi possível carregar este Bridge."));
   }, [refresh]);
 
-  // Enquanto está gerando, faz polling — o usuário pode ter chegado aqui
-  // recarregando a página enquanto OUTRA aba/sessão disparou a geração.
+  // Enquanto está gerando (BDD ou Sketch), faz polling — o usuário pode ter
+  // chegado aqui recarregando a página enquanto OUTRA aba/sessão disparou a
+  // geração.
   useEffect(() => {
-    if (bridge?.status !== "GERANDO_BDD") {
+    if (!bridge || !GENERATING_STATUSES.includes(bridge.status)) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
@@ -45,7 +50,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [bridge?.status, refresh]);
+  }, [bridge, refresh]);
 
   async function handleApprove() {
     setBusy(true);
@@ -123,9 +128,11 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
 
       {actionError && <p className="mt-4 text-sm text-luminous-error">{actionError}</p>}
 
-      {bridge.status === "GERANDO_BDD" && (
+      {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_SKETCH") && (
         <GlassCard className="mt-6 text-center">
-          <p className="text-sm text-luminous-on-surface">Gerando BDD/PBI... isso pode levar um pouco.</p>
+          <p className="text-sm text-luminous-on-surface">
+            {bridge.status === "GERANDO_BDD" ? "Gerando BDD/PBI..." : "Gerando sketch..."} isso pode levar um pouco.
+          </p>
           <p className="mt-1 text-xs text-luminous-on-surface-variant">
             Pode fechar esta tela e voltar depois — o progresso continua no servidor.
           </p>
@@ -134,7 +141,9 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
 
       {bridge.status === "ERRO_GERACAO" && (
         <GlassCard className="mt-6">
-          <p className="text-sm font-medium text-luminous-error">Falha ao gerar o BDD/PBI</p>
+          <p className="text-sm font-medium text-luminous-error">
+            {bridge.bddApprovedAt ? "Falha ao gerar o sketch" : "Falha ao gerar o BDD/PBI"}
+          </p>
           <p className="mt-1 text-sm text-luminous-on-surface-variant">
             {bridge.errorMessage ?? "Erro desconhecido."}
           </p>
@@ -144,10 +153,11 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
         </GlassCard>
       )}
 
-      {bridge.status === "AGUARDANDO_APROVACAO_PO" && (
+      {/* Passo 1 de 2 — texto do BDD/PBI */}
+      {bridge.status === "AGUARDANDO_APROVACAO_BDD" && (
         <GlassCard className="mt-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-            BDD/PBI gerado
+            Passo 1 de 2 · BDD/PBI gerado
           </p>
           <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
             {bridge.generatedBddPbi}
@@ -162,6 +172,49 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
           {!showRejectForm ? (
             <div className="mt-4 flex gap-2">
               <PillButton type="button" variant="primary" onClick={handleApprove} disabled={busy}>
+                {busy ? "Confirmando..." : "OK"}
+              </PillButton>
+              <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
+                Rejeitar e comentar
+              </PillButton>
+            </div>
+          ) : (
+            <RejectForm
+              value={rejectComment}
+              onChange={setRejectComment}
+              onCancel={() => {
+                setShowRejectForm(false);
+                setRejectComment("");
+              }}
+              onSubmit={handleReject}
+              busy={busy}
+            />
+          )}
+        </GlassCard>
+      )}
+
+      {/* Passo 2 de 2 — sketch */}
+      {bridge.status === "AGUARDANDO_APROVACAO_SKETCH" && (
+        <GlassCard className="mt-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
+            Passo 2 de 2 · Sketch gerado
+          </p>
+          <SketchPreview sketchData={bridge.sketchData} />
+
+          {bridge.sketchAttemptCount >= MANUAL_EDIT_HINT_THRESHOLD && (
+            <div className="mt-4 rounded-lg border border-[#ffb688]/30 bg-[#ffb688]/10 px-4 py-3">
+              <p className="text-sm text-[#ffb688]">
+                Já são {bridge.sketchAttemptCount} tentativas — considere editar manualmente.
+              </p>
+              <PillButton type="button" variant="inactive" className="mt-3" disabled>
+                Editar manualmente (em breve)
+              </PillButton>
+            </div>
+          )}
+
+          {!showRejectForm ? (
+            <div className="mt-4 flex gap-2">
+              <PillButton type="button" variant="primary" onClick={handleApprove} disabled={busy}>
                 {busy ? "Aprovando..." : "Aprovar"}
               </PillButton>
               <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
@@ -169,39 +222,16 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
               </PillButton>
             </div>
           ) : (
-            <div className="mt-4 space-y-2">
-              <label
-                htmlFor="reject-comment"
-                className="block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant"
-              >
-                O que precisa ser corrigido?
-              </label>
-              <textarea
-                id="reject-comment"
-                rows={4}
-                autoFocus
-                value={rejectComment}
-                onChange={(event) => setRejectComment(event.target.value)}
-                placeholder="Ex: os critérios de aceite não cobrem o caso de erro de validação..."
-                className="w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
-              />
-              <div className="flex justify-end gap-2">
-                <PillButton
-                  type="button"
-                  variant="inactive"
-                  onClick={() => {
-                    setShowRejectForm(false);
-                    setRejectComment("");
-                  }}
-                  disabled={busy}
-                >
-                  Cancelar
-                </PillButton>
-                <PillButton type="button" variant="primary" onClick={handleReject} disabled={busy || !rejectComment.trim()}>
-                  {busy ? "Enviando..." : "Rejeitar e gerar de novo"}
-                </PillButton>
-              </div>
-            </div>
+            <RejectForm
+              value={rejectComment}
+              onChange={setRejectComment}
+              onCancel={() => {
+                setShowRejectForm(false);
+                setRejectComment("");
+              }}
+              onSubmit={handleReject}
+              busy={busy}
+            />
           )}
         </GlassCard>
       )}
@@ -209,7 +239,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       {bridge.status === "AGUARDANDO_WIREFRAME" && (
         <>
           <GlassCard className="mt-6 border-emerald-300/30 bg-emerald-300/5">
-            <p className="text-sm font-medium text-emerald-200">BDD/PBI aprovado.</p>
+            <p className="text-sm font-medium text-emerald-200">BDD/PBI e Sketch aprovados.</p>
             <p className="mt-1 text-sm text-luminous-on-surface-variant">
               A geração de wireframe estará disponível em uma futura atualização — você será notificado quando estiver
               pronta.
@@ -223,8 +253,56 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
               {bridge.generatedBddPbi}
             </pre>
           </GlassCard>
+          <GlassCard className="mt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
+              Sketch final
+            </p>
+            <SketchPreview sketchData={bridge.sketchData} />
+          </GlassCard>
         </>
       )}
+    </div>
+  );
+}
+
+function RejectForm({
+  value,
+  onChange,
+  onCancel,
+  onSubmit,
+  busy,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="mt-4 space-y-2">
+      <label
+        htmlFor="reject-comment"
+        className="block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant"
+      >
+        O que precisa ser corrigido?
+      </label>
+      <textarea
+        id="reject-comment"
+        rows={4}
+        autoFocus
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Ex: os critérios de aceite não cobrem o caso de erro de validação..."
+        className="w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
+      />
+      <div className="flex justify-end gap-2">
+        <PillButton type="button" variant="inactive" onClick={onCancel} disabled={busy}>
+          Cancelar
+        </PillButton>
+        <PillButton type="button" variant="primary" onClick={onSubmit} disabled={busy || !value.trim()}>
+          {busy ? "Enviando..." : "Rejeitar e gerar de novo"}
+        </PillButton>
+      </div>
     </div>
   );
 }
