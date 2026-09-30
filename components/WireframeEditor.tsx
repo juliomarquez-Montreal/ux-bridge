@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { ApiBridge, ApiUserRef, WireframeBlock } from "@/app/bridges/types";
+import type { ApiBridge, ApiUserRef, ApiWireframeAnnotation, ApiWireframeComment, WireframeBlock } from "@/app/bridges/types";
 import { normalizeWireframeBlocks } from "@/lib/bridges/wireframeLayout";
 import Avatar from "@/components/Avatar";
 import {
@@ -89,7 +89,23 @@ const TEXT_LABEL_PATTERN = /t[íi]tulo|texto|label|nome|descri[çc][ãa]o/i;
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
-type Tool = "select" | "hand" | "other";
+// Wireframe-1b: "frame"/"ellipse" desenham um bloco novo por arraste;
+// "pen" desenha uma anotação livre; "text" cria um bloco shape="text" por
+// clique; "comment" cria um pino de comentário por clique. "Componentes"
+// (Wireframe-1c) fica fora do enum — o botão continua sem função própria.
+type Tool = "select" | "hand" | "frame" | "ellipse" | "pen" | "text" | "comment";
+
+// Desloca todos os pontos numéricos de um path SVG simples ("M x y L x y
+// ...", o único formato que este editor gera) por (dx, dy) — usado pra
+// mover uma anotação de Caneta inteira sem precisar parsear/re-serializar
+// comandos de path complexos (nunca existem aqui, só M/L com números).
+function offsetPathData(pathData: string, dx: number, dy: number): string {
+  return pathData.replace(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g, (_match, xStr: string, yStr: string) => {
+    const x = Math.round(parseFloat(xStr) + dx);
+    const y = Math.round(parseFloat(yStr) + dy);
+    return `${x} ${y}`;
+  });
+}
 
 function blocksEqual(a: WireframeBlock[], b: WireframeBlock[]): boolean {
   if (a.length !== b.length) return false;
@@ -226,6 +242,28 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // seguindo o scroll/pan/zoom em tempo real.
   const [scrollPos, setScrollPos] = useState({ left: 0, top: 0 });
 
+  // --- Wireframe-1b: ferramentas de desenho (Frame/Elipse/Caneta/Texto) e
+  // comentários de colaboração ---
+  const [annotations, setAnnotations] = useState<ApiWireframeAnnotation[]>([]);
+  const [comments, setComments] = useState<ApiWireframeComment[]>([]);
+  // Retângulo sendo desenhado ao vivo (ferramentas Frame/Elipse, enquanto o
+  // botão do mouse está pressionado) — em coordenadas do frame (não de tela).
+  const [drawRect, setDrawRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  // Pontos do traço de Caneta sendo desenhado ao vivo, em coordenadas do frame.
+  const [penPoints, setPenPoints] = useState<{ x: number; y: number }[] | null>(null);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  // Bloco recém-criado por Frame/Elipse/Texto entra direto em modo de edição
+  // inline do nome (input sobreposto no lugar do label).
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editingLabelDraft, setEditingLabelDraft] = useState("");
+  // Comentário sendo composto (pino já posicionado, campo de texto aberto,
+  // ainda não salvo) e a thread aberta pra leitura/resposta (só uma por vez).
+  const [pendingCommentPos, setPendingCommentPos] = useState<{ x: number; y: number } | null>(null);
+  const [pendingCommentText, setPendingCommentText] = useState("");
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [commentFilter, setCommentFilter] = useState<"all" | "open" | "resolved">("all");
+
   const historyRef = useRef<WireframeBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
   const [historyTick, setHistoryTick] = useState(0);
@@ -247,6 +285,10 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   selectedIdsRef.current = selectedIds;
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+  const activeToolRef = useRef<Tool>(activeTool);
+  activeToolRef.current = activeTool;
 
   useEffect(() => {
     setBlocks(initialBlocks);
@@ -255,6 +297,19 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setHistoryTick((t) => t + 1);
     setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge.id]);
+
+  // Wireframe-1b: anotações e comentários vivem em tabelas à parte (não em
+  // Bridge.wireframeData), carregadas uma vez por Bridge.
+  useEffect(() => {
+    fetch(`/api/bridges/${bridge.id}/annotations`)
+      .then((res) => (res.ok ? res.json() : { annotations: [] }))
+      .then((data: { annotations?: ApiWireframeAnnotation[] }) => setAnnotations(data.annotations ?? []))
+      .catch(() => setAnnotations([]));
+    fetch(`/api/bridges/${bridge.id}/comments`)
+      .then((res) => (res.ok ? res.json() : { comments: [] }))
+      .then((data: { comments?: ApiWireframeComment[] }) => setComments(data.comments ?? []))
+      .catch(() => setComments([]));
   }, [bridge.id]);
 
   // Ajuste 1: mede continuamente a área visível do canvas (ver
@@ -440,6 +495,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     // direto no canvas — só desbloqueável via Camadas, que tem seu próprio
     // caminho de seleção (LayerRow.onSelect) que não passa por aqui.
     if (block.locked) return;
+    setSelectedAnnotationId(null);
 
     if (event.shiftKey) {
       toggleSelection(block.id);
@@ -515,6 +571,296 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     window.addEventListener("pointerup", onUp);
   }
 
+  // Converte um ponto em coordenadas de tela (clientX/clientY, como vem de
+  // qualquer PointerEvent) pra coordenadas do FRAME (as mesmas usadas por
+  // x/y/width/height de blocos e pelo pathData de anotações) — usa
+  // getBoundingClientRect() do frame, que já reflete a rolagem/zoom atuais,
+  // em vez de offsetLeft/offsetTop (que não descontam scroll). Base de todas
+  // as ferramentas de desenho do Wireframe-1b.
+  function clientToFrame(clientX: number, clientY: number): { x: number; y: number } {
+    const frame = frameRef.current;
+    if (!frame) return { x: 0, y: 0 };
+    const rect = frame.getBoundingClientRect();
+    return { x: (clientX - rect.left) / zoomRef.current, y: (clientY - rect.top) / zoomRef.current };
+  }
+
+  function nextRootSiblingOrder(): number {
+    const siblingsAtLevel = blocksRef.current.filter((b) => b.parentBlockId === null);
+    return siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
+  }
+
+  // --- Ferramentas "Frame"/"Elipse" (Wireframe-1b): clicar e arrastar
+  // desenha um bloco novo do tamanho arrastado. Ao soltar, a ferramenta
+  // volta pra "Selecionar" automaticamente (comportamento padrão de
+  // ferramentas de desenho) e o bloco nasce em modo de edição inline do
+  // nome. ---
+  function startDrawingBlock(event: ReactPointerEvent, shape: "rectangle" | "ellipse") {
+    event.preventDefault();
+    const start = clientToFrame(event.clientX, event.clientY);
+    setDrawRect({ x: start.x, y: start.y, width: 0, height: 0 });
+
+    function onMove(moveEvent: PointerEvent) {
+      const current = clientToFrame(moveEvent.clientX, moveEvent.clientY);
+      setDrawRect({
+        x: Math.min(start.x, current.x),
+        y: Math.min(start.y, current.y),
+        width: Math.abs(current.x - start.x),
+        height: Math.abs(current.y - start.y),
+      });
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setDrawRect((rect) => {
+        if (rect) finishDrawingBlock(rect, shape);
+        return null;
+      });
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function finishDrawingBlock(rect: { x: number; y: number; width: number; height: number }, shape: "rectangle" | "ellipse") {
+    const width = Math.max(MIN_BLOCK_SIZE, Math.round(rect.width));
+    const height = Math.max(MIN_BLOCK_SIZE, Math.round(rect.height));
+    const newBlock: WireframeBlock = {
+      id: makeId(),
+      label: "Novo elemento",
+      zone: "content",
+      row: 0,
+      order: 0,
+      widthHint: "auto",
+      heightHint: "compact",
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width,
+      height,
+      parentBlockId: null,
+      kind: "ELEMENT",
+      siblingOrder: nextRootSiblingOrder(),
+      hidden: false,
+      locked: false,
+      shape,
+    };
+    commitBlocks([...blocksRef.current, newBlock]);
+    setSelectedIds(new Set([newBlock.id]));
+    setPropertiesOpen(true);
+    setEditingBlockId(newBlock.id);
+    setEditingLabelDraft(newBlock.label);
+    setActiveTool("select");
+  }
+
+  // --- Ferramenta "Texto" (Wireframe-1b): clicar (sem arrastar) cria um
+  // bloco leve shape="text" (sem borda/preenchimento), editável na hora. ---
+  function createTextBlock(event: ReactPointerEvent) {
+    event.preventDefault();
+    const pos = clientToFrame(event.clientX, event.clientY);
+    const width = 160;
+    const height = 32;
+    const newBlock: WireframeBlock = {
+      id: makeId(),
+      label: "Texto",
+      zone: "content",
+      row: 0,
+      order: 0,
+      widthHint: "auto",
+      heightHint: "compact",
+      x: Math.round(pos.x),
+      y: Math.round(pos.y - height / 2),
+      width,
+      height,
+      parentBlockId: null,
+      kind: "ELEMENT",
+      siblingOrder: nextRootSiblingOrder(),
+      hidden: false,
+      locked: false,
+      shape: "text",
+    };
+    commitBlocks([...blocksRef.current, newBlock]);
+    setSelectedIds(new Set([newBlock.id]));
+    setPropertiesOpen(true);
+    setEditingBlockId(newBlock.id);
+    setEditingLabelDraft(newBlock.label);
+    setActiveTool("select");
+  }
+
+  function commitEditingLabel() {
+    const id = editingBlockId;
+    if (!id) return;
+    const next = blocksRef.current.map((b) => (b.id === id ? { ...b, label: editingLabelDraft.trim() || b.label } : b));
+    commitBlocks(next);
+    setEditingBlockId(null);
+  }
+
+  // --- Ferramenta "Caneta" (Wireframe-1b): clicar e arrastar desenha um
+  // traço livre, capturando os pontos do movimento e convertendo em um path
+  // SVG simples ("M x y L x y ..."). Cria uma WireframeAnnotation (tabela à
+  // parte, não um bloco estruturado) — não entra no histórico de undo/redo
+  // dos blocos nem na árvore de Camadas dos blocos. ---
+  function startDrawingAnnotation(event: ReactPointerEvent) {
+    event.preventDefault();
+    const start = clientToFrame(event.clientX, event.clientY);
+    const points: { x: number; y: number }[] = [start];
+    setPenPoints(points);
+
+    function onMove(moveEvent: PointerEvent) {
+      points.push(clientToFrame(moveEvent.clientX, moveEvent.clientY));
+      setPenPoints([...points]);
+    }
+    async function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setPenPoints(null);
+      setActiveTool("select");
+      if (points.length < 2) return;
+      const pathData = `M ${points.map((p) => `${Math.round(p.x)} ${Math.round(p.y)}`).join(" L ")}`;
+      try {
+        const res = await fetch(`/api/bridges/${bridge.id}/annotations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathData }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) setAnnotations((prev) => [...prev, data.annotation]);
+      } catch {
+        // silencioso — perder um traço de anotação não trava o fluxo principal
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  // Arrastar um traço já existente (ferramenta Selecionar) move todos os
+  // pontos juntos via offsetPathData — atualiza ao vivo no state e só grava
+  // no servidor (PATCH) quando soltar o botão.
+  function handleAnnotationPointerDown(event: ReactPointerEvent, annotation: ApiWireframeAnnotation) {
+    if (activeToolRef.current !== "select") return;
+    event.stopPropagation();
+    setSelectedAnnotationId(annotation.id);
+    setSelectedIds(new Set());
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const originalPathData = annotation.pathData;
+    let dx = 0;
+    let dy = 0;
+
+    function onMove(moveEvent: PointerEvent) {
+      dx = (moveEvent.clientX - startX) / zoomRef.current;
+      dy = (moveEvent.clientY - startY) / zoomRef.current;
+      const shifted = offsetPathData(originalPathData, dx, dy);
+      setAnnotations((prev) => prev.map((a) => (a.id === annotation.id ? { ...a, pathData: shifted } : a)));
+    }
+    async function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      if (dx === 0 && dy === 0) return;
+      const moved = annotationsRef.current.find((a) => a.id === annotation.id);
+      if (!moved) return;
+      try {
+        await fetch(`/api/bridges/${bridge.id}/annotations/${annotation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathData: moved.pathData }),
+        });
+      } catch {
+        // silencioso — a posição já está correta no state local
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  async function deleteSelectedAnnotation() {
+    const id = selectedAnnotationId;
+    if (!id) return;
+    setSelectedAnnotationId(null);
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await fetch(`/api/bridges/${bridge.id}/annotations/${id}`, { method: "DELETE" });
+    } catch {
+      // silencioso
+    }
+  }
+
+  // Tecla Delete/Backspace apaga o traço de anotação selecionado (não
+  // interfere com blocos — esses já têm sua própria exclusão via menu de
+  // contexto/Propriedades, e não reage se o foco estiver num campo de texto).
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedAnnotationId) {
+        event.preventDefault();
+        deleteSelectedAnnotation();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAnnotationId]);
+
+  // --- Ferramenta "Comentário" (Wireframe-1b): clicar posiciona um pino e
+  // abre o campo de texto do comentário inicial. ---
+  function startNewComment(event: ReactPointerEvent) {
+    event.preventDefault();
+    const pos = clientToFrame(event.clientX, event.clientY);
+    setActiveCommentId(null);
+    setPendingCommentPos(pos);
+    setPendingCommentText("");
+    setActiveTool("select");
+  }
+
+  async function submitNewComment() {
+    if (!pendingCommentPos || !pendingCommentText.trim()) return;
+    try {
+      const res = await fetch(`/api/bridges/${bridge.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x: pendingCommentPos.x, y: pendingCommentPos.y, text: pendingCommentText.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setComments((prev) => [...prev, data.comment]);
+        setActiveCommentId(data.comment.id);
+      }
+    } catch {
+      // silencioso
+    }
+    setPendingCommentPos(null);
+    setPendingCommentText("");
+  }
+
+  async function submitReply(commentId: string) {
+    if (!replyDraft.trim()) return;
+    const text = replyDraft.trim();
+    setReplyDraft("");
+    try {
+      const res = await fetch(`/api/bridges/${bridge.id}/comments/${commentId}/replies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, replies: [...c.replies, data.reply] } : c)));
+    } catch {
+      // silencioso
+    }
+  }
+
+  async function toggleCommentResolved(comment: ApiWireframeComment) {
+    try {
+      const res = await fetch(`/api/bridges/${bridge.id}/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolved: !comment.resolved }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setComments((prev) => prev.map((c) => (c.id === comment.id ? data.comment : c)));
+    } catch {
+      // silencioso
+    }
+  }
+
   function handlePropertyChange(patch: Partial<WireframeBlock>) {
     if (!selectedBlock) return;
     updateBlockLive(selectedBlock.id, patch);
@@ -556,6 +902,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       siblingOrder: nextSiblingOrder,
       hidden: false,
       locked: false,
+      shape: "rectangle",
     };
 
     let childOrder = 0;
@@ -626,6 +973,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       siblingOrder: nextOrder,
       hidden: false,
       locked: false,
+      shape: "text",
     };
 
     commitBlocks([...current, newBlock]);
@@ -790,10 +1138,32 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       startPan(event);
       return;
     }
-    if (event.button === 0) {
-      setSelectedIds(new Set());
-      setContextMenu(null);
+    if (event.button !== 0) return;
+
+    // Wireframe-1b: ferramentas de desenho/comentário — cada uma trata seu
+    // próprio gesto de clique/arraste (ver funções startDrawingBlock,
+    // startDrawingAnnotation, createTextBlock, startNewComment acima).
+    if (activeTool === "frame" || activeTool === "ellipse") {
+      startDrawingBlock(event, activeTool === "ellipse" ? "ellipse" : "rectangle");
+      return;
     }
+    if (activeTool === "pen") {
+      startDrawingAnnotation(event);
+      return;
+    }
+    if (activeTool === "text") {
+      createTextBlock(event);
+      return;
+    }
+    if (activeTool === "comment") {
+      startNewComment(event);
+      return;
+    }
+
+    setSelectedIds(new Set());
+    setSelectedAnnotationId(null);
+    setContextMenu(null);
+    setActiveCommentId(null);
   }
 
   // --- Tela cheia (Ajuste 3) — chamado DIRETO no clique (gesto síncrono do
@@ -963,6 +1333,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const canvasPadLeft = Math.max(MIN_CANVAS_PAD_X, (canvasViewport.width - frameWidth * zoom) / 2);
   const canvasPadTop = Math.max(MIN_CANVAS_PAD_Y, (canvasViewport.height - frameHeight * zoom) / 2);
 
+  // Wireframe-1b: comentários filtrados pelo modo ativo (todos/abertos/
+  // resolvidos) e a thread atualmente aberta pra leitura/resposta.
+  const visibleComments = comments.filter((c) => (commentFilter === "all" ? true : commentFilter === "open" ? !c.resolved : c.resolved));
+  const activeComment = activeCommentId ? (comments.find((c) => c.id === activeCommentId) ?? null) : null;
+  const openCommentCount = comments.filter((c) => !c.resolved).length;
+
   // Ajuste B: retângulo indicador da área visível dentro do minimapa —
   // converte scrollPos/zoom/canvasViewport (área visível de verdade do
   // canvas) pra coordenadas do frame, depois pra porcentagem (mesmo sistema
@@ -1124,6 +1500,24 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           >
             <GridIcon className="h-4 w-4" />
           </button>
+          {comments.length > 0 && (
+            <>
+              <div className="mx-1 h-[26px] w-px bg-[#e7e7ea]" />
+              <button
+                type="button"
+                onClick={() => setCommentFilter((f) => (f === "all" ? "open" : f === "open" ? "resolved" : "all"))}
+                title="Alternar filtro de comentários (todos / abertos / resolvidos)"
+                className="flex h-[34px] items-center gap-1.5 rounded-full border border-[#e6e6e9] px-3 text-[13px] font-medium text-[#1d1d1f] hover:bg-[#f7f7f8]"
+              >
+                <CommentToolIcon className="h-3.5 w-3.5" />
+                {commentFilter === "all"
+                  ? `${comments.length} comentários (${openCommentCount} abertos)`
+                  : commentFilter === "open"
+                    ? `${openCommentCount} abertos`
+                    : `${comments.length - openCommentCount} resolvidos`}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Painel de ferramentas à esquerda */}
@@ -1134,22 +1528,22 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <ToolButton active={activeTool === "hand"} onClick={() => setActiveTool("hand")} label="Mão (arrastar tela)">
             <HandToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Frame (em breve)">
+          <ToolButton active={activeTool === "frame"} onClick={() => setActiveTool("frame")} label="Frame">
             <FrameToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Elipse (em breve)">
+          <ToolButton active={activeTool === "ellipse"} onClick={() => setActiveTool("ellipse")} label="Elipse">
             <EllipseToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
           <ToolButton onClick={() => {}} label="Componentes (em breve)">
             <ComponentsToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Caneta (em breve)">
+          <ToolButton active={activeTool === "pen"} onClick={() => setActiveTool("pen")} label="Caneta">
             <PenToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Texto (em breve)">
+          <ToolButton active={activeTool === "text"} onClick={() => setActiveTool("text")} label="Texto">
             <TextToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Comentário (em breve)">
+          <ToolButton active={activeTool === "comment"} onClick={() => setActiveTool("comment")} label="Comentário">
             <CommentToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
         </div>
@@ -1209,6 +1603,33 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                 onDropLayer={handleLayerDrop}
               />
             ))}
+
+            {/* Wireframe-1b: anotações de Caneta numa seção separada — não
+                fazem parte da árvore hierárquica dos blocos (sem
+                agrupar/reordenar/ocultar/bloquear), só seleção simples e
+                exclusão via Delete. */}
+            {annotations.length > 0 && (
+              <>
+                <p className="mt-2 border-t border-[#f0f0f1] px-2 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">
+                  Anotações ({annotations.length})
+                </p>
+                {annotations.map((annotation, index) => (
+                  <div
+                    key={annotation.id}
+                    onClick={() => {
+                      setSelectedAnnotationId(annotation.id);
+                      setSelectedIds(new Set());
+                    }}
+                    className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pl-2 pr-1.5 text-left text-sm ${
+                      selectedAnnotationId === annotation.id ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+                    }`}
+                  >
+                    <PenToolIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">Traço {index + 1}</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
 
@@ -1378,7 +1799,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           ref={canvasScrollRef}
           className="h-full overflow-auto"
           style={{
-            cursor: activeTool === "hand" ? HAND_CURSOR : undefined,
+            cursor:
+              activeTool === "hand"
+                ? HAND_CURSOR
+                : activeTool === "frame" || activeTool === "ellipse" || activeTool === "pen" || activeTool === "text" || activeTool === "comment"
+                  ? "crosshair"
+                  : undefined,
             paddingLeft: canvasPadLeft,
             paddingRight: 32,
             paddingTop: canvasPadTop,
@@ -1417,11 +1843,186 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                   frameWidth={frameWidth}
                   frameHeight={frameHeight}
                   selected={selectedIds.has(block.id)}
+                  isEditing={editingBlockId === block.id}
+                  editingLabel={editingLabelDraft}
+                  onEditingLabelChange={setEditingLabelDraft}
+                  onEditingLabelCommit={commitEditingLabel}
                   onPointerDown={(event) => handleBlockMouseDown(event, block)}
                   onContextMenu={(event) => handleBlockContextMenu(event, block)}
                   onResizePointerDown={(event, direction) => handleResizeMouseDown(event, block, direction)}
                 />
               ))}
+
+            {/* Wireframe-1b: anotações de Caneta — um único SVG cobrindo o
+                frame inteiro, com viewBox em unidades do frame (não de
+                tela), pra cada <path> escalar junto com o zoom sem precisar
+                multiplicar cada ponto manualmente. */}
+            <svg
+              className="pointer-events-none absolute left-0 top-0"
+              width={frameWidth * zoom}
+              height={frameHeight * zoom}
+              viewBox={`0 0 ${frameWidth} ${frameHeight}`}
+            >
+              {annotations.map((annotation) => (
+                <path
+                  key={annotation.id}
+                  d={annotation.pathData}
+                  fill="none"
+                  stroke={annotation.color}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                  style={{ pointerEvents: activeTool === "select" ? "stroke" : "none", cursor: "move" }}
+                  className={selectedAnnotationId === annotation.id ? "drop-shadow-[0_0_0_2px_rgba(124,58,237,0.5)]" : undefined}
+                  onPointerDown={(event) => handleAnnotationPointerDown(event, annotation)}
+                />
+              ))}
+              {penPoints && penPoints.length > 1 && (
+                <path
+                  d={`M ${penPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`}
+                  fill="none"
+                  stroke="#7c3aed"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+            </svg>
+
+            {/* Retângulo de pré-visualização ao vivo (ferramentas Frame/Elipse) */}
+            {drawRect && (
+              <div
+                className="pointer-events-none absolute border-2 border-dashed border-[#7c3aed] bg-[#7c3aed]/10"
+                style={{
+                  left: drawRect.x * zoom,
+                  top: drawRect.y * zoom,
+                  width: drawRect.width * zoom,
+                  height: drawRect.height * zoom,
+                  borderRadius: activeTool === "ellipse" ? "9999px" : undefined,
+                }}
+              />
+            )}
+
+            {/* Wireframe-1b: pinos de comentário — sempre visíveis, independente
+                da ferramenta ativa. */}
+            {visibleComments.map((comment) => {
+              const nearbyCount = visibleComments.filter(
+                (other) => other.id !== comment.id && Math.hypot((other.x - comment.x) * zoom, (other.y - comment.y) * zoom) < 24
+              ).length;
+              return (
+                <button
+                  key={comment.id}
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPendingCommentPos(null);
+                    setActiveCommentId(comment.id);
+                  }}
+                  title={comment.text}
+                  className={`absolute z-40 grid h-6 w-6 -translate-x-1/2 -translate-y-full place-items-center rounded-full border-2 border-white text-[10px] font-bold text-white shadow ${
+                    comment.resolved ? "bg-[#9ca3af]" : "bg-[#f59e0b]"
+                  }`}
+                  style={{ left: comment.x * zoom, top: comment.y * zoom }}
+                >
+                  {nearbyCount > 0 ? `+${nearbyCount}` : <CommentToolIcon className="h-3 w-3" />}
+                </button>
+              );
+            })}
+
+            {/* Composer de um comentário novo, ainda não salvo */}
+            {pendingCommentPos && (
+              <div
+                className="absolute z-50 w-64 -translate-y-full rounded-lg border border-[#e4e4e7] bg-white p-3 shadow-lg"
+                style={{ left: pendingCommentPos.x * zoom, top: pendingCommentPos.y * zoom }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={pendingCommentText}
+                  onChange={(event) => setPendingCommentText(event.target.value)}
+                  placeholder="Escreva um comentário..."
+                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingCommentPos(null);
+                      setPendingCommentText("");
+                    }}
+                    className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-xs text-[#2a2a2e] hover:bg-[#f7f7f8]"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitNewComment}
+                    disabled={!pendingCommentText.trim()}
+                    className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                  >
+                    Comentar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Thread de um comentário existente (comentário inicial + respostas) */}
+            {activeComment && (
+              <div
+                className="absolute z-50 w-72 -translate-y-full rounded-lg border border-[#e4e4e7] bg-white p-3 shadow-lg"
+                style={{ left: activeComment.x * zoom, top: activeComment.y * zoom }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">
+                    {activeComment.resolved ? "Resolvido" : "Comentário"}
+                  </span>
+                  <button type="button" onClick={() => setActiveCommentId(null)} className="text-[#8e8e93] hover:text-[#1d1d1f]">
+                    <CloseIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="mb-2 max-h-48 space-y-2 overflow-y-auto">
+                  <div>
+                    <p className="text-xs font-medium text-[#1d1d1f]">{activeComment.author.name}</p>
+                    <p className="text-sm text-[#333336]">{activeComment.text}</p>
+                  </div>
+                  {activeComment.replies.map((reply) => (
+                    <div key={reply.id} className="border-t border-[#f0f0f1] pt-2">
+                      <p className="text-xs font-medium text-[#1d1d1f]">{reply.author.name}</p>
+                      <p className="text-sm text-[#333336]">{reply.text}</p>
+                    </div>
+                  ))}
+                </div>
+                <textarea
+                  rows={2}
+                  value={replyDraft}
+                  onChange={(event) => setReplyDraft(event.target.value)}
+                  placeholder="Responder..."
+                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleCommentResolved(activeComment)}
+                    className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-xs text-[#2a2a2e] hover:bg-[#f7f7f8]"
+                  >
+                    {activeComment.resolved ? "Reabrir" : "Marcar como resolvido"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => submitReply(activeComment.id)}
+                    disabled={!replyDraft.trim()}
+                    className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                  >
+                    Responder
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1661,8 +2262,8 @@ function LayerRow({
   const isCollapsed = collapsedGroupIds.has(block.id);
   const isSelected = selectedIds.has(block.id);
   const isDropTarget = layerDropTargetId === block.id && draggedLayerId !== block.id;
-  const isTextLike = TEXT_LABEL_PATTERN.test(block.label);
-  const Icon = isGroup ? FolderIcon : isTextLike ? TextToolIcon : FrameToolIcon;
+  const isTextLike = block.shape === "text" || TEXT_LABEL_PATTERN.test(block.label);
+  const Icon = isGroup ? FolderIcon : block.shape === "ellipse" ? EllipseToolIcon : isTextLike ? TextToolIcon : FrameToolIcon;
 
   const dropClass = !isDropTarget
     ? ""
@@ -1825,6 +2426,10 @@ function CanvasBlock({
   frameWidth,
   frameHeight,
   selected,
+  isEditing,
+  editingLabel,
+  onEditingLabelChange,
+  onEditingLabelCommit,
   onPointerDown,
   onContextMenu,
   onResizePointerDown,
@@ -1834,6 +2439,10 @@ function CanvasBlock({
   frameWidth: number;
   frameHeight: number;
   selected: boolean;
+  isEditing: boolean;
+  editingLabel: string;
+  onEditingLabelChange: (value: string) => void;
+  onEditingLabelCommit: () => void;
   onPointerDown: (event: ReactPointerEvent) => void;
   onContextMenu: (event: ReactMouseEvent) => void;
   onResizePointerDown: (event: ReactPointerEvent, direction: ResizeDirection) => void;
@@ -1844,17 +2453,26 @@ function CanvasBlock({
   const bottomExtent = (frameHeight - block.y - block.height) * zoom;
   const leftExtent = block.x * zoom;
   const rightExtent = (frameWidth - block.x - block.width) * zoom;
+  // Wireframe-1b: aparência varia por shape — "text" não tem borda/
+  // preenchimento visível (só o texto em si), "ellipse" usa border-radius
+  // 50% sobre o mesmo retângulo delimitador (x/y/width/height continuam
+  // sendo um retângulo, só a aparência muda).
+  const isText = block.shape === "text";
 
   return (
     <div
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
-      className={`absolute border bg-white ${block.locked ? "cursor-default" : "cursor-move"} ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
+      className={`absolute ${isText ? "bg-transparent" : "border bg-white"} ${block.locked ? "cursor-default" : "cursor-move"} ${
+        isText ? "" : selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"
+      }`}
       style={{
         left: block.x * zoom,
         top: block.y * zoom,
         width: block.width * zoom,
         height: block.height * zoom,
+        borderRadius: block.shape === "ellipse" ? "9999px" : undefined,
+        outline: isText && selected ? "1px solid #3b82f6" : undefined,
         // Ajuste A: sem isso, o rótulo de dimensão (WxH) e as guias de
         // medição — que estouram pra FORA dos limites do bloco (bottom-6,
         // etc.) — ficavam atrás de blocos vizinhos "depois" dele na ordem
@@ -1864,10 +2482,27 @@ function CanvasBlock({
         zIndex: selected ? 50 : undefined,
       }}
     >
-      <span className="pointer-events-none flex items-center gap-1 truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">
-        {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#7c3aed]" />}
-        {block.label}
-      </span>
+      {isEditing ? (
+        <input
+          type="text"
+          autoFocus
+          value={editingLabel}
+          onChange={(event) => onEditingLabelChange(event.target.value)}
+          onFocus={(event) => event.target.select()}
+          onBlur={onEditingLabelCommit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onEditingLabelCommit();
+            if (event.key === "Escape") onEditingLabelCommit();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="h-full w-full bg-transparent px-2 py-1.5 text-[12px] font-medium text-[#333336] outline-none"
+        />
+      ) : (
+        <span className="pointer-events-none flex items-center gap-1 truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">
+          {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#7c3aed]" />}
+          {block.label}
+        </span>
+      )}
 
       {selected && !block.locked && (
         <>

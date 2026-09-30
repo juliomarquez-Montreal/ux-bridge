@@ -138,6 +138,52 @@ model Bridge {
   lastRejectionComment  String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  // Anotações à mão livre (ferramenta Caneta) e comentários de colaboração
+  // (ferramenta Comentário) — Wireframe-1b. Entidades à parte dos blocos
+  // estruturados (wireframeData.blocks): não são componentes de interface,
+  // não entram no agrupamento/Camadas/undo-redo dos blocos.
+  annotations           WireframeAnnotation[]
+  comments              WireframeComment[]
+}
+
+// Traço de desenho livre (ferramenta Caneta, Wireframe-1b) — pontos
+// congelados em formato de path SVG ("M x y L x y L x y ...") no momento do
+// desenho. Pode ser movido (offset de todos os pontos) e apagado, mas não
+// editado ponto a ponto nesta fase.
+model WireframeAnnotation {
+  id        String   @id @default(cuid())
+  bridgeId  String
+  bridge    Bridge   @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+  pathData  String
+  color     String   @default("#94a3b8")
+  createdAt DateTime @default(now())
+}
+
+// Pino de comentário de colaboração (ferramenta Comentário, Wireframe-1b),
+// posicionado em coordenadas absolutas do frame. O texto inicial fica direto
+// aqui (não como a 1ª reply) pra simplificar — WireframeCommentReply só
+// guarda as respostas subsequentes da thread. authorId é um scalar sem
+// @relation formal (mesmo padrão de Bridge.createdById — ver comentário lá).
+model WireframeComment {
+  id        String                  @id @default(cuid())
+  bridgeId  String
+  bridge    Bridge                  @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+  x         Float
+  y         Float
+  authorId  String
+  text      String
+  resolved  Boolean                 @default(false)
+  createdAt DateTime                @default(now())
+  replies   WireframeCommentReply[]
+}
+
+model WireframeCommentReply {
+  id        String           @id @default(cuid())
+  commentId String
+  comment   WireframeComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  authorId  String
+  text      String
+  createdAt DateTime         @default(now())
 }
 
 model ContextNode {

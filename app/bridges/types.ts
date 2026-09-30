@@ -23,6 +23,12 @@ export type WireframeHeightHint = "compact" | "fill";
 // verdade (o que a IA sempre gera; ela nunca cria GROUP).
 export type WireframeBlockKind = "GROUP" | "ELEMENT";
 
+// Aparência visual do bloco (Wireframe-1b, ferramentas Frame/Elipse/Texto) —
+// "rectangle" é o default (todo bloco gerado pela IA, e todo bloco antigo
+// sem esse campo). Não afeta o modelo de dados de posição (x/y/width/height
+// continuam sempre um retângulo delimitador, mesmo pra "ellipse").
+export type WireframeBlockShape = "rectangle" | "ellipse" | "text";
+
 // Um bloco do Wireframe, já convertido pra coordenadas absolutas em pixels
 // dentro do frame (ver lib/bridges/wireframeLayout.ts) — a partir da geração,
 // é isso que o editor (components/WireframeEditor.tsx) lê e escreve. x/y são
@@ -56,6 +62,7 @@ export interface WireframeBlock {
   // direto no canvas — só desbloqueável via Camadas (que continua permitindo
   // seleção mesmo bloqueado).
   locked: boolean;
+  shape: WireframeBlockShape;
 }
 
 export interface WireframeData {
@@ -68,6 +75,37 @@ export interface ApiUserRef {
   id: string;
   name: string;
   avatarUrl: string | null;
+}
+
+// Wireframe-1b: anotações à mão livre (ferramenta Caneta) e comentários de
+// colaboração (ferramenta Comentário) — entidades separadas dos blocos,
+// carregadas/salvas por rotas próprias (ver app/api/bridges/[id]/annotations
+// e .../comments), não fazem parte de Bridge.wireframeData.
+export interface ApiWireframeAnnotation {
+  id: string;
+  pathData: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface ApiWireframeCommentReply {
+  id: string;
+  text: string;
+  authorId: string;
+  author: ApiUserRef;
+  createdAt: string;
+}
+
+export interface ApiWireframeComment {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  authorId: string;
+  author: ApiUserRef;
+  resolved: boolean;
+  createdAt: string;
+  replies: ApiWireframeCommentReply[];
 }
 
 export interface ApiBridgeListItem {

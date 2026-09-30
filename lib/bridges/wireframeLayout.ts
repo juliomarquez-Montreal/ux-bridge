@@ -63,6 +63,7 @@ function layoutRow(blocks: HintBlock[], x: number, y: number, width: number, hei
       siblingOrder: out.length,
       hidden: false,
       locked: false,
+      shape: "rectangle",
     });
     cursorX += blockWidth + GAP;
   }
@@ -97,6 +98,7 @@ function layoutColumn(blocks: HintBlock[], x: number, y: number, width: number, 
       siblingOrder: out.length,
       hidden: false,
       locked: false,
+      shape: "rectangle",
     });
     cursorY += blockHeight + GAP;
   }
@@ -134,6 +136,7 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
       siblingOrder?: unknown;
       hidden?: unknown;
       locked?: unknown;
+      shape?: unknown;
     };
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : makeBlockId();
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
@@ -157,8 +160,9 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
     const siblingOrder = typeof raw.siblingOrder === "number" && Number.isFinite(raw.siblingOrder) ? raw.siblingOrder : index;
     const hidden = raw.hidden === true;
     const locked = raw.locked === true;
+    const shape = raw.shape === "ellipse" || raw.shape === "text" ? raw.shape : "rectangle";
 
-    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height, parentBlockId, kind, siblingOrder, hidden, locked } as WireframeBlock;
+    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height, parentBlockId, kind, siblingOrder, hidden, locked, shape } as WireframeBlock;
   });
 
   // Nunca deixa um parentBlockId apontar pra um id que não existe nesta
