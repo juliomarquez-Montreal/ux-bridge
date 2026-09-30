@@ -131,13 +131,6 @@ model Bridge {
   wireframeData             Json?
   wireframeAttemptCount     Int      @default(0)
   lastWireframeRejectionComment String?
-  // TEMPORÁRIO (Wireframe-1a): mantidos só até o script de migração copiar
-  // sketchData -> wireframeData pros Bridges que ainda estavam no fluxo
-  // antigo — removidos do schema (e da coluna, via db push) assim que a
-  // migração rodar em produção. Não usados por nenhum código novo.
-  sketchData             Json?
-  sketchAttemptCount     Int      @default(0)
-  lastSketchRejectionComment String?
   // Mensagem de erro da IA quando status=ERRO_GERACAO (não faz sentido
   // reaproveitar lastRejectionComment, que é do PO, não da falha técnica).
   errorMessage          String?
