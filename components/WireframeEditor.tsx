@@ -6,10 +6,12 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiBridge, ApiUserRef, WireframeBlock } from "@/app/bridges/types";
+import { normalizeWireframeBlocks } from "@/lib/bridges/wireframeLayout";
 import Avatar from "@/components/Avatar";
 import {
   CheckIcon,
@@ -34,6 +36,7 @@ import {
   RedoIcon,
   SelectToolIcon,
   TextToolIcon,
+  ThumbsDownIcon,
   UndoIcon,
 } from "@/components/icons";
 
@@ -47,6 +50,32 @@ const MAX_ZOOM = 4;
 const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const MIN_BLOCK_SIZE = 24;
 const AUTOSAVE_DEBOUNCE_MS = 900;
+// Cursor customizado da ferramenta "Mão" (Ajuste C) — o cursor nativo
+// "grab" do sistema operacional fica quase invisível sobre o fundo branco
+// do canvas em alguns navegadores/SOs. Uma mão aberta simplificada (palma +
+// 4 dedos) com contorno preto E uma sombra escura semitransparente
+// desenhada por trás (não um filtro CSS — cursores customizados não
+// aplicam drop-shadow de fora, então a sombra precisa já estar "assada" na
+// própria imagem) garante contraste em cima de qualquer cor de fundo.
+const HAND_CURSOR_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">` +
+    `<g fill="rgba(0,0,0,0.35)" transform="translate(1,1.5)">` +
+    `<rect x="9" y="11" width="10" height="11" rx="3"/>` +
+    `<rect x="8" y="6" width="3.2" height="10" rx="1.5"/>` +
+    `<rect x="11.6" y="4" width="3.2" height="12" rx="1.5"/>` +
+    `<rect x="15.2" y="4.5" width="3.2" height="11.5" rx="1.5"/>` +
+    `<rect x="18.8" y="6" width="3" height="10" rx="1.5"/>` +
+    `</g>` +
+    `<g fill="#ffffff" stroke="#111111" stroke-width="1.4" stroke-linejoin="round">` +
+    `<rect x="9" y="11" width="10" height="11" rx="3"/>` +
+    `<rect x="8" y="6" width="3.2" height="10" rx="1.5"/>` +
+    `<rect x="11.6" y="4" width="3.2" height="12" rx="1.5"/>` +
+    `<rect x="15.2" y="4.5" width="3.2" height="11.5" rx="1.5"/>` +
+    `<rect x="18.8" y="6" width="3" height="10" rx="1.5"/>` +
+    `</g>` +
+    `</svg>`
+);
+const HAND_CURSOR = `url("data:image/svg+xml,${HAND_CURSOR_SVG}") 14 14, grab`;
 // Heurística simples (não um sistema de tipos de verdade — isso fica pra
 // quando o editor souber o que cada bloco realmente é, na Wireframe-1c) pra
 // decidir se um ELEMENT mostra o ícone de texto nas Camadas.
@@ -137,8 +166,21 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const router = useRouter();
   const frameWidth = bridge.wireframeData?.frameWidth ?? 1440;
   const frameHeight = bridge.wireframeData?.frameHeight ?? 1024;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- só recalcula quando o Bridge muda de verdade (id), não a cada update local de wireframeData vindo do próprio autosave.
-  const initialBlocks = useMemo(() => bridge.wireframeData?.blocks ?? [], [bridge.id]);
+  // normalizeWireframeBlocks preenche kind/parentBlockId/siblingOrder com
+  // defaults sensatos (ELEMENT/null/índice) quando ausentes — essencial pra
+  // blocos gravados ANTES desses campos existirem (ex: o Bridge real
+  // migrado da Wireframe-1a via script standalone, que nunca os teve).
+  // Sem isso, um bloco com kind=undefined não bate em nenhum dos filtros
+  // "GROUP"/"ELEMENT" do canvas e simplesmente some da tela, e a árvore de
+  // Camadas (que agrupa por parentBlockId) some junto, já que undefined !==
+  // null como chave do Map. Ver scripts/fix-real-bridge-wireframe-kind.mjs
+  // pro backfill único que corrigiu o dado já salvo do Bridge real.
+  const initialBlocks = useMemo(() => {
+    const raw = bridge.wireframeData?.blocks;
+    if (!raw || raw.length === 0) return [];
+    return normalizeWireframeBlocks(raw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só recalcula quando o Bridge muda de verdade (id), não a cada update local de wireframeData vindo do próprio autosave.
+  }, [bridge.id]);
 
   const [blocks, setBlocks] = useState<WireframeBlock[]>(initialBlocks);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -268,8 +310,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     });
   }
 
-  // --- Drag pra mover um bloco (ferramenta Selecionar) ---
-  function handleBlockMouseDown(event: ReactMouseEvent, block: WireframeBlock) {
+  // --- Drag pra mover um bloco (ferramenta Selecionar) — Pointer Events (não
+  // Mouse Events) pra cobrir mouse, caneta E trackpad/touch com a mesma
+  // API; alguns gestos de arrastar no trackpad não disparam
+  // mousemove/mouseup de forma confiável neste app, mas sempre disparam
+  // pointermove/pointerup. ---
+  function handleBlockMouseDown(event: ReactPointerEvent, block: WireframeBlock) {
     if (activeTool !== "select" || event.button !== 0) return;
     event.stopPropagation();
 
@@ -289,7 +335,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     let current = blocks;
     let moved = false;
 
-    function onMove(moveEvent: MouseEvent) {
+    function onMove(moveEvent: PointerEvent) {
       moved = true;
       const dx = (moveEvent.clientX - startX) / zoomRef.current;
       const dy = (moveEvent.clientY - startY) / zoomRef.current;
@@ -301,16 +347,16 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       setBlocks(current);
     }
     function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
       if (moved) commitBlocks(current);
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
-  // --- Redimensionar por uma das 8 alças ---
-  function handleResizeMouseDown(event: ReactMouseEvent, block: WireframeBlock, direction: ResizeDirection) {
+  // --- Redimensionar por uma das 8 alças (Pointer Events, mesmo motivo acima) ---
+  function handleResizeMouseDown(event: ReactPointerEvent, block: WireframeBlock, direction: ResizeDirection) {
     event.stopPropagation();
     event.preventDefault();
     const startX = event.clientX;
@@ -318,7 +364,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     const start = { x: block.x, y: block.y, width: block.width, height: block.height };
     let current = blocks;
 
-    function onMove(moveEvent: MouseEvent) {
+    function onMove(moveEvent: PointerEvent) {
       const dx = (moveEvent.clientX - startX) / zoomRef.current;
       const dy = (moveEvent.clientY - startY) / zoomRef.current;
       let { x, y, width, height } = start;
@@ -338,12 +384,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       setBlocks(current);
     }
     function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
       commitBlocks(current);
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   function handlePropertyChange(patch: Partial<WireframeBlock>) {
@@ -481,8 +527,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }, [zoom]);
 
   // --- Pan: botão do meio (qualquer ferramenta) ou botão esquerdo com a
-  // ferramenta "Mão" ativa (Ajuste 2). ---
-  function startPan(event: ReactMouseEvent) {
+  // ferramenta "Mão" ativa (Ajuste 2). Pointer Events (não Mouse Events) —
+  // arrastar com gesto de trackpad (sem botão físico de mouse) nem sempre
+  // dispara mousedown/mousemove/mouseup de forma confiável, mas sempre
+  // dispara pointerdown/pointermove/pointerup, que cobre mouse/caneta/touch
+  // com a mesma API. ---
+  function startPan(event: ReactPointerEvent) {
     const container = canvasScrollRef.current;
     if (!container) return;
     panStateRef.current = {
@@ -491,7 +541,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       startScrollLeft: container.scrollLeft,
       startScrollTop: container.scrollTop,
     };
-    function onMove(moveEvent: MouseEvent) {
+    function onMove(moveEvent: PointerEvent) {
       const pan = panStateRef.current;
       if (!pan || !container) return;
       container.scrollLeft = pan.startScrollLeft - (moveEvent.clientX - pan.startX);
@@ -499,14 +549,14 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     }
     function onUp() {
       panStateRef.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
-  function handleCanvasMouseDown(event: ReactMouseEvent) {
+  function handleCanvasMouseDown(event: ReactPointerEvent) {
     if (event.button === 1 || (event.button === 0 && activeTool === "hand")) {
       event.preventDefault();
       startPan(event);
@@ -710,9 +760,11 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <button
             type="button"
             onClick={() => setRegenerateOpen(true)}
-            className="rounded-lg border border-[#e6e6e9] bg-white px-4 py-2.5 text-[14.5px] text-[#2a2a2e] hover:bg-[#f7f7f8]"
+            aria-label="Tentar de novo"
+            className="flex items-center gap-2 rounded-lg border border-[#e6e6e9] bg-white px-4 py-2.5 text-[14.5px] text-[#0077ff] hover:bg-[#f7f7f8]"
           >
-            Eu não gostei, gerar de novo
+            <ThumbsDownIcon className="h-4 w-4" />
+            Tentar de novo
           </button>
           <button
             type="button"
@@ -976,8 +1028,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
         <div
           ref={canvasScrollRef}
           className="h-full overflow-auto py-16 pl-[130px] pr-8"
-          style={{ cursor: activeTool === "hand" ? "grab" : undefined }}
-          onMouseDown={handleCanvasMouseDown}
+          style={{ cursor: activeTool === "hand" ? HAND_CURSOR : undefined }}
+          onPointerDown={handleCanvasMouseDown}
         >
           <p className="mb-2 pl-1 text-[13.5px] text-[#4b4b52]" style={{ width: frameWidth * zoom }}>
             Desktop - {frameWidth} × {frameHeight}
@@ -998,7 +1050,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
             {blocks
               .filter((b) => b.kind === "GROUP")
               .map((block) => (
-                <GroupOutline key={block.id} block={block} zoom={zoom} selected={selectedIds.has(block.id)} onMouseDown={(e) => handleBlockMouseDown(e, block)} />
+                <GroupOutline key={block.id} block={block} zoom={zoom} selected={selectedIds.has(block.id)} onPointerDown={(e) => handleBlockMouseDown(e, block)} />
               ))}
             {blocks
               .filter((b) => b.kind === "ELEMENT")
@@ -1010,9 +1062,9 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                   frameWidth={frameWidth}
                   frameHeight={frameHeight}
                   selected={selectedIds.has(block.id)}
-                  onMouseDown={(event) => handleBlockMouseDown(event, block)}
+                  onPointerDown={(event) => handleBlockMouseDown(event, block)}
                   onContextMenu={(event) => handleBlockContextMenu(event, block)}
-                  onResizeMouseDown={(event, direction) => handleResizeMouseDown(event, block, direction)}
+                  onResizePointerDown={(event, direction) => handleResizeMouseDown(event, block, direction)}
                 />
               ))}
           </div>
@@ -1230,12 +1282,12 @@ function GroupOutline({
   block,
   zoom,
   selected,
-  onMouseDown,
+  onPointerDown,
 }: {
   block: WireframeBlock;
   zoom: number;
   selected: boolean;
-  onMouseDown: (event: ReactMouseEvent) => void;
+  onPointerDown: (event: ReactPointerEvent) => void;
 }) {
   return (
     <div
@@ -1244,7 +1296,7 @@ function GroupOutline({
     >
       <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#7c3aed]" : "border-[#c4b5fd]"}`} />
       <span
-        onMouseDown={onMouseDown}
+        onPointerDown={onPointerDown}
         className="absolute -top-6 left-0 cursor-move whitespace-nowrap rounded bg-[#7c3aed] px-1.5 py-0.5 text-[10px] font-medium text-white"
       >
         {block.label}
@@ -1270,18 +1322,18 @@ function CanvasBlock({
   frameWidth,
   frameHeight,
   selected,
-  onMouseDown,
+  onPointerDown,
   onContextMenu,
-  onResizeMouseDown,
+  onResizePointerDown,
 }: {
   block: WireframeBlock;
   zoom: number;
   frameWidth: number;
   frameHeight: number;
   selected: boolean;
-  onMouseDown: (event: ReactMouseEvent) => void;
+  onPointerDown: (event: ReactPointerEvent) => void;
   onContextMenu: (event: ReactMouseEvent) => void;
-  onResizeMouseDown: (event: ReactMouseEvent, direction: ResizeDirection) => void;
+  onResizePointerDown: (event: ReactPointerEvent, direction: ResizeDirection) => void;
 }) {
   // Guias de medição pontilhadas: comprimento exato até a borda do frame em
   // cada direção (não um valor arbitrário), pra nunca transbordar o canvas.
@@ -1292,7 +1344,7 @@ function CanvasBlock({
 
   return (
     <div
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       className={`absolute cursor-move border bg-white ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
       style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
@@ -1326,7 +1378,7 @@ function CanvasBlock({
           {RESIZE_HANDLES.map((handle) => (
             <div
               key={handle.direction}
-              onMouseDown={(event) => onResizeMouseDown(event, handle.direction)}
+              onPointerDown={(event) => onResizePointerDown(event, handle.direction)}
               style={{ cursor: handle.cursor }}
               className={`absolute h-2.5 w-2.5 rounded-full border border-[#3b82f6] bg-white ${handle.className}`}
             />

@@ -30,6 +30,7 @@ import {
   SlidersHorizontal,
   Square,
   Star,
+  ThumbsDown,
   Trash2,
   Type,
   Undo2,
@@ -292,6 +293,11 @@ export function MinimizeIcon(props: SVGProps<SVGSVGElement>) {
 // Ferramenta "Mão" (pan) do editor de Wireframe.
 export function HandToolIcon(props: SVGProps<SVGSVGElement>) {
   return <Hand strokeWidth={1.7} {...props} />;
+}
+
+// Botão "Tentar de novo" do editor de Wireframe (ícone de joinha pra baixo).
+export function ThumbsDownIcon(props: SVGProps<SVGSVGElement>) {
+  return <ThumbsDown strokeWidth={1.7} {...props} />;
 }
 
 export function MinusIcon(props: SVGProps<SVGSVGElement>) {
