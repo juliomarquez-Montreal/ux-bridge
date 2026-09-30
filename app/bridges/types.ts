@@ -18,9 +18,18 @@ export type WireframeZone = "header" | "sidebar" | "footer" | "content";
 export type WireframeWidthHint = "fill" | "auto";
 export type WireframeHeightHint = "compact" | "fill";
 
+// GROUP é um container sem conteúdo próprio, só agrupa outros blocos
+// (ver "Agrupar seleção", Ctrl+G, no editor) — ELEMENT é um bloco de
+// verdade (o que a IA sempre gera; ela nunca cria GROUP).
+export type WireframeBlockKind = "GROUP" | "ELEMENT";
+
 // Um bloco do Wireframe, já convertido pra coordenadas absolutas em pixels
 // dentro do frame (ver lib/bridges/wireframeLayout.ts) — a partir da geração,
-// é isso que o editor (components/WireframeEditor.tsx) lê e escreve.
+// é isso que o editor (components/WireframeEditor.tsx) lê e escreve. x/y são
+// SEMPRE absolutos em relação ao frame, mesmo pra blocos dentro de um GROUP
+// (não há sistema de coordenadas relativas ao pai) — agrupar é uma relação
+// hierárquica (pro painel de Camadas e pra mover em conjunto), não afeta como
+// a posição é armazenada.
 export interface WireframeBlock {
   id: string;
   label: string;
@@ -33,6 +42,13 @@ export interface WireframeBlock {
   y: number;
   width: number;
   height: number;
+  // Id de outro bloco do mesmo Wireframe, ou null se for de nível raiz.
+  parentBlockId: string | null;
+  kind: WireframeBlockKind;
+  // Ordem entre os irmãos do mesmo pai (ou entre os blocos de nível raiz,
+  // se parentBlockId for null) — usado pra renderizar a árvore de Camadas
+  // na ordem certa.
+  siblingOrder: number;
 }
 
 export interface WireframeData {

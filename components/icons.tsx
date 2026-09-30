@@ -13,10 +13,12 @@ import {
   Copy,
   Filter,
   Globe,
+  Hand,
   Layers,
   Link2,
   Maximize2,
   MessageSquare,
+  Minimize2,
   Minus,
   MousePointer2,
   Network,
@@ -281,6 +283,15 @@ export function CheckIcon(props: SVGProps<SVGSVGElement>) {
 
 export function MaximizeIcon(props: SVGProps<SVGSVGElement>) {
   return <Maximize2 strokeWidth={1.7} {...props} />;
+}
+
+export function MinimizeIcon(props: SVGProps<SVGSVGElement>) {
+  return <Minimize2 strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Mão" (pan) do editor de Wireframe.
+export function HandToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <Hand strokeWidth={1.7} {...props} />;
 }
 
 export function MinusIcon(props: SVGProps<SVGSVGElement>) {

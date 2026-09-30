@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import type { ApiBridge, ApiUserRef, WireframeBlock } from "@/app/bridges/types";
 import Avatar from "@/components/Avatar";
@@ -13,10 +20,13 @@ import {
   CommentToolIcon,
   ComponentsToolIcon,
   EllipseToolIcon,
+  FolderIcon,
   FrameToolIcon,
   GridIcon,
+  HandToolIcon,
   LayersTabIcon,
   MaximizeIcon,
+  MinimizeIcon,
   MinusIcon,
   PenToolIcon,
   PlusIcon,
@@ -27,21 +37,24 @@ import {
   UndoIcon,
 } from "@/components/icons";
 
-// Editor visual completo do Wireframe (Wireframe-1a) — substitui a etapa de
-// Sketch. Reproduz fielmente o mockup em _design-assets/ (chrome/cores/
-// espaçamentos extraídos ao vivo do bundle renderizado, já que o arquivo usa
-// um framework interno de mockup que não existe neste projeto). Só a
-// ferramenta "Selecionar" tem função real nesta fase — as outras 6
-// ferramentas ficam visuais, sem ação (Wireframe-1b/1c).
+// Editor visual completo do Wireframe (Wireframe-1a/1a+). Reproduz fielmente
+// o mockup em _design-assets/. Só a ferramenta "Selecionar" (e agora "Mão")
+// tem função real nesta fase — as outras 5 ficam visuais, sem ação
+// (Wireframe-1c: painel de componentes do Design System arrastáveis).
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const MIN_BLOCK_SIZE = 24;
 const AUTOSAVE_DEBOUNCE_MS = 900;
+// Heurística simples (não um sistema de tipos de verdade — isso fica pra
+// quando o editor souber o que cada bloco realmente é, na Wireframe-1c) pra
+// decidir se um ELEMENT mostra o ícone de texto nas Camadas.
+const TEXT_LABEL_PATTERN = /t[íi]tulo|texto|label|nome|descri[çc][ãa]o/i;
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+type Tool = "select" | "hand" | "other";
 
 function blocksEqual(a: WireframeBlock[], b: WireframeBlock[]): boolean {
   if (a.length !== b.length) return false;
@@ -53,9 +66,71 @@ function blocksEqual(a: WireframeBlock[], b: WireframeBlock[]): boolean {
       block.x === other.x &&
       block.y === other.y &&
       block.width === other.width &&
-      block.height === other.height
+      block.height === other.height &&
+      block.parentBlockId === other.parentBlockId &&
+      block.kind === other.kind &&
+      block.siblingOrder === other.siblingOrder
     );
   });
+}
+
+// --- Helpers de hierarquia (agrupamento, Ajuste 4) ---
+
+function collectDescendantIds(rootId: string, blocks: WireframeBlock[]): Set<string> {
+  const result = new Set<string>();
+  const childrenByParent = new Map<string, WireframeBlock[]>();
+  for (const b of blocks) {
+    if (!b.parentBlockId) continue;
+    const arr = childrenByParent.get(b.parentBlockId) ?? [];
+    arr.push(b);
+    childrenByParent.set(b.parentBlockId, arr);
+  }
+  function walk(id: string) {
+    for (const child of childrenByParent.get(id) ?? []) {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        walk(child.id);
+      }
+    }
+  }
+  walk(rootId);
+  return result;
+}
+
+// Todos os ids que devem se mover junto quando `draggedId` é arrastado:
+// a seleção efetiva (se o bloco arrastado faz parte dela) + todos os
+// descendentes de cada bloco movido (pra um GROUP arrastar seus filhos).
+function getMoveSet(draggedId: string, blocks: WireframeBlock[], effectiveSelection: Set<string>): Set<string> {
+  const base = effectiveSelection.has(draggedId) ? effectiveSelection : new Set([draggedId]);
+  const result = new Set(base);
+  for (const id of Array.from(base)) {
+    for (const descendantId of Array.from(collectDescendantIds(id, blocks))) result.add(descendantId);
+  }
+  return result;
+}
+
+interface TreeNode {
+  block: WireframeBlock;
+  children: TreeNode[];
+}
+
+function buildTree(blocks: WireframeBlock[]): TreeNode[] {
+  const byParent = new Map<string | null, WireframeBlock[]>();
+  for (const b of blocks) {
+    const key = b.parentBlockId;
+    const arr = byParent.get(key) ?? [];
+    arr.push(b);
+    byParent.set(key, arr);
+  }
+  for (const arr of Array.from(byParent.values())) arr.sort((a, b) => a.siblingOrder - b.siblingOrder);
+  function build(parentId: string | null): TreeNode[] {
+    return (byParent.get(parentId) ?? []).map((block) => ({ block, children: build(block.id) }));
+  }
+  return build(null);
+}
+
+function makeId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `w${Math.random().toString(36).slice(2)}`;
 }
 
 export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridge; onUpdate: (bridge: ApiBridge) => void }) {
@@ -66,8 +141,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const initialBlocks = useMemo(() => bridge.wireframeData?.blocks ?? [], [bridge.id]);
 
   const [blocks, setBlocks] = useState<WireframeBlock[]>(initialBlocks);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTool, setActiveTool] = useState<"select" | "other">("select");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeTool, setActiveTool] = useState<Tool>("select");
   const [zoom, setZoom] = useState(0.8);
   const [showGrid, setShowGrid] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -81,18 +156,34 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<ApiUserRef[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  const [layerDropTargetId, setLayerDropTargetId] = useState<string | null | "root">(null);
 
   const historyRef = useRef<WireframeBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
   const [historyTick, setHistoryTick] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasScrollRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const editorRootRef = useRef<HTMLDivElement>(null);
+  const pendingScrollAdjustRef = useRef<{ dx: number; dy: number } | null>(null);
+  const panStateRef = useRef<{ startX: number; startY: number; startScrollLeft: number; startScrollTop: number } | null>(null);
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   useEffect(() => {
     setBlocks(initialBlocks);
     historyRef.current = [initialBlocks];
     historyIndexRef.current = 0;
     setHistoryTick((t) => t + 1);
+    setSelectedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge.id]);
 
@@ -127,9 +218,9 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setHistoryTick((t) => t + 1);
   }
 
-  // Chamado ao FINAL de um drag/resize/rename (mouseup, blur) — só entra no
-  // histórico e agenda o autosave se algo realmente mudou (evita poluir o
-  // undo/redo e disparar saves à toa por um clique sem arrasto).
+  // Chamado ao FINAL de um drag/resize/rename/agrupar (mouseup, blur) — só
+  // entra no histórico e agenda o autosave se algo realmente mudou (evita
+  // poluir o undo/redo e disparar saves à toa por um clique sem arrasto).
   function commitBlocks(next: WireframeBlock[]) {
     setBlocks(next);
     if (blocksEqual(next, historyRef.current[historyIndexRef.current])) return;
@@ -157,36 +248,62 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
   const canUndo = historyIndexRef.current > 0;
   const canRedo = historyIndexRef.current < historyRef.current.length - 1;
-  const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null;
+  const selectedBlock = selectedIds.size === 1 ? blocks.find((b) => selectedIds.has(b.id)) ?? null : null;
 
   function updateBlockLive(id: string, patch: Partial<WireframeBlock>) {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   }
 
+  function selectOnly(id: string) {
+    setSelectedIds(new Set([id]));
+    setPropertiesOpen(true);
+  }
+
+  function toggleSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   // --- Drag pra mover um bloco (ferramenta Selecionar) ---
   function handleBlockMouseDown(event: ReactMouseEvent, block: WireframeBlock) {
-    if (activeTool !== "select") return;
+    if (activeTool !== "select" || event.button !== 0) return;
     event.stopPropagation();
-    setSelectedId(block.id);
+
+    if (event.shiftKey) {
+      toggleSelection(block.id);
+      return;
+    }
+
+    const effectiveSelection = selectedIds.has(block.id) && selectedIds.size > 1 ? selectedIds : new Set([block.id]);
+    setSelectedIds(effectiveSelection);
     setPropertiesOpen(true);
+
+    const moveSet = getMoveSet(block.id, blocks, effectiveSelection);
     const startX = event.clientX;
     const startY = event.clientY;
-    const startBlockX = block.x;
-    const startBlockY = block.y;
+    const startPositions = new Map(blocks.filter((b) => moveSet.has(b.id)).map((b) => [b.id, { x: b.x, y: b.y }]));
     let current = blocks;
+    let moved = false;
 
     function onMove(moveEvent: MouseEvent) {
-      const dx = (moveEvent.clientX - startX) / zoom;
-      const dy = (moveEvent.clientY - startY) / zoom;
-      const nextX = Math.round(startBlockX + dx);
-      const nextY = Math.round(startBlockY + dy);
-      current = current.map((b) => (b.id === block.id ? { ...b, x: nextX, y: nextY } : b));
+      moved = true;
+      const dx = (moveEvent.clientX - startX) / zoomRef.current;
+      const dy = (moveEvent.clientY - startY) / zoomRef.current;
+      current = current.map((b) => {
+        const start = startPositions.get(b.id);
+        if (!start) return b;
+        return { ...b, x: Math.round(start.x + dx), y: Math.round(start.y + dy) };
+      });
       setBlocks(current);
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      commitBlocks(current);
+      if (moved) commitBlocks(current);
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -202,8 +319,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     let current = blocks;
 
     function onMove(moveEvent: MouseEvent) {
-      const dx = (moveEvent.clientX - startX) / zoom;
-      const dy = (moveEvent.clientY - startY) / zoom;
+      const dx = (moveEvent.clientX - startX) / zoomRef.current;
+      const dy = (moveEvent.clientY - startY) / zoomRef.current;
       let { x, y, width, height } = start;
 
       if (direction.includes("e")) width = Math.max(MIN_BLOCK_SIZE, start.width + dx);
@@ -235,8 +352,191 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
   function commitPropertyChange() {
     if (!selectedBlock) return;
-    const current = blocks;
-    commitBlocks(current);
+    commitBlocks(blocksRef.current);
+  }
+
+  // --- Agrupar seleção (Ajuste 4 — Ctrl+G / menu de contexto) ---
+  function groupSelection() {
+    const ids = selectedIdsRef.current;
+    if (ids.size < 2) return;
+    const current = blocksRef.current;
+    const selected = current.filter((b) => ids.has(b.id));
+    const minX = Math.min(...selected.map((b) => b.x));
+    const minY = Math.min(...selected.map((b) => b.y));
+    const maxX = Math.max(...selected.map((b) => b.x + b.width));
+    const maxY = Math.max(...selected.map((b) => b.y + b.height));
+
+    const parentBlockId = selected[0].parentBlockId ?? null;
+    const siblingsAtLevel = current.filter((b) => b.parentBlockId === parentBlockId);
+    const nextSiblingOrder = siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
+
+    const groupBlock: WireframeBlock = {
+      id: makeId(),
+      label: "Grupo",
+      zone: selected[0].zone,
+      row: selected[0].row,
+      order: selected[0].order,
+      widthHint: "auto",
+      heightHint: "compact",
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      parentBlockId,
+      kind: "GROUP",
+      siblingOrder: nextSiblingOrder,
+    };
+
+    let childOrder = 0;
+    const next = current.map((b) => (ids.has(b.id) ? { ...b, parentBlockId: groupBlock.id, siblingOrder: childOrder++ } : b));
+    next.push(groupBlock);
+
+    commitBlocks(next);
+    setSelectedIds(new Set([groupBlock.id]));
+    setContextMenu(null);
+  }
+
+  // Atalho Ctrl+G / Cmd+G pra agrupar.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        groupSelection();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- groupSelection só lê blocksRef/selectedIdsRef (refs, sempre atuais) e setters estáveis, então o listener nunca fica desatualizado mesmo registrado uma única vez.
+  }, []);
+
+  // Fecha o menu de contexto ao clicar fora ou apertar Escape.
+  useEffect(() => {
+    if (!contextMenu) return;
+    function close() {
+      setContextMenu(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [contextMenu]);
+
+  function handleBlockContextMenu(event: ReactMouseEvent, block: WireframeBlock) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedIds.has(block.id)) setSelectedIds(new Set([block.id]));
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }
+
+  // --- Ctrl+scroll = zoom centralizado no cursor (Ajuste 1). Precisa de um
+  // listener NATIVO (não o onWheel do React) porque o React anexa o wheel
+  // como passivo por padrão — preventDefault() dentro de um onWheel comum
+  // não impede o scroll/zoom nativo do navegador de forma confiável.
+  useEffect(() => {
+    const container = canvasScrollRef.current;
+    if (!container) return;
+
+    function onWheel(event: WheelEvent) {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const frame = frameRef.current;
+      if (!frame) return;
+
+      const frameRect = frame.getBoundingClientRect();
+      const cursorFrameX = event.clientX - frameRect.left;
+      const cursorFrameY = event.clientY - frameRect.top;
+      const currentZoom = zoomRef.current;
+      const trueX = cursorFrameX / currentZoom;
+      const trueY = cursorFrameY / currentZoom;
+
+      const factor = Math.exp(-event.deltaY * 0.001);
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom * factor));
+
+      const newCursorFrameX = trueX * nextZoom;
+      const newCursorFrameY = trueY * nextZoom;
+      pendingScrollAdjustRef.current = { dx: newCursorFrameX - cursorFrameX, dy: newCursorFrameY - cursorFrameY };
+
+      setZoom(nextZoom);
+    }
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useEffect(() => {
+    const adjust = pendingScrollAdjustRef.current;
+    const container = canvasScrollRef.current;
+    if (adjust && container) {
+      container.scrollLeft += adjust.dx;
+      container.scrollTop += adjust.dy;
+      pendingScrollAdjustRef.current = null;
+    }
+  }, [zoom]);
+
+  // --- Pan: botão do meio (qualquer ferramenta) ou botão esquerdo com a
+  // ferramenta "Mão" ativa (Ajuste 2). ---
+  function startPan(event: ReactMouseEvent) {
+    const container = canvasScrollRef.current;
+    if (!container) return;
+    panStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: container.scrollLeft,
+      startScrollTop: container.scrollTop,
+    };
+    function onMove(moveEvent: MouseEvent) {
+      const pan = panStateRef.current;
+      if (!pan || !container) return;
+      container.scrollLeft = pan.startScrollLeft - (moveEvent.clientX - pan.startX);
+      container.scrollTop = pan.startScrollTop - (moveEvent.clientY - pan.startY);
+    }
+    function onUp() {
+      panStateRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function handleCanvasMouseDown(event: ReactMouseEvent) {
+    if (event.button === 1 || (event.button === 0 && activeTool === "hand")) {
+      event.preventDefault();
+      startPan(event);
+      return;
+    }
+    if (event.button === 0) {
+      setSelectedIds(new Set());
+      setContextMenu(null);
+    }
+  }
+
+  // --- Tela cheia (Ajuste 3) — chamado DIRETO no clique (gesto síncrono do
+  // usuário; navegadores recusam requestFullscreen fora disso), com o erro
+  // da Promise tratado em vez de ignorado silenciosamente. ---
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === editorRootRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      editorRootRef.current?.requestFullscreen().catch(() => {
+        setActionError("Não foi possível entrar em tela cheia neste navegador.");
+      });
+    }
   }
 
   async function handleApprove() {
@@ -310,11 +610,37 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
   }
 
+  // --- Reatribuir pai na árvore de Camadas via drag-and-drop ---
+  function handleLayerDrop(targetId: string | "root") {
+    const draggedId = draggedLayerId;
+    setDraggedLayerId(null);
+    setLayerDropTargetId(null);
+    if (!draggedId) return;
+    if (targetId === draggedId) return;
+
+    const newParentId = targetId === "root" ? null : targetId;
+    if (newParentId) {
+      // nunca deixa um bloco virar filho do próprio descendente (ciclo).
+      const descendants = collectDescendantIds(draggedId, blocksRef.current);
+      if (descendants.has(newParentId)) return;
+      const targetBlock = blocksRef.current.find((b) => b.id === newParentId);
+      if (!targetBlock || targetBlock.kind !== "GROUP") return;
+    }
+
+    const siblingsAtLevel = blocksRef.current.filter((b) => b.parentBlockId === newParentId && b.id !== draggedId);
+    const nextSiblingOrder = siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
+    const next = blocksRef.current.map((b) => (b.id === draggedId ? { ...b, parentBlockId: newParentId, siblingOrder: nextSiblingOrder } : b));
+    commitBlocks(next);
+  }
+
   const saveLabel =
     saveState === "saving" ? "Salvando..." : saveState === "error" ? "Falha ao salvar" : saveState === "pending" ? "Editando..." : "Salvo agora";
 
+  const tree = useMemo(() => buildTree(blocks), [blocks]);
+  const canGroup = selectedIds.size >= 2;
+
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#f3f3f4] text-[#1d1d1f]">
+    <div ref={editorRootRef} className="flex h-full flex-col overflow-hidden bg-[#f3f3f4] text-[#1d1d1f]">
       {/* Subheader */}
       <div className="flex flex-wrap items-center gap-3 border-b border-[#e4e4e7] bg-white px-6 py-3.5">
         <a
@@ -467,6 +793,9 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <ToolButton active={activeTool === "select"} onClick={() => setActiveTool("select")} label="Selecionar">
             <SelectToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
+          <ToolButton active={activeTool === "hand"} onClick={() => setActiveTool("hand")} label="Mão (arrastar tela)">
+            <HandToolIcon className="h-[18px] w-[18px]" />
+          </ToolButton>
           <ToolButton onClick={() => {}} label="Frame (em breve)">
             <FrameToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
@@ -487,7 +816,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           </ToolButton>
         </div>
 
-        {/* Aba Camadas */}
+        {/* Aba Camadas — árvore de verdade (Ajuste 4) */}
         <button
           type="button"
           onClick={() => setLayersOpen((v) => !v)}
@@ -500,22 +829,40 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
         </button>
 
         {layersOpen && (
-          <div className="absolute bottom-[30px] left-[52px] z-20 max-h-[420px] w-56 overflow-y-auto rounded-lg border border-[#e4e4e7] bg-white p-2 shadow-lg">
+          <div
+            className="absolute bottom-[30px] left-[52px] z-20 max-h-[420px] w-64 overflow-y-auto rounded-lg border border-[#e4e4e7] bg-white p-2 shadow-lg"
+            onDragOver={(event) => {
+              event.preventDefault();
+              setLayerDropTargetId("root");
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              handleLayerDrop("root");
+            }}
+          >
             <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">Camadas ({blocks.length})</p>
-            {blocks.map((block) => (
-              <button
-                key={block.id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(block.id);
-                  setPropertiesOpen(true);
-                }}
-                className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-sm ${
-                  selectedId === block.id ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
-                }`}
-              >
-                {block.label}
-              </button>
+            {tree.map((node) => (
+              <LayerRow
+                key={node.block.id}
+                node={node}
+                depth={0}
+                selectedIds={selectedIds}
+                collapsedGroupIds={collapsedGroupIds}
+                onToggleCollapse={(id) =>
+                  setCollapsedGroupIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })
+                }
+                onSelect={(id, shift) => (shift ? toggleSelection(id) : selectOnly(id))}
+                draggedLayerId={draggedLayerId}
+                layerDropTargetId={layerDropTargetId}
+                onDragStartLayer={setDraggedLayerId}
+                onDragOverLayer={setLayerDropTargetId}
+                onDropLayer={handleLayerDrop}
+              />
             ))}
           </div>
         )}
@@ -534,7 +881,20 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
         {propertiesOpen && (
           <div className="absolute right-[52px] top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-[#e4e4e7] bg-white p-4 shadow-lg">
-            {!selectedBlock ? (
+            {selectedIds.size === 0 ? (
+              <p className="text-sm text-[#8e8e93]">Selecione um bloco no canvas pra ver e editar suas propriedades.</p>
+            ) : selectedIds.size > 1 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-[#1d1d1f]">{selectedIds.size} blocos selecionados.</p>
+                <button
+                  type="button"
+                  onClick={groupSelection}
+                  className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
+                >
+                  Agrupar seleção (Ctrl+G)
+                </button>
+              </div>
+            ) : !selectedBlock ? (
               <p className="text-sm text-[#8e8e93]">Selecione um bloco no canvas pra ver e editar suas propriedades.</p>
             ) : (
               <div className="space-y-3">
@@ -603,20 +963,27 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           </div>
           <button
             type="button"
-            onClick={() => zoomTo(1)}
-            aria-label="Ajustar à tela"
-            className="grid h-10 w-10 place-items-center rounded-lg bg-white text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] hover:bg-[#f7f7f8]"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+            aria-pressed={isFullscreen}
+            className={`grid h-10 w-10 place-items-center rounded-lg shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] hover:bg-[#f7f7f8] ${isFullscreen ? "bg-[#f1ebfe] text-[#7c3aed]" : "bg-white text-[#1d1d1f]"}`}
           >
-            <MaximizeIcon className="h-4 w-4" />
+            {isFullscreen ? <MinimizeIcon className="h-4 w-4" /> : <MaximizeIcon className="h-4 w-4" />}
           </button>
         </div>
 
         {/* Canvas */}
-        <div ref={canvasScrollRef} className="h-full overflow-auto py-16 pl-[130px] pr-8" onMouseDown={() => setSelectedId(null)}>
+        <div
+          ref={canvasScrollRef}
+          className="h-full overflow-auto py-16 pl-[130px] pr-8"
+          style={{ cursor: activeTool === "hand" ? "grab" : undefined }}
+          onMouseDown={handleCanvasMouseDown}
+        >
           <p className="mb-2 pl-1 text-[13.5px] text-[#4b4b52]" style={{ width: frameWidth * zoom }}>
             Desktop - {frameWidth} × {frameHeight}
           </p>
           <div
+            ref={frameRef}
             className="relative select-none bg-white"
             style={{
               width: frameWidth * zoom,
@@ -628,21 +995,47 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
               backgroundSize: showGrid ? `${8 * zoom}px ${8 * zoom}px` : undefined,
             }}
           >
-            {blocks.map((block) => (
-              <CanvasBlock
-                key={block.id}
-                block={block}
-                zoom={zoom}
-                frameWidth={frameWidth}
-                frameHeight={frameHeight}
-                selected={selectedId === block.id}
-                onMouseDown={(event) => handleBlockMouseDown(event, block)}
-                onResizeMouseDown={(event, direction) => handleResizeMouseDown(event, block, direction)}
-              />
-            ))}
+            {blocks
+              .filter((b) => b.kind === "GROUP")
+              .map((block) => (
+                <GroupOutline key={block.id} block={block} zoom={zoom} selected={selectedIds.has(block.id)} onMouseDown={(e) => handleBlockMouseDown(e, block)} />
+              ))}
+            {blocks
+              .filter((b) => b.kind === "ELEMENT")
+              .map((block) => (
+                <CanvasBlock
+                  key={block.id}
+                  block={block}
+                  zoom={zoom}
+                  frameWidth={frameWidth}
+                  frameHeight={frameHeight}
+                  selected={selectedIds.has(block.id)}
+                  onMouseDown={(event) => handleBlockMouseDown(event, block)}
+                  onContextMenu={(event) => handleBlockContextMenu(event, block)}
+                  onResizeMouseDown={(event, direction) => handleResizeMouseDown(event, block, direction)}
+                />
+              ))}
           </div>
         </div>
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 w-56 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            disabled={!canGroup}
+            onClick={groupSelection}
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:text-[#b4b4b9] disabled:hover:bg-transparent"
+          >
+            Agrupar seleção
+            <span className="text-xs text-[#8e8e93]">Ctrl+G</span>
+          </button>
+        </div>
+      )}
 
       {regenerateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setRegenerateOpen(false)}>
@@ -730,6 +1123,136 @@ function NumberField({
   );
 }
 
+// --- Árvore de Camadas (Ajuste 4) ---
+
+function LayerRow({
+  node,
+  depth,
+  selectedIds,
+  collapsedGroupIds,
+  onToggleCollapse,
+  onSelect,
+  draggedLayerId,
+  layerDropTargetId,
+  onDragStartLayer,
+  onDragOverLayer,
+  onDropLayer,
+}: {
+  node: TreeNode;
+  depth: number;
+  selectedIds: Set<string>;
+  collapsedGroupIds: Set<string>;
+  onToggleCollapse: (id: string) => void;
+  onSelect: (id: string, shift: boolean) => void;
+  draggedLayerId: string | null;
+  layerDropTargetId: string | null | "root";
+  onDragStartLayer: (id: string) => void;
+  onDragOverLayer: (id: string | null | "root") => void;
+  onDropLayer: (id: string | "root") => void;
+}) {
+  const { block, children } = node;
+  const isGroup = block.kind === "GROUP";
+  const isCollapsed = collapsedGroupIds.has(block.id);
+  const isSelected = selectedIds.has(block.id);
+  const isDropTarget = layerDropTargetId === block.id && draggedLayerId !== block.id;
+  const isTextLike = TEXT_LABEL_PATTERN.test(block.label);
+  const Icon = isGroup ? FolderIcon : isTextLike ? TextToolIcon : FrameToolIcon;
+
+  return (
+    <div>
+      <div
+        draggable
+        onDragStart={(event) => {
+          event.stopPropagation();
+          onDragStartLayer(block.id);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onDragOverLayer(block.id);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onDropLayer(block.id);
+        }}
+        onClick={(event) => onSelect(block.id, event.shiftKey)}
+        style={{ paddingLeft: 8 + depth * 16 }}
+        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-sm ${
+          isSelected ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+        } ${isDropTarget ? "outline outline-2 outline-[#7c3aed]" : ""}`}
+      >
+        {isGroup ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleCollapse(block.id);
+            }}
+            className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
+          >
+            <ChevronDownIcon className={`h-3 w-3 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+          </button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{block.label}</span>
+      </div>
+      {isGroup && !isCollapsed && children.length > 0 && (
+        <div>
+          {children.map((child) => (
+            <LayerRow
+              key={child.block.id}
+              node={child}
+              depth={depth + 1}
+              selectedIds={selectedIds}
+              collapsedGroupIds={collapsedGroupIds}
+              onToggleCollapse={onToggleCollapse}
+              onSelect={onSelect}
+              draggedLayerId={draggedLayerId}
+              layerDropTargetId={layerDropTargetId}
+              onDragStartLayer={onDragStartLayer}
+              onDragOverLayer={onDragOverLayer}
+              onDropLayer={onDropLayer}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Contorno visual de um GROUP no canvas: pointer-events-none no retângulo
+// (deixa os cliques passarem pros filhos por cima), só a etiqueta do nome no
+// canto é clicável/arrastável pra selecionar/mover o grupo inteiro. ---
+function GroupOutline({
+  block,
+  zoom,
+  selected,
+  onMouseDown,
+}: {
+  block: WireframeBlock;
+  zoom: number;
+  selected: boolean;
+  onMouseDown: (event: ReactMouseEvent) => void;
+}) {
+  return (
+    <div
+      className="absolute"
+      style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
+    >
+      <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#7c3aed]" : "border-[#c4b5fd]"}`} />
+      <span
+        onMouseDown={onMouseDown}
+        className="absolute -top-6 left-0 cursor-move whitespace-nowrap rounded bg-[#7c3aed] px-1.5 py-0.5 text-[10px] font-medium text-white"
+      >
+        {block.label}
+      </span>
+    </div>
+  );
+}
+
 const RESIZE_HANDLES: { direction: ResizeDirection; className: string; cursor: string }[] = [
   { direction: "nw", className: "-left-1 -top-1", cursor: "nwse-resize" },
   { direction: "n", className: "left-1/2 -top-1 -translate-x-1/2", cursor: "ns-resize" },
@@ -748,6 +1271,7 @@ function CanvasBlock({
   frameHeight,
   selected,
   onMouseDown,
+  onContextMenu,
   onResizeMouseDown,
 }: {
   block: WireframeBlock;
@@ -756,6 +1280,7 @@ function CanvasBlock({
   frameHeight: number;
   selected: boolean;
   onMouseDown: (event: ReactMouseEvent) => void;
+  onContextMenu: (event: ReactMouseEvent) => void;
   onResizeMouseDown: (event: ReactMouseEvent, direction: ResizeDirection) => void;
 }) {
   // Guias de medição pontilhadas: comprimento exato até a borda do frame em
@@ -768,6 +1293,7 @@ function CanvasBlock({
   return (
     <div
       onMouseDown={onMouseDown}
+      onContextMenu={onContextMenu}
       className={`absolute cursor-move border bg-white ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
       style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
     >

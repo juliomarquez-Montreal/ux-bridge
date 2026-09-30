@@ -58,6 +58,9 @@ function layoutRow(blocks: HintBlock[], x: number, y: number, width: number, hei
       y: Math.round(y),
       width: Math.round(blockWidth),
       height: Math.round(height),
+      parentBlockId: null,
+      kind: "ELEMENT",
+      siblingOrder: out.length,
     });
     cursorX += blockWidth + GAP;
   }
@@ -87,6 +90,9 @@ function layoutColumn(blocks: HintBlock[], x: number, y: number, width: number, 
       y: Math.round(cursorY),
       width: Math.round(width),
       height: Math.round(blockHeight),
+      parentBlockId: null,
+      kind: "ELEMENT",
+      siblingOrder: out.length,
     });
     cursorY += blockHeight + GAP;
   }
@@ -106,7 +112,7 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
     throw new Error("O wireframe precisa ter pelo menos um bloco.");
   }
 
-  return blocksRaw.map((item) => {
+  const normalized = blocksRaw.map((item, index) => {
     const raw = item as {
       id?: unknown;
       label?: unknown;
@@ -119,6 +125,9 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
       y?: unknown;
       width?: unknown;
       height?: unknown;
+      parentBlockId?: unknown;
+      kind?: unknown;
+      siblingOrder?: unknown;
     };
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : makeBlockId();
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
@@ -137,9 +146,22 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
     const y = typeof raw.y === "number" && Number.isFinite(raw.y) ? raw.y : 0;
     const width = typeof raw.width === "number" && Number.isFinite(raw.width) && raw.width > 0 ? raw.width : 40;
     const height = typeof raw.height === "number" && Number.isFinite(raw.height) && raw.height > 0 ? raw.height : 24;
+    const parentBlockId = typeof raw.parentBlockId === "string" && raw.parentBlockId.trim() ? raw.parentBlockId.trim() : null;
+    const kind = raw.kind === "GROUP" ? "GROUP" : "ELEMENT";
+    const siblingOrder = typeof raw.siblingOrder === "number" && Number.isFinite(raw.siblingOrder) ? raw.siblingOrder : index;
 
-    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height };
+    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height, parentBlockId, kind, siblingOrder } as WireframeBlock;
   });
+
+  // Nunca deixa um parentBlockId apontar pra um id que não existe nesta
+  // mesma lista (bloco removido, payload malformado etc.) — cai pra
+  // nível raiz em vez de sumir da árvore de Camadas silenciosamente.
+  const validIds = new Set(normalized.map((b) => b.id));
+  for (const block of normalized) {
+    if (block.parentBlockId && !validIds.has(block.parentBlockId)) block.parentBlockId = null;
+  }
+
+  return normalized;
 }
 
 // Recebe os blocos no formato de hints (já normalizados — ver
