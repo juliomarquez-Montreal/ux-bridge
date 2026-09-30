@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
-import { runBddGeneration, runSketchGeneration } from "@/lib/bridges/generate";
+import { runBddGeneration, runWireframeGeneration } from "@/lib/bridges/generate";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 
 export const maxDuration = 60;
@@ -12,11 +12,14 @@ interface Params {
 }
 
 // POST /api/bridges/:id/reject -> PO rejeita com um comentário ({ comment }).
-// Qual etapa é rejeitada depende do status atual do Bridge (Bridge-3a):
+// Qual etapa é rejeitada depende do status atual do Bridge:
 // - AGUARDANDO_APROVACAO_BDD: incrementa attemptCount, guarda o comentário e
 //   regenera o BDD/PBI (comentário incorporado ao próximo prompt).
-// - AGUARDANDO_APROVACAO_SKETCH: incrementa sketchAttemptCount, guarda o
-//   comentário e regenera o Sketch.
+// - AGUARDANDO_APROVACAO_WIREFRAME_PO: "Eu não gostei, gerar de novo do
+//   zero" (Wireframe-1a) — como o PO já pode editar direto no canvas, isso é
+//   só uma opção alternativa quando a correção manual não vale a pena;
+//   incrementa wireframeAttemptCount, guarda o comentário e regenera o
+//   wireframe do zero via IA.
 export async function POST(request: Request, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -27,7 +30,7 @@ export async function POST(request: Request, { params }: Params) {
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
-  if (bridge.status !== "AGUARDANDO_APROVACAO_BDD" && bridge.status !== "AGUARDANDO_APROVACAO_SKETCH") {
+  if (bridge.status !== "AGUARDANDO_APROVACAO_BDD" && bridge.status !== "AGUARDANDO_APROVACAO_WIREFRAME_PO") {
     return NextResponse.json({ error: "Este Bridge não está aguardando aprovação." }, { status: 400 });
   }
 
@@ -44,9 +47,9 @@ export async function POST(request: Request, { params }: Params) {
   } else {
     await db.bridge.update({
       where: { id: bridge.id },
-      data: { lastSketchRejectionComment: comment, sketchAttemptCount: { increment: 1 }, status: "GERANDO_SKETCH" },
+      data: { lastWireframeRejectionComment: comment, wireframeAttemptCount: { increment: 1 }, status: "GERANDO_WIREFRAME" },
     });
-    await runSketchGeneration(bridge.id);
+    await runWireframeGeneration(bridge.id);
   }
 
   const updated = await db.bridge.findUnique({ where: { id: bridge.id }, include: BRIDGE_WITH_PLANET_INCLUDE });

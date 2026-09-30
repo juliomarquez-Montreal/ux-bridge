@@ -70,6 +70,10 @@ model User {
   // fixa) por N:N (Fase N7).
   galaxyAccess    UserGalaxyAccess[]
   createdAt       DateTime           @default(now())
+  // Bridges onde este usuário é o PO ou o UX responsável (Wireframe-1a) —
+  // ver Bridge.poUserId/uxUserId abaixo.
+  bridgesAsPO     Bridge[]           @relation("BridgePO")
+  bridgesAsUX     Bridge[]           @relation("BridgeUX")
 }
 
 // Acesso de um usuário a uma Galáxia (N:N) — ver lib/nova/permissions.ts.
@@ -85,17 +89,30 @@ model UserGalaxyAccess {
   @@unique([userId, galaxyId])
 }
 
-// Bridge-1 + Bridge-3a: fluxo de criação de um Bridge (material bruto ->
-// BDD/PBI aprovado pelo PO -> Sketch aprovado pelo PO). Wireframe de verdade
-// vem no Bridge-5 — por enquanto o Bridge fica parado em
-// AGUARDANDO_WIREFRAME depois do Sketch aprovado.
+// Bridge-1 + Bridge-3a + Wireframe-1a: fluxo de criação de um Bridge
+// (material bruto -> BDD/PBI aprovado pelo PO -> Wireframe editado/aprovado
+// pelo PO -> avaliação do UX). A etapa de "Sketch" (Bridge-3a/3b) foi
+// substituída pelo editor de Wireframe profissional completo — ver
+// lib/bridges/generate.ts e components/WireframeEditor.tsx. O fluxo de
+// aprovação do UX e envio ao Figma vem na Wireframe-2 (ainda não
+// implementado — o Bridge fica parado em AGUARDANDO_APROVACAO_UX).
 model Bridge {
   id                  String      @id @default(cuid())
   planetContextNodeId String
   planet              ContextNode @relation(fields: [planetContextNodeId], references: [id], onDelete: Cascade)
   createdById         String
-  // GERANDO_BDD | AGUARDANDO_APROVACAO_BDD | GERANDO_SKETCH |
-  // AGUARDANDO_APROVACAO_SKETCH | AGUARDANDO_WIREFRAME | ERRO_GERACAO
+  // Preenchido automaticamente com createdById na criação; pode ser
+  // reatribuído depois. Sem @relation obrigatória no schema porque, assim
+  // como createdById, é só um scalar id (ver comentário em
+  // app/api/bridges/route.ts sobre por que createdById não tem FK formal) —
+  // poUserId/uxUserId TÊM relação formal porque precisamos resolver
+  // avatar/nome via `include` direto no editor (ver BRIDGE_WITH_PLANET_INCLUDE).
+  poUserId              String?
+  poUser                User?       @relation("BridgePO", fields: [poUserId], references: [id])
+  uxUserId              String?
+  uxUser                User?       @relation("BridgeUX", fields: [uxUserId], references: [id])
+  // GERANDO_BDD | AGUARDANDO_APROVACAO_BDD | GERANDO_WIREFRAME |
+  // AGUARDANDO_APROVACAO_WIREFRAME_PO | AGUARDANDO_APROVACAO_UX | ERRO_GERACAO
   status              String
   // Material de entrada — arquivo OU texto colado (nunca os dois).
   rawMaterialText     String?
@@ -106,8 +123,18 @@ model Bridge {
   // alimentar o par inicial/final do PlanetExample quando o BDD é aprovado.
   firstGeneratedBddPbi String?
   bddApprovedAt         DateTime?
-  // Estrutura do sketch gerada pela IA (blocos com label/region/size) — ver
-  // lib/bridges/generate.ts. Renderizada pelo componente SketchPreview.
+  // Estrutura do Wireframe: { frameWidth, frameHeight, blocks: [{ id, label,
+  // zone, row, order, widthHint, heightHint, x, y, width, height }] } — ver
+  // lib/bridges/wireframeLayout.ts. zone/row/order/widthHint/heightHint vêm
+  // congelados da geração da IA (metadado, usado no aprendizado); x/y/width/
+  // height são a posição/tamanho livres de verdade, editáveis no canvas.
+  wireframeData             Json?
+  wireframeAttemptCount     Int      @default(0)
+  lastWireframeRejectionComment String?
+  // TEMPORÁRIO (Wireframe-1a): mantidos só até o script de migração copiar
+  // sketchData -> wireframeData pros Bridges que ainda estavam no fluxo
+  // antigo — removidos do schema (e da coluna, via db push) assim que a
+  // migração rodar em produção. Não usados por nenhum código novo.
   sketchData             Json?
   sketchAttemptCount     Int      @default(0)
   lastSketchRejectionComment String?

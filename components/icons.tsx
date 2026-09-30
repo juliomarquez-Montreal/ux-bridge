@@ -3,20 +3,34 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Atom,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Circle,
   Clock,
+  Cloud,
+  Copy,
   Filter,
   Globe,
-  GripVertical,
+  Layers,
   Link2,
+  Maximize2,
+  MessageSquare,
+  Minus,
+  MousePointer2,
   Network,
   Package,
   Pencil,
+  PenTool,
+  Redo2,
   Settings,
+  SlidersHorizontal,
+  Square,
   Star,
   Trash2,
+  Type,
+  Undo2,
   X,
 } from "lucide-react";
 
@@ -245,19 +259,75 @@ export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   return <ChevronRight strokeWidth={1.7} {...props} />;
 }
 
-// Alça de arrastar — usada no editor manual do Sketch (Bridge-3b).
-export function GripIcon(props: SVGProps<SVGSVGElement>) {
-  return <GripVertical strokeWidth={1.7} {...props} />;
+// Ícones do editor de Wireframe (Wireframe-1a) — subheader, toolbar
+// flutuante, painel de ferramentas à esquerda, abas Camadas/Propriedades e
+// controles de zoom. Todos wrappers finos do lucide-react, mesmo padrão
+// (strokeWidth 1.7) já usado nos ícones acima.
+export function UndoIcon(props: SVGProps<SVGSVGElement>) {
+  return <Undo2 strokeWidth={1.7} {...props} />;
 }
 
-// Alça de redimensionar livre (canto inferior direito) — três traços
-// diagonais, estilo Figma/Canva. Usada no editor manual do Sketch (Bridge-3b).
-export function ResizeHandleIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" {...props}>
-      <path d="M14 2 2 14" />
-      <path d="M14 7 7 14" />
-      <path d="M14 12l-2 2" />
-    </svg>
-  );
+export function RedoIcon(props: SVGProps<SVGSVGElement>) {
+  return <Redo2 strokeWidth={1.7} {...props} />;
+}
+
+export function CloudIcon(props: SVGProps<SVGSVGElement>) {
+  return <Cloud strokeWidth={1.7} {...props} />;
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return <Check strokeWidth={1.7} {...props} />;
+}
+
+export function MaximizeIcon(props: SVGProps<SVGSVGElement>) {
+  return <Maximize2 strokeWidth={1.7} {...props} />;
+}
+
+export function MinusIcon(props: SVGProps<SVGSVGElement>) {
+  return <Minus strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Selecionar" (cursor/ponteiro) do painel de ferramentas.
+export function SelectToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <MousePointer2 strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Frame".
+export function FrameToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <Square strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Elipse".
+export function EllipseToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <Circle strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Componentes".
+export function ComponentsToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <Copy strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Caneta".
+export function PenToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <PenTool strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Texto".
+export function TextToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <Type strokeWidth={1.7} {...props} />;
+}
+
+// Ferramenta "Comentário".
+export function CommentToolIcon(props: SVGProps<SVGSVGElement>) {
+  return <MessageSquare strokeWidth={1.7} {...props} />;
+}
+
+// Aba lateral "Camadas".
+export function LayersTabIcon(props: SVGProps<SVGSVGElement>) {
+  return <Layers strokeWidth={1.7} {...props} />;
+}
+
+// Aba lateral "Propriedades".
+export function PropertiesTabIcon(props: SVGProps<SVGSVGElement>) {
+  return <SlidersHorizontal strokeWidth={1.7} {...props} />;
 }

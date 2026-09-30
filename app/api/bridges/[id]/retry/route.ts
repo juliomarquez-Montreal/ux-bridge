@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
-import { runBddGeneration, runSketchGeneration } from "@/lib/bridges/generate";
+import { runBddGeneration, runWireframeGeneration } from "@/lib/bridges/generate";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 
 export const maxDuration = 60;
@@ -15,7 +15,7 @@ interface Params {
 // ERRO_GERACAO (falha da IA), sem comentário de correção — evita que o
 // Bridge fique irrecuperável só porque a chamada à IA falhou uma vez.
 // bddApprovedAt já preenchido indica que a falha aconteceu na etapa do
-// Sketch (o BDD já tinha sido aprovado); senão a falha foi na etapa do BDD.
+// Wireframe (o BDD já tinha sido aprovado); senão a falha foi na etapa do BDD.
 export async function POST(_request: Request, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -31,7 +31,7 @@ export async function POST(_request: Request, { params }: Params) {
   }
 
   if (bridge.bddApprovedAt) {
-    await runSketchGeneration(bridge.id);
+    await runWireframeGeneration(bridge.id);
   } else {
     await runBddGeneration(bridge.id);
   }

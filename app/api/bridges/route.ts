@@ -127,7 +127,7 @@ export async function POST(request: Request) {
   }
 
   const bridge = await db.bridge.create({
-    data: { planetContextNodeId: planet.id, createdById: user.id, status: "GERANDO_BDD" },
+    data: { planetContextNodeId: planet.id, createdById: user.id, poUserId: user.id, status: "GERANDO_BDD" },
   });
 
   if (hasFile && file instanceof File) {

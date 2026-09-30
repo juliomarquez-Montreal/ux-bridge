@@ -1,46 +1,50 @@
 export type BridgeStatus =
   | "GERANDO_BDD"
   | "AGUARDANDO_APROVACAO_BDD"
-  | "GERANDO_SKETCH"
-  | "AGUARDANDO_APROVACAO_SKETCH"
-  | "AGUARDANDO_WIREFRAME"
+  | "GERANDO_WIREFRAME"
+  | "AGUARDANDO_APROVACAO_WIREFRAME_PO"
+  | "AGUARDANDO_APROVACAO_UX"
   | "ERRO_GERACAO";
 
-// Modelo genérico de layout do Sketch (Bridge-3a) — espelha
-// lib/bridges/generate.ts (SKETCH_ZONES). Só 4 zonas estruturais universais;
-// tudo que é específico de uma tela em particular (quantas linhas, o que
-// tem em cada uma) é decidido pela IA via row/order/hints, não por um
-// vocabulário fixo de nomes de região.
-export type SketchZone = "header" | "sidebar" | "footer" | "content";
-export type SketchWidthHint = "fill" | "auto";
-export type SketchHeightHint = "compact" | "fill";
+// Modelo genérico de "hints" que a IA usa pra descrever a estrutura de uma
+// tela (Wireframe-1a, herdado do antigo Sketch/Bridge-3a) — só 4 zonas
+// estruturais universais; tudo que é específico de uma tela em particular
+// (quantas linhas, o que tem em cada uma) é decidido pela IA via
+// row/order/hints, não por um vocabulário fixo de nomes de região. Esses
+// campos ficam CONGELADOS em cada WireframeBlock como metadado da geração
+// (usado pro aprendizado de MemoryPattern) — a posição/tamanho de verdade,
+// editável no canvas, é x/y/width/height.
+export type WireframeZone = "header" | "sidebar" | "footer" | "content";
+export type WireframeWidthHint = "fill" | "auto";
+export type WireframeHeightHint = "compact" | "fill";
 
-export interface SketchBlock {
+// Um bloco do Wireframe, já convertido pra coordenadas absolutas em pixels
+// dentro do frame (ver lib/bridges/wireframeLayout.ts) — a partir da geração,
+// é isso que o editor (components/WireframeEditor.tsx) lê e escreve.
+export interface WireframeBlock {
+  id: string;
   label: string;
-  zone: SketchZone;
-  // Só relevante quando zone="content": linha vertical dentro da área de
-  // conteúdo (0 = primeira linha, de cima pra baixo).
+  zone: WireframeZone;
   row: number;
-  // Posição horizontal dentro da mesma zone+row (0 = mais à esquerda).
   order: number;
-  // "fill": ocupa o espaço restante da linha, dividido entre os blocos
-  // "fill" dela. "auto": largura compacta, do tamanho do próprio conteúdo.
-  widthHint: SketchWidthHint;
-  // "compact": elemento de controle (botão, campo, título, aba) — baixo.
-  // "fill": conteúdo principal (tabela, gráfico, lista) — deve dominar o
-  // espaço vertical disponível.
-  heightHint: SketchHeightHint;
-  // Redimensionamento livre (Bridge-3b) — só existe depois que o PO arrasta
-  // a alça de um bloco no editor manual. Quando presente, TEM PRIORIDADE
-  // sobre widthHint/heightHint na renderização (editor e visualização
-  // normal). A IA nunca gera esses campos — normalizeSketchBlocks
-  // (lib/bridges/generate.ts) só os aceita vindos do editor manual.
-  manualWidthPercent?: number; // 0-100, % do espaço disponível na linha/coluna
-  manualHeightPx?: number; // altura exata em pixels
+  widthHint: WireframeWidthHint;
+  heightHint: WireframeHeightHint;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-export interface SketchData {
-  blocks: SketchBlock[];
+export interface WireframeData {
+  frameWidth: number;
+  frameHeight: number;
+  blocks: WireframeBlock[];
+}
+
+export interface ApiUserRef {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
 }
 
 export interface ApiBridgeListItem {
@@ -59,14 +63,18 @@ export interface ApiBridge {
   id: string;
   planetContextNodeId: string;
   createdById: string;
+  poUserId: string | null;
+  poUser: ApiUserRef | null;
+  uxUserId: string | null;
+  uxUser: ApiUserRef | null;
   status: BridgeStatus;
   rawMaterialText: string | null;
   rawMaterialFileUrl: string | null;
   generatedBddPbi: string | null;
   bddApprovedAt: string | null;
-  sketchData: SketchData | null;
-  sketchAttemptCount: number;
-  lastSketchRejectionComment: string | null;
+  wireframeData: WireframeData | null;
+  wireframeAttemptCount: number;
+  lastWireframeRejectionComment: string | null;
   errorMessage: string | null;
   attemptCount: number;
   lastRejectionComment: string | null;

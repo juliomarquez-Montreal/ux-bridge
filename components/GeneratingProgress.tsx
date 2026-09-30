@@ -1,6 +1,6 @@
 // Indicador de progresso pra qualquer tela aguardando uma geração de IA
-// (BDD ou Sketch) — a duração real da chamada é desconhecida, então a barra
-// é indeterminada (só comunica "em andamento", nunca uma porcentagem real).
+// (BDD ou Wireframe) — a duração real da chamada é desconhecida, então a
+// barra é indeterminada (só comunica "em andamento", nunca uma % real).
 export default function GeneratingProgress({ label }: { label: string }) {
   return (
     <div>

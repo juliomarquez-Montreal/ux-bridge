@@ -6,18 +6,16 @@ import Badge from "@/components/Badge";
 import GeneratingProgress from "@/components/GeneratingProgress";
 import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
-import SketchEditor from "@/components/SketchEditor";
-import SketchPreview from "@/components/SketchPreview";
 import { STATUS_BADGE_VARIANT, STATUS_LABEL } from "../statusMeta";
 import type { ApiBridge } from "../types";
 
-// Depois de 2 tentativas rejeitadas do Sketch, destaca o aviso pra editar
-// manualmente (Bridge-3b) — o botão em si já fica disponível desde a
-// primeira geração, isso só chama mais atenção pra essa alternativa.
-const MANUAL_EDIT_HINT_THRESHOLD = 2;
+const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_WIREFRAME"];
 
-const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_SKETCH"];
-
+// Tela de revisão do Bridge — cobre GERANDO_BDD, AGUARDANDO_APROVACAO_BDD,
+// GERANDO_WIREFRAME, AGUARDANDO_APROVACAO_UX e ERRO_GERACAO. O status
+// AGUARDANDO_APROVACAO_WIREFRAME_PO é tratado à parte por page.tsx, que
+// renderiza o WireframeEditor em tela cheia nesse caso (nunca chega a
+// montar este componente pra esse status).
 export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   const router = useRouter();
   const [bridge, setBridge] = useState<ApiBridge | null>(null);
@@ -26,7 +24,6 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
-  const [editorOpen, setEditorOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -41,21 +38,28 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
     refresh().catch(() => setLoadError("Não foi possível carregar este Bridge."));
   }, [refresh]);
 
-  // Enquanto está gerando (BDD ou Sketch), faz polling — o usuário pode ter
-  // chegado aqui recarregando a página enquanto OUTRA aba/sessão disparou a
-  // geração.
+  // Enquanto está gerando (BDD ou Wireframe), faz polling — o usuário pode
+  // ter chegado aqui recarregando a página enquanto OUTRA aba/sessão
+  // disparou a geração. Assim que o Wireframe termina de gerar
+  // (AGUARDANDO_APROVACAO_WIREFRAME_PO), força o Next.js a re-renderizar o
+  // Server Component da página — é ele quem decide trocar pra casca do
+  // WireframeEditor em tela cheia (ver app/bridges/[id]/page.tsx).
   useEffect(() => {
     if (!bridge || !GENERATING_STATUSES.includes(bridge.status)) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
     pollRef.current = setInterval(() => {
-      refresh().catch(() => {});
+      refresh()
+        .then((updated) => {
+          if (updated.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO") router.refresh();
+        })
+        .catch(() => {});
     }, 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [bridge, refresh]);
+  }, [bridge, refresh, router]);
 
   async function handleApprove() {
     setBusy(true);
@@ -65,6 +69,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Falha ao aprovar.");
       setBridge(data.bridge);
+      if (data.bridge.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO") router.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Falha ao aprovar.");
     } finally {
@@ -102,6 +107,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Falha ao tentar novamente.");
       setBridge(data.bridge);
+      if (data.bridge.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO") router.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Falha ao tentar novamente.");
     } finally {
@@ -133,9 +139,9 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
 
       {actionError && <p className="mt-4 text-sm text-luminous-error">{actionError}</p>}
 
-      {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_SKETCH") && (
+      {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_WIREFRAME") && (
         <GlassCard className="mt-6">
-          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando BDD/PBI..." : "Gerando sketch..."} />
+          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando BDD/PBI..." : "Gerando Wireframe..."} />
           <div className="mt-4 flex justify-end">
             <PillButton type="button" variant="inactive" onClick={() => router.push("/bridges")}>
               Fechar e continuar depois
@@ -147,7 +153,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       {bridge.status === "ERRO_GERACAO" && (
         <GlassCard className="mt-6">
           <p className="text-sm font-medium text-luminous-error">
-            {bridge.bddApprovedAt ? "Falha ao gerar o sketch" : "Falha ao gerar o BDD/PBI"}
+            {bridge.bddApprovedAt ? "Falha ao gerar o wireframe" : "Falha ao gerar o BDD/PBI"}
           </p>
           <p className="mt-1 text-sm text-luminous-on-surface-variant">
             {bridge.errorMessage ?? "Erro desconhecido."}
@@ -158,17 +164,15 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
         </GlassCard>
       )}
 
-      {/* Passo 1 de 2 — texto do BDD/PBI */}
+      {/* Revisão do BDD/PBI */}
       {bridge.status === "AGUARDANDO_APROVACAO_BDD" && (
         <GlassCard className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-            Passo 1 de 2 · BDD/PBI gerado
-          </p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">BDD/PBI gerado</p>
           <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
             {bridge.generatedBddPbi}
           </pre>
 
-          {bridge.attemptCount >= MANUAL_EDIT_HINT_THRESHOLD && (
+          {bridge.attemptCount >= 2 && (
             <p className="mt-4 rounded-lg border border-[#ffb688]/30 bg-[#ffb688]/10 px-4 py-3 text-sm text-[#ffb688]">
               Já são {bridge.attemptCount} tentativas — considere editar manualmente (edição manual chega numa fase futura).
             </p>
@@ -202,92 +206,21 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
         </GlassCard>
       )}
 
-      {/* Passo 2 de 2 — sketch */}
-      {bridge.status === "AGUARDANDO_APROVACAO_SKETCH" && (
-        <GlassCard className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-            Passo 2 de 2 · Sketch gerado
-          </p>
-          <SketchPreview sketchData={bridge.sketchData} />
-
-          {bridge.sketchAttemptCount >= MANUAL_EDIT_HINT_THRESHOLD && (
-            <div className="mt-4 rounded-lg border border-[#ffb688]/30 bg-[#ffb688]/10 px-4 py-3">
-              <p className="text-sm text-[#ffb688]">
-                Já são {bridge.sketchAttemptCount} tentativas — considere editar manualmente.
-              </p>
-              <PillButton type="button" variant="inactive" className="mt-3" onClick={() => setEditorOpen(true)} disabled={busy}>
-                Editar manualmente
-              </PillButton>
-            </div>
-          )}
-
-          {!showRejectForm ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <PillButton type="button" variant="primary" onClick={handleApprove} disabled={busy}>
-                {busy ? "Aprovando..." : "Aprovar"}
-              </PillButton>
-              <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
-                Rejeitar e comentar
-              </PillButton>
-              <PillButton type="button" variant="inactive" onClick={() => setEditorOpen(true)} disabled={busy}>
-                Editar manualmente
-              </PillButton>
-            </div>
-          ) : busy ? (
-            <div className="mt-4">
-              <GeneratingProgress label="Gerando sketch..." />
-            </div>
-          ) : (
-            <RejectForm
-              value={rejectComment}
-              onChange={setRejectComment}
-              onCancel={() => {
-                setShowRejectForm(false);
-                setRejectComment("");
-              }}
-              onSubmit={handleReject}
-              busy={busy}
-            />
-          )}
-        </GlassCard>
-      )}
-
-      {bridge.status === "AGUARDANDO_WIREFRAME" && (
+      {bridge.status === "AGUARDANDO_APROVACAO_UX" && (
         <>
           <GlassCard className="mt-6 border-emerald-300/30 bg-emerald-300/5">
-            <p className="text-sm font-medium text-emerald-200">BDD/PBI e Sketch aprovados.</p>
+            <p className="text-sm font-medium text-emerald-200">Wireframe aprovado pelo PO.</p>
             <p className="mt-1 text-sm text-luminous-on-surface-variant">
-              A geração de wireframe estará disponível em uma futura atualização — você será notificado quando estiver
-              pronta.
+              Aguardando avaliação do UX — disponível em breve.
             </p>
           </GlassCard>
           <GlassCard className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-              BDD/PBI final
-            </p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">BDD/PBI final</p>
             <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
               {bridge.generatedBddPbi}
             </pre>
           </GlassCard>
-          <GlassCard className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-              Sketch final
-            </p>
-            <SketchPreview sketchData={bridge.sketchData} />
-          </GlassCard>
         </>
-      )}
-
-      {editorOpen && bridge.status === "AGUARDANDO_APROVACAO_SKETCH" && (
-        <SketchEditor
-          bridgeId={bridge.id}
-          initialSketchData={bridge.sketchData}
-          onClose={() => setEditorOpen(false)}
-          onSaved={(updated) => {
-            setBridge(updated);
-            setEditorOpen(false);
-          }}
-        />
       )}
     </div>
   );
