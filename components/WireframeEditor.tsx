@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -22,11 +23,14 @@ import {
   CommentToolIcon,
   ComponentsToolIcon,
   EllipseToolIcon,
+  EyeOffIcon,
+  EyeOpenIcon,
   FolderIcon,
   FrameToolIcon,
   GridIcon,
   HandToolIcon,
   LayersTabIcon,
+  LockIcon,
   MaximizeIcon,
   MinimizeIcon,
   MinusIcon,
@@ -37,7 +41,9 @@ import {
   SelectToolIcon,
   TextToolIcon,
   ThumbsDownIcon,
+  TrashIcon,
   UndoIcon,
+  UnlockIcon,
 } from "@/components/icons";
 
 // Editor visual completo do Wireframe (Wireframe-1a/1a+). Reproduz fielmente
@@ -98,7 +104,9 @@ function blocksEqual(a: WireframeBlock[], b: WireframeBlock[]): boolean {
       block.height === other.height &&
       block.parentBlockId === other.parentBlockId &&
       block.kind === other.kind &&
-      block.siblingOrder === other.siblingOrder
+      block.siblingOrder === other.siblingOrder &&
+      block.hidden === other.hidden &&
+      block.locked === other.locked
     );
   });
 }
@@ -200,9 +208,19 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [actionError, setActionError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; blockId: string } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
   const [layerDropTargetId, setLayerDropTargetId] = useState<string | null | "root">(null);
+  // Posição do drop relativa ao item sobrevoado nas Camadas (Ajuste 3): não
+  // se aplica ao drop em "root" (fundo do painel), só entre linhas.
+  const [layerDropPosition, setLayerDropPosition] = useState<"before" | "after" | "inside">("inside");
+  // Tamanho real da área visível do canvas (Ajuste 1) — usado pra calcular
+  // o padding-esquerdo/topo dinâmico que centraliza o frame quando ele é
+  // MENOR que a área disponível (telas largas). clientWidth/clientHeight já
+  // incluem o próprio padding do elemento e não mudam quando o padding é
+  // redistribuído (o container não tem largura própria fixa, ela vem do
+  // flex-1 do pai), então não há dependência circular em usá-los aqui.
+  const [canvasViewport, setCanvasViewport] = useState({ width: 0, height: 0 });
 
   const historyRef = useRef<WireframeBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
@@ -212,6 +230,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const frameRef = useRef<HTMLDivElement>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
   const pendingScrollAdjustRef = useRef<{ dx: number; dy: number } | null>(null);
+  // Ajuste 1: quando true, o próximo efeito disparado por mudança de `zoom`
+  // deve CENTRALIZAR o frame (em vez de aplicar o ajuste de scroll do zoom
+  // centrado no cursor, que usa pendingScrollAdjustRef acima) — usado ao
+  // escolher um preset no menu de zoom, que "reseta" o zoom pra um valor
+  // conhecido.
+  const centerPendingRef = useRef(false);
   const panStateRef = useRef<{ startX: number; startY: number; startScrollLeft: number; startScrollTop: number } | null>(null);
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
@@ -226,6 +250,45 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     historyIndexRef.current = 0;
     setHistoryTick((t) => t + 1);
     setSelectedIds(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge.id]);
+
+  // Ajuste 1: mede continuamente a área visível do canvas (ver
+  // canvasViewport acima) — o padding-esquerdo/topo dinâmico calculado a
+  // partir disso é o que de fato centraliza o frame quando ele é menor que
+  // a área disponível (telas largas). Continua observando (não só na
+  // montagem) porque isso também mantém o frame centralizado se a janela
+  // for redimensionada depois — sem custo extra, já que só produz padding
+  // acima do mínimo quando sobra espaço de verdade (não há nada pra
+  // "desfazer" de uma rolagem manual do usuário nesse caso, pois só entra
+  // em jogo quando NÃO há overflow/scroll possível).
+  useLayoutEffect(() => {
+    const container = canvasScrollRef.current;
+    if (!container) return;
+    function measure() {
+      setCanvasViewport({ width: container!.clientWidth, height: container!.clientHeight });
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Quando o frame TRANSBORDA a área visível (zoom alto / tela pequena), o
+  // padding fica no mínimo e sobra overflow de verdade pra rolar — nesse
+  // caso, dá pra começar com a rolagem centralizada no meio do frame (em
+  // vez de cair no canto superior-esquerdo). Só ajuda a posição inicial;
+  // não é crítico se ficar levemente impreciso.
+  function centerScrollIfOverflowing() {
+    const container = canvasScrollRef.current;
+    const frame = frameRef.current;
+    if (!container || !frame) return;
+    container.scrollLeft = Math.max(0, frame.offsetLeft + frame.offsetWidth / 2 - container.clientWidth / 2);
+    container.scrollTop = Math.max(0, frame.offsetTop + frame.offsetHeight / 2 - container.clientHeight / 2);
+  }
+
+  useEffect(() => {
+    centerScrollIfOverflowing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge.id]);
 
@@ -318,6 +381,10 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleBlockMouseDown(event: ReactPointerEvent, block: WireframeBlock) {
     if (activeTool !== "select" || event.button !== 0) return;
     event.stopPropagation();
+    // Bloco bloqueado (Ajuste 3): não seleciona nem arrasta por clique
+    // direto no canvas — só desbloqueável via Camadas, que tem seu próprio
+    // caminho de seleção (LayerRow.onSelect) que não passa por aqui.
+    if (block.locked) return;
 
     if (event.shiftKey) {
       toggleSelection(block.id);
@@ -359,6 +426,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleResizeMouseDown(event: ReactPointerEvent, block: WireframeBlock, direction: ResizeDirection) {
     event.stopPropagation();
     event.preventDefault();
+    if (block.locked) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const start = { x: block.x, y: block.y, width: block.width, height: block.height };
@@ -431,6 +499,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       parentBlockId,
       kind: "GROUP",
       siblingOrder: nextSiblingOrder,
+      hidden: false,
+      locked: false,
     };
 
     let childOrder = 0;
@@ -439,6 +509,103 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
     commitBlocks(next);
     setSelectedIds(new Set([groupBlock.id]));
+    setContextMenu(null);
+  }
+
+  // Desfaz um agrupamento: os filhos diretos do GROUP sobem pro nível do
+  // próprio GROUP (seu parentBlockId), o bloco GROUP é removido. Contrário
+  // de groupSelection — usado pelo menu de contexto quando o item clicado é
+  // um GROUP (Ajuste 2).
+  function ungroupBlock(groupId: string) {
+    const current = blocksRef.current;
+    const group = current.find((b) => b.id === groupId);
+    if (!group || group.kind !== "GROUP") return;
+
+    const grandParentId = group.parentBlockId;
+    const siblingsAtLevel = current.filter((b) => b.parentBlockId === grandParentId && b.id !== groupId);
+    let nextOrder = siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
+
+    const freedIds: string[] = [];
+    const next = current
+      .filter((b) => b.id !== groupId)
+      .map((b) => {
+        if (b.parentBlockId !== groupId) return b;
+        freedIds.push(b.id);
+        return { ...b, parentBlockId: grandParentId, siblingOrder: nextOrder++ };
+      });
+
+    commitBlocks(next);
+    setSelectedIds(new Set(freedIds));
+    setContextMenu(null);
+  }
+
+  // Adiciona um texto livre/anotação (Ajuste 2) posicionado dentro dos
+  // limites do bloco/grupo clicado. Vira filho do alvo se o alvo for um
+  // GROUP (organização hierárquica de verdade); senão vira irmão do alvo
+  // (mesmo parentBlockId), já que um ELEMENT não pode ter filhos.
+  function addTextAnnotation(targetId: string) {
+    const current = blocksRef.current;
+    const target = current.find((b) => b.id === targetId);
+    if (!target) return;
+
+    const parentBlockId = target.kind === "GROUP" ? target.id : target.parentBlockId;
+    const siblingsAtLevel = current.filter((b) => b.parentBlockId === parentBlockId);
+    const nextOrder = siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
+    const width = Math.min(160, Math.max(MIN_BLOCK_SIZE, target.width));
+    const height = 32;
+
+    const newBlock: WireframeBlock = {
+      id: makeId(),
+      label: "Texto",
+      zone: target.zone,
+      row: target.row,
+      order: target.order,
+      widthHint: "auto",
+      heightHint: "compact",
+      x: Math.round(target.x + (target.width - width) / 2),
+      y: Math.round(target.y + (target.height - height) / 2),
+      width,
+      height,
+      parentBlockId,
+      kind: "ELEMENT",
+      siblingOrder: nextOrder,
+      hidden: false,
+      locked: false,
+    };
+
+    commitBlocks([...current, newBlock]);
+    setSelectedIds(new Set([newBlock.id]));
+    setPropertiesOpen(true);
+    setContextMenu(null);
+  }
+
+  // Ocultar/Mostrar e Bloquear/Desbloquear (Ajuste 2 + 3): alterna com base
+  // em "algum dos selecionados está no estado oposto" — se qualquer um
+  // estiver visível/destravado, a ação vira "ocultar/bloquear todos"; só
+  // quando TODOS já estão ocultos/bloqueados é que a ação reverte.
+  function toggleHidden(ids: Set<string>) {
+    const current = blocksRef.current;
+    const nextHidden = current.some((b) => ids.has(b.id) && !b.hidden);
+    commitBlocks(current.map((b) => (ids.has(b.id) ? { ...b, hidden: nextHidden } : b)));
+    setContextMenu(null);
+  }
+
+  function toggleLocked(ids: Set<string>) {
+    const current = blocksRef.current;
+    const nextLocked = current.some((b) => ids.has(b.id) && !b.locked);
+    commitBlocks(current.map((b) => (ids.has(b.id) ? { ...b, locked: nextLocked } : b)));
+    setContextMenu(null);
+  }
+
+  // Apaga os blocos selecionados + todos os descendentes (se algum for GROUP).
+  function deleteBlocks(ids: Set<string>) {
+    const current = blocksRef.current;
+    const allIds = new Set(ids);
+    for (const id of Array.from(ids)) {
+      for (const descendantId of Array.from(collectDescendantIds(id, current))) allIds.add(descendantId);
+    }
+    commitBlocks(current.filter((b) => !allIds.has(b.id)));
+    setSelectedIds(new Set());
     setContextMenu(null);
   }
 
@@ -478,7 +645,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     event.preventDefault();
     event.stopPropagation();
     if (!selectedIds.has(block.id)) setSelectedIds(new Set([block.id]));
-    setContextMenu({ x: event.clientX, y: event.clientY });
+    setContextMenu({ x: event.clientX, y: event.clientY, blockId: block.id });
   }
 
   // --- Ctrl+scroll = zoom centralizado no cursor (Ajuste 1). Precisa de um
@@ -517,6 +684,11 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }, []);
 
   useEffect(() => {
+    if (centerPendingRef.current) {
+      centerPendingRef.current = false;
+      centerScrollIfOverflowing();
+      return;
+    }
     const adjust = pendingScrollAdjustRef.current;
     const container = canvasScrollRef.current;
     if (adjust && container) {
@@ -524,6 +696,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       container.scrollTop += adjust.dy;
       pendingScrollAdjustRef.current = null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- centerFrame só lê refs estáveis (canvasScrollRef/frameRef), não precisa entrar nas deps.
   }, [zoom]);
 
   // --- Pan: botão do meio (qualquer ferramenta) ou botão esquerdo com a
@@ -660,26 +833,59 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
   }
 
-  // --- Reatribuir pai na árvore de Camadas via drag-and-drop ---
-  function handleLayerDrop(targetId: string | "root") {
+  // --- Reatribuir pai OU reordenar entre irmãos na árvore de Camadas via
+  // drag-and-drop (Ajuste 3, item 5). "inside" reparenta pra dentro de um
+  // GROUP (comportamento original); "before"/"after" reordena o item como
+  // irmão do alvo no MESMO nível do alvo (pode ser um reparenting também,
+  // se o alvo estiver em outro nível — só não entra "dentro" dele). ---
+  function handleLayerDrop(targetId: string | "root", position: "before" | "after" | "inside" = "inside") {
     const draggedId = draggedLayerId;
     setDraggedLayerId(null);
     setLayerDropTargetId(null);
-    if (!draggedId) return;
-    if (targetId === draggedId) return;
+    if (!draggedId || targetId === draggedId) return;
 
-    const newParentId = targetId === "root" ? null : targetId;
-    if (newParentId) {
-      // nunca deixa um bloco virar filho do próprio descendente (ciclo).
-      const descendants = collectDescendantIds(draggedId, blocksRef.current);
-      if (descendants.has(newParentId)) return;
-      const targetBlock = blocksRef.current.find((b) => b.id === newParentId);
-      if (!targetBlock || targetBlock.kind !== "GROUP") return;
+    const current = blocksRef.current;
+
+    if (targetId === "root") {
+      const siblings = current.filter((b) => b.parentBlockId === null && b.id !== draggedId);
+      const nextOrder = siblings.length > 0 ? Math.max(...siblings.map((b) => b.siblingOrder)) + 1 : 0;
+      commitBlocks(current.map((b) => (b.id === draggedId ? { ...b, parentBlockId: null, siblingOrder: nextOrder } : b)));
+      return;
     }
 
-    const siblingsAtLevel = blocksRef.current.filter((b) => b.parentBlockId === newParentId && b.id !== draggedId);
-    const nextSiblingOrder = siblingsAtLevel.length > 0 ? Math.max(...siblingsAtLevel.map((b) => b.siblingOrder)) + 1 : 0;
-    const next = blocksRef.current.map((b) => (b.id === draggedId ? { ...b, parentBlockId: newParentId, siblingOrder: nextSiblingOrder } : b));
+    // nunca deixa um bloco virar filho/irmão dentro da própria subárvore (ciclo).
+    const descendants = collectDescendantIds(draggedId, current);
+    if (descendants.has(targetId)) return;
+    const targetBlock = current.find((b) => b.id === targetId);
+    if (!targetBlock) return;
+
+    if (position === "inside") {
+      if (targetBlock.kind !== "GROUP") return;
+      const siblings = current.filter((b) => b.parentBlockId === targetId && b.id !== draggedId);
+      const nextOrder = siblings.length > 0 ? Math.max(...siblings.map((b) => b.siblingOrder)) + 1 : 0;
+      commitBlocks(current.map((b) => (b.id === draggedId ? { ...b, parentBlockId: targetId, siblingOrder: nextOrder } : b)));
+      return;
+    }
+
+    // "before"/"after": vira irmão do alvo no nível do alvo — reordena a
+    // pilha de empilhamento (z-index visual) entre os irmãos existentes,
+    // renumerando siblingOrder de todos consecutivamente (0..n) pra nunca
+    // colidir com a ordem antiga.
+    const newParentId = targetBlock.parentBlockId;
+    const siblingIds = current
+      .filter((b) => b.parentBlockId === newParentId && b.id !== draggedId)
+      .sort((a, b) => a.siblingOrder - b.siblingOrder)
+      .map((b) => b.id);
+    const targetIndex = siblingIds.indexOf(targetId);
+    const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+    const reorderedIds = [...siblingIds.slice(0, insertIndex), draggedId, ...siblingIds.slice(insertIndex)];
+    const orderById = new Map(reorderedIds.map((id, index) => [id, index]));
+
+    const next = current.map((b) => {
+      if (b.id === draggedId) return { ...b, parentBlockId: newParentId, siblingOrder: orderById.get(draggedId)! };
+      if (orderById.has(b.id)) return { ...b, siblingOrder: orderById.get(b.id)! };
+      return b;
+    });
     commitBlocks(next);
   }
 
@@ -688,6 +894,19 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
   const tree = useMemo(() => buildTree(blocks), [blocks]);
   const canGroup = selectedIds.size >= 2;
+  const selectedBlocksList = blocks.filter((b) => selectedIds.has(b.id));
+  const allSelectedHidden = selectedBlocksList.length > 0 && selectedBlocksList.every((b) => b.hidden);
+  const allSelectedLocked = selectedBlocksList.length > 0 && selectedBlocksList.every((b) => b.locked);
+  const contextMenuBlock = contextMenu ? blocks.find((b) => b.id === contextMenu.blockId) ?? null : null;
+
+  // Ajuste 1: padding-esquerdo/topo dinâmico — cresce além do mínimo
+  // (clearance pro painel de ferramentas flutuante / toolbar) só quando
+  // sobra espaço de verdade, centralizando o frame em telas largas em vez
+  // de deixar toda a folga acumulada de um lado só.
+  const MIN_CANVAS_PAD_X = 130;
+  const MIN_CANVAS_PAD_Y = 64;
+  const canvasPadLeft = Math.max(MIN_CANVAS_PAD_X, (canvasViewport.width - frameWidth * zoom) / 2);
+  const canvasPadTop = Math.max(MIN_CANVAS_PAD_Y, (canvasViewport.height - frameHeight * zoom) / 2);
 
   return (
     <div ref={editorRootRef} className="flex h-full flex-col overflow-hidden bg-[#f3f3f4] text-[#1d1d1f]">
@@ -817,6 +1036,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     key={preset}
                     type="button"
                     onClick={() => {
+                      centerPendingRef.current = true;
                       zoomTo(preset);
                       setZoomMenuOpen(false);
                     }}
@@ -909,10 +1129,17 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                   })
                 }
                 onSelect={(id, shift) => (shift ? toggleSelection(id) : selectOnly(id))}
+                onContextMenu={handleBlockContextMenu}
+                onToggleHidden={(id) => toggleHidden(new Set([id]))}
+                onToggleLocked={(id) => toggleLocked(new Set([id]))}
                 draggedLayerId={draggedLayerId}
                 layerDropTargetId={layerDropTargetId}
+                layerDropPosition={layerDropPosition}
                 onDragStartLayer={setDraggedLayerId}
-                onDragOverLayer={setLayerDropTargetId}
+                onDragOverLayer={(id, position) => {
+                  setLayerDropTargetId(id);
+                  setLayerDropPosition(position);
+                }}
                 onDropLayer={handleLayerDrop}
               />
             ))}
@@ -945,6 +1172,17 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                 >
                   Agrupar seleção (Ctrl+G)
                 </button>
+                <div className="flex gap-1.5">
+                  <PropertyActionButton label={allSelectedHidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(selectedIds)}>
+                    {allSelectedHidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+                  </PropertyActionButton>
+                  <PropertyActionButton label={allSelectedLocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(selectedIds)}>
+                    {allSelectedLocked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+                  </PropertyActionButton>
+                  <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(selectedIds)} danger>
+                    <TrashIcon className="h-4 w-4" />
+                  </PropertyActionButton>
+                </div>
               </div>
             ) : !selectedBlock ? (
               <p className="text-sm text-[#8e8e93]">Selecione um bloco no canvas pra ver e editar suas propriedades.</p>
@@ -977,13 +1215,42 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     onCommit={commitPropertyChange}
                   />
                 </div>
+                <div className="flex gap-1.5">
+                  <PropertyActionButton label={selectedBlock.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(new Set([selectedBlock.id]))}>
+                    {selectedBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+                  </PropertyActionButton>
+                  <PropertyActionButton label={selectedBlock.locked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(new Set([selectedBlock.id]))}>
+                    {selectedBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+                  </PropertyActionButton>
+                  {selectedBlock.kind === "GROUP" ? (
+                    <PropertyActionButton label="Desagrupar" onClick={() => ungroupBlock(selectedBlock.id)}>
+                      <FolderIcon className="h-4 w-4" />
+                    </PropertyActionButton>
+                  ) : (
+                    <PropertyActionButton label="Adicionar texto" onClick={() => addTextAnnotation(selectedBlock.id)}>
+                      <TextToolIcon className="h-4 w-4" />
+                    </PropertyActionButton>
+                  )}
+                  <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(new Set([selectedBlock.id]))} danger>
+                    <TrashIcon className="h-4 w-4" />
+                  </PropertyActionButton>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Minimapa */}
-        <div className="absolute bottom-[30px] left-[86px] z-10 hidden h-[126px] w-[206px] overflow-hidden rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] sm:block">
+        {/* Minimapa — Ajuste 4: quando o painel de Camadas está aberto, ele
+            ocupa exatamente a faixa (left-[52px], largura 256px) onde o
+            minimapa ficava (left-[86px]), e por ter z-index maior cobria o
+            minimapa por completo. Em vez de brigar por z-index (o que só
+            deixaria um dos dois inacessível), desloca o minimapa pra depois
+            da borda direita do painel aberto — os dois convivem lado a lado
+            sempre, em qualquer zoom. */}
+        <div
+          className="absolute bottom-[30px] z-20 hidden h-[126px] w-[206px] overflow-hidden rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] transition-[left] sm:block"
+          style={{ left: layersOpen ? 324 : 86 }}
+        >
           <div className="relative h-full w-full p-2">
             <div className="relative h-full w-full border border-[#3b82f6]">
               {blocks.map((block) => (
@@ -995,6 +1262,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     top: `${(block.y / frameHeight) * 100}%`,
                     width: `${(block.width / frameWidth) * 100}%`,
                     height: `${(block.height / frameHeight) * 100}%`,
+                    opacity: block.hidden ? 0.25 : 1,
                   }}
                 />
               ))}
@@ -1027,8 +1295,14 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
         {/* Canvas */}
         <div
           ref={canvasScrollRef}
-          className="h-full overflow-auto py-16 pl-[130px] pr-8"
-          style={{ cursor: activeTool === "hand" ? HAND_CURSOR : undefined }}
+          className="h-full overflow-auto"
+          style={{
+            cursor: activeTool === "hand" ? HAND_CURSOR : undefined,
+            paddingLeft: canvasPadLeft,
+            paddingRight: 32,
+            paddingTop: canvasPadTop,
+            paddingBottom: MIN_CANVAS_PAD_Y,
+          }}
           onPointerDown={handleCanvasMouseDown}
         >
           <p className="mb-2 pl-1 text-[13.5px] text-[#4b4b52]" style={{ width: frameWidth * zoom }}>
@@ -1048,12 +1322,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
             }}
           >
             {blocks
-              .filter((b) => b.kind === "GROUP")
+              .filter((b) => b.kind === "GROUP" && !b.hidden)
               .map((block) => (
-                <GroupOutline key={block.id} block={block} zoom={zoom} selected={selectedIds.has(block.id)} onPointerDown={(e) => handleBlockMouseDown(e, block)} />
+                <GroupOutline key={block.id} block={block} zoom={zoom} selected={selectedIds.has(block.id)} onPointerDown={(e) => handleBlockMouseDown(e, block)} onContextMenu={(e) => handleBlockContextMenu(e, block)} />
               ))}
             {blocks
-              .filter((b) => b.kind === "ELEMENT")
+              .filter((b) => b.kind === "ELEMENT" && !b.hidden)
               .map((block) => (
                 <CanvasBlock
                   key={block.id}
@@ -1071,20 +1345,67 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
         </div>
       </div>
 
-      {contextMenu && (
+      {contextMenu && contextMenuBlock && (
         <div
-          className="fixed z-50 w-56 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
+          className="fixed z-50 w-60 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
         >
+          {contextMenuBlock.kind === "GROUP" ? (
+            <button
+              type="button"
+              onClick={() => ungroupBlock(contextMenuBlock.id)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
+            >
+              <FolderIcon className="h-4 w-4" />
+              Desagrupar
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!canGroup}
+              onClick={groupSelection}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:text-[#b4b4b9] disabled:hover:bg-transparent"
+            >
+              <span className="flex items-center gap-2">
+                <FolderIcon className="h-4 w-4" />
+                Agrupar seleção
+              </span>
+              <span className="text-xs text-[#8e8e93]">Ctrl+G</span>
+            </button>
+          )}
           <button
             type="button"
-            disabled={!canGroup}
-            onClick={groupSelection}
-            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8] disabled:cursor-not-allowed disabled:text-[#b4b4b9] disabled:hover:bg-transparent"
+            onClick={() => addTextAnnotation(contextMenuBlock.id)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
           >
-            Agrupar seleção
-            <span className="text-xs text-[#8e8e93]">Ctrl+G</span>
+            <TextToolIcon className="h-4 w-4" />
+            Adicionar texto
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleHidden(selectedIds)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
+          >
+            {contextMenuBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+            {contextMenuBlock.hidden ? "Mostrar" : "Ocultar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleLocked(selectedIds)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
+          >
+            {contextMenuBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+            {contextMenuBlock.locked ? "Desbloquear" : "Bloquear"}
+          </button>
+          <div className="my-1 h-px bg-[#eee]" />
+          <button
+            type="button"
+            onClick={() => deleteBlocks(selectedIds)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-luminous-error hover:bg-red-50"
+          >
+            <TrashIcon className="h-4 w-4" />
+            Apagar
           </button>
         </div>
       )}
@@ -1149,6 +1470,35 @@ function ToolButton({ active, onClick, label, children }: { active?: boolean; on
   );
 }
 
+// Botão de ícone reaproveitando as ações do menu de contexto no painel de
+// Propriedades (Ajuste 2): ocultar/mostrar, bloquear/desbloquear, adicionar
+// texto, desagrupar, apagar.
+function PropertyActionButton({
+  label,
+  onClick,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`flex flex-1 items-center justify-center rounded-md border border-[#e4e4e7] py-1.5 ${
+        danger ? "text-luminous-error hover:bg-red-50" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -1177,6 +1527,21 @@ function NumberField({
 
 // --- Árvore de Camadas (Ajuste 4) ---
 
+type LayerDropPosition = "before" | "after" | "inside";
+
+// Calcula se o drop deve reordenar (antes/depois, entre irmãos) ou
+// reparentar (dentro, só quando o alvo é um GROUP) com base em onde
+// exatamente o ponteiro está dentro da linha (Ajuste 3, item 5): terço de
+// cima = "before", terço de baixo = "after", terço do meio = "inside" (só
+// se o alvo puder ter filhos — senão vira "before"/"after" pelo ponto médio).
+function computeDropPosition(event: { clientY: number }, rect: DOMRect, canGoInside: boolean): LayerDropPosition {
+  const ratio = (event.clientY - rect.top) / rect.height;
+  if (!canGoInside) return ratio < 0.5 ? "before" : "after";
+  if (ratio < 0.25) return "before";
+  if (ratio > 0.75) return "after";
+  return "inside";
+}
+
 function LayerRow({
   node,
   depth,
@@ -1184,8 +1549,12 @@ function LayerRow({
   collapsedGroupIds,
   onToggleCollapse,
   onSelect,
+  onContextMenu,
+  onToggleHidden,
+  onToggleLocked,
   draggedLayerId,
   layerDropTargetId,
+  layerDropPosition,
   onDragStartLayer,
   onDragOverLayer,
   onDropLayer,
@@ -1196,11 +1565,15 @@ function LayerRow({
   collapsedGroupIds: Set<string>;
   onToggleCollapse: (id: string) => void;
   onSelect: (id: string, shift: boolean) => void;
+  onContextMenu: (event: ReactMouseEvent, block: WireframeBlock) => void;
+  onToggleHidden: (id: string) => void;
+  onToggleLocked: (id: string) => void;
   draggedLayerId: string | null;
   layerDropTargetId: string | null | "root";
+  layerDropPosition: LayerDropPosition;
   onDragStartLayer: (id: string) => void;
-  onDragOverLayer: (id: string | null | "root") => void;
-  onDropLayer: (id: string | "root") => void;
+  onDragOverLayer: (id: string | null | "root", position: LayerDropPosition) => void;
+  onDropLayer: (id: string | "root", position: LayerDropPosition) => void;
 }) {
   const { block, children } = node;
   const isGroup = block.kind === "GROUP";
@@ -1209,6 +1582,14 @@ function LayerRow({
   const isDropTarget = layerDropTargetId === block.id && draggedLayerId !== block.id;
   const isTextLike = TEXT_LABEL_PATTERN.test(block.label);
   const Icon = isGroup ? FolderIcon : isTextLike ? TextToolIcon : FrameToolIcon;
+
+  const dropClass = !isDropTarget
+    ? ""
+    : layerDropPosition === "before"
+      ? "shadow-[inset_0_2px_0_0_#7c3aed]"
+      : layerDropPosition === "after"
+        ? "shadow-[inset_0_-2px_0_0_#7c3aed]"
+        : "outline outline-2 outline-[#7c3aed]";
 
   return (
     <div>
@@ -1221,18 +1602,21 @@ function LayerRow({
         onDragOver={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          onDragOverLayer(block.id);
+          const rect = event.currentTarget.getBoundingClientRect();
+          onDragOverLayer(block.id, computeDropPosition(event, rect, isGroup));
         }}
         onDrop={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          onDropLayer(block.id);
+          const rect = event.currentTarget.getBoundingClientRect();
+          onDropLayer(block.id, computeDropPosition(event, rect, isGroup));
         }}
         onClick={(event) => onSelect(block.id, event.shiftKey)}
+        onContextMenu={(event) => onContextMenu(event, block)}
         style={{ paddingLeft: 8 + depth * 16 }}
-        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-2 text-left text-sm ${
+        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-1.5 text-left text-sm ${
           isSelected ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
-        } ${isDropTarget ? "outline outline-2 outline-[#7c3aed]" : ""}`}
+        } ${dropClass}`}
       >
         {isGroup ? (
           <button
@@ -1249,7 +1633,31 @@ function LayerRow({
           <span className="w-3 shrink-0" />
         )}
         <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{block.label}</span>
+        <span className={`min-w-0 flex-1 truncate ${block.hidden ? "text-[#b4b4b9]" : ""}`}>{block.label}</span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleHidden(block.id);
+          }}
+          aria-label={block.hidden ? "Mostrar" : "Ocultar"}
+          title={block.hidden ? "Mostrar" : "Ocultar"}
+          className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
+        >
+          {block.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleLocked(block.id);
+          }}
+          aria-label={block.locked ? "Desbloquear" : "Bloquear"}
+          title={block.locked ? "Desbloquear" : "Bloquear"}
+          className={`shrink-0 hover:text-[#1d1d1f] ${block.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+        >
+          {block.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
+        </button>
       </div>
       {isGroup && !isCollapsed && children.length > 0 && (
         <div>
@@ -1262,8 +1670,12 @@ function LayerRow({
               collapsedGroupIds={collapsedGroupIds}
               onToggleCollapse={onToggleCollapse}
               onSelect={onSelect}
+              onContextMenu={onContextMenu}
+              onToggleHidden={onToggleHidden}
+              onToggleLocked={onToggleLocked}
               draggedLayerId={draggedLayerId}
               layerDropTargetId={layerDropTargetId}
+              layerDropPosition={layerDropPosition}
               onDragStartLayer={onDragStartLayer}
               onDragOverLayer={onDragOverLayer}
               onDropLayer={onDropLayer}
@@ -1283,11 +1695,13 @@ function GroupOutline({
   zoom,
   selected,
   onPointerDown,
+  onContextMenu,
 }: {
   block: WireframeBlock;
   zoom: number;
   selected: boolean;
   onPointerDown: (event: ReactPointerEvent) => void;
+  onContextMenu: (event: ReactMouseEvent) => void;
 }) {
   return (
     <div
@@ -1297,8 +1711,10 @@ function GroupOutline({
       <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#7c3aed]" : "border-[#c4b5fd]"}`} />
       <span
         onPointerDown={onPointerDown}
+        onContextMenu={onContextMenu}
         className="absolute -top-6 left-0 cursor-move whitespace-nowrap rounded bg-[#7c3aed] px-1.5 py-0.5 text-[10px] font-medium text-white"
       >
+        {block.locked && <LockIcon className="mr-1 inline h-2.5 w-2.5" />}
         {block.label}
       </span>
     </div>
@@ -1346,12 +1762,15 @@ function CanvasBlock({
     <div
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
-      className={`absolute cursor-move border bg-white ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
+      className={`absolute border bg-white ${block.locked ? "cursor-default" : "cursor-move"} ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
       style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
     >
-      <span className="pointer-events-none block truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">{block.label}</span>
+      <span className="pointer-events-none flex items-center gap-1 truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">
+        {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#7c3aed]" />}
+        {block.label}
+      </span>
 
-      {selected && (
+      {selected && !block.locked && (
         <>
           {/* Guias de medição pontilhadas, estendendo até a borda do frame */}
           <div
@@ -1384,6 +1803,9 @@ function CanvasBlock({
             />
           ))}
         </>
+      )}
+      {selected && block.locked && (
+        <div className="pointer-events-none absolute inset-0 rounded-[1px] ring-2 ring-[#7c3aed]" />
       )}
     </div>
   );

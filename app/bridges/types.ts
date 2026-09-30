@@ -49,6 +49,13 @@ export interface WireframeBlock {
   // se parentBlockId for null) — usado pra renderizar a árvore de Camadas
   // na ordem certa.
   siblingOrder: number;
+  // Oculto: não renderiza no canvas, mas continua na lista de Camadas (ícone
+  // de olho fechado) e no banco — diferente de excluir.
+  hidden: boolean;
+  // Bloqueado: não pode ser movido/redimensionado/selecionado por clique
+  // direto no canvas — só desbloqueável via Camadas (que continua permitindo
+  // seleção mesmo bloqueado).
+  locked: boolean;
 }
 
 export interface WireframeData {

@@ -61,6 +61,8 @@ function layoutRow(blocks: HintBlock[], x: number, y: number, width: number, hei
       parentBlockId: null,
       kind: "ELEMENT",
       siblingOrder: out.length,
+      hidden: false,
+      locked: false,
     });
     cursorX += blockWidth + GAP;
   }
@@ -93,6 +95,8 @@ function layoutColumn(blocks: HintBlock[], x: number, y: number, width: number, 
       parentBlockId: null,
       kind: "ELEMENT",
       siblingOrder: out.length,
+      hidden: false,
+      locked: false,
     });
     cursorY += blockHeight + GAP;
   }
@@ -128,6 +132,8 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
       parentBlockId?: unknown;
       kind?: unknown;
       siblingOrder?: unknown;
+      hidden?: unknown;
+      locked?: unknown;
     };
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : makeBlockId();
     const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : "Componente";
@@ -149,8 +155,10 @@ export function normalizeWireframeBlocks(blocksRaw: unknown): WireframeBlock[] {
     const parentBlockId = typeof raw.parentBlockId === "string" && raw.parentBlockId.trim() ? raw.parentBlockId.trim() : null;
     const kind = raw.kind === "GROUP" ? "GROUP" : "ELEMENT";
     const siblingOrder = typeof raw.siblingOrder === "number" && Number.isFinite(raw.siblingOrder) ? raw.siblingOrder : index;
+    const hidden = raw.hidden === true;
+    const locked = raw.locked === true;
 
-    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height, parentBlockId, kind, siblingOrder } as WireframeBlock;
+    return { id, label, zone, row, order, widthHint, heightHint, x, y, width, height, parentBlockId, kind, siblingOrder, hidden, locked } as WireframeBlock;
   });
 
   // Nunca deixa um parentBlockId apontar pra um id que não existe nesta

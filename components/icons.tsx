@@ -11,11 +11,14 @@ import {
   Clock,
   Cloud,
   Copy,
+  Eye,
+  EyeOff,
   Filter,
   Globe,
   Hand,
   Layers,
   Link2,
+  Lock,
   Maximize2,
   MessageSquare,
   Minimize2,
@@ -34,6 +37,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  Unlock,
   X,
 } from "lucide-react";
 
@@ -347,4 +351,24 @@ export function LayersTabIcon(props: SVGProps<SVGSVGElement>) {
 // Aba lateral "Propriedades".
 export function PropertiesTabIcon(props: SVGProps<SVGSVGElement>) {
   return <SlidersHorizontal strokeWidth={1.7} {...props} />;
+}
+
+// Ícones do menu de contexto e das Camadas (Wireframe-1a+): visibilidade
+// (olho aberto/riscado) e bloqueio (cadeado aberto/fechado) por bloco.
+export function EyeOffIcon(props: SVGProps<SVGSVGElement>) {
+  return <EyeOff strokeWidth={1.7} {...props} />;
+}
+
+export function LockIcon(props: SVGProps<SVGSVGElement>) {
+  return <Lock strokeWidth={1.7} {...props} />;
+}
+
+export function UnlockIcon(props: SVGProps<SVGSVGElement>) {
+  return <Unlock strokeWidth={1.7} {...props} />;
+}
+
+// Reexporta o Eye do lucide (não o EyeIcon customizado acima, que é maior/
+// mais decorativo) pro tamanho compacto das Camadas/menu de contexto.
+export function EyeOpenIcon(props: SVGProps<SVGSVGElement>) {
+  return <Eye strokeWidth={1.7} {...props} />;
 }
