@@ -85,6 +85,8 @@ export interface ApiWireframeAnnotation {
   id: string;
   pathData: string;
   color: string;
+  hidden: boolean;
+  locked: boolean;
   createdAt: string;
 }
 

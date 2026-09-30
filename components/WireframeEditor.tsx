@@ -107,6 +107,42 @@ function offsetPathData(pathData: string, dx: number, dy: number): string {
   });
 }
 
+// Escala todos os pontos de um path SVG simples em torno de um ponto-âncora
+// (o canto oposto ao da alça de redimensionamento arrastada) — usado pra
+// redimensionar uma anotação de Caneta pelas novas alças (correção do bug da
+// Caneta): como o traço é um path livre (não um retângulo regular), não dá
+// pra só mudar width/height, então a "caixa delimitadora" é recalculada a
+// cada frame a partir do próprio path (ver getAnnotationBoundingBox) e cada
+// ponto é escalado proporcionalmente em relação à âncora.
+function scalePathData(pathData: string, anchorX: number, anchorY: number, sx: number, sy: number): string {
+  return pathData.replace(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g, (_match, xStr: string, yStr: string) => {
+    const x = Math.round(anchorX + (parseFloat(xStr) - anchorX) * sx);
+    const y = Math.round(anchorY + (parseFloat(yStr) - anchorY) * sy);
+    return `${x} ${y}`;
+  });
+}
+
+// Caixa delimitadora mínima de um path "M x y L x y ..." — base tanto pras
+// alças de redimensionamento (posição dos cantos) quanto pro cálculo de
+// escala acima (a âncora é sempre um dos 4 cantos desta caixa).
+function getAnnotationBoundingBox(pathData: string): { minX: number; minY: number; maxX: number; maxY: number } {
+  const nums = pathData.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = nums[i];
+    const y = nums[i + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  if (minX === Infinity) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  return { minX, minY, maxX, maxY };
+}
+
 function blocksEqual(a: WireframeBlock[], b: WireframeBlock[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((block, index) => {
@@ -211,8 +247,13 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [zoom, setZoom] = useState(0.8);
   const [showGrid, setShowGrid] = useState(false);
-  const [layersOpen, setLayersOpen] = useState(false);
-  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  // Painel lateral único (Camadas + Propriedades + Comentários em
+  // acordeão) — substitui as antigas abas "Camadas"/"Propriedades"
+  // separadas. "Propriedades" não entra em expandedSections: não tem
+  // estado de aberto/fechado próprio, é sempre mostrada (com conteúdo
+  // condicional à seleção).
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<"camadas" | "comentarios">>(new Set<"camadas" | "comentarios">(["camadas"]));
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [regenerateOpen, setRegenerateOpen] = useState(false);
@@ -224,7 +265,10 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [actionError, setActionError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; blockId: string } | null>(null);
+  // Alvo do menu de contexto: um bloco OU uma anotação (correção do bug da
+  // Caneta, que reaproveita a mesma lógica de menu de contexto dos blocos
+  // com um subconjunto de ações).
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; target: { type: "block" | "annotation"; id: string } } | null>(null);
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
   const [layerDropTargetId, setLayerDropTargetId] = useState<string | null | "root">(null);
   // Posição do drop relativa ao item sobrevoado nas Camadas (Ajuste 3): não
@@ -471,7 +515,6 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
   function selectOnly(id: string) {
     setSelectedIds(new Set([id]));
-    setPropertiesOpen(true);
   }
 
   function toggleSelection(id: string) {
@@ -504,7 +547,6 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
     const effectiveSelection = selectedIds.has(block.id) && selectedIds.size > 1 ? selectedIds : new Set([block.id]);
     setSelectedIds(effectiveSelection);
-    setPropertiesOpen(true);
 
     const moveSet = getMoveSet(block.id, blocks, effectiveSelection);
     const startX = event.clientX;
@@ -644,7 +686,6 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     };
     commitBlocks([...blocksRef.current, newBlock]);
     setSelectedIds(new Set([newBlock.id]));
-    setPropertiesOpen(true);
     setEditingBlockId(newBlock.id);
     setEditingLabelDraft(newBlock.label);
     setActiveTool("select");
@@ -678,7 +719,6 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     };
     commitBlocks([...blocksRef.current, newBlock]);
     setSelectedIds(new Set([newBlock.id]));
-    setPropertiesOpen(true);
     setEditingBlockId(newBlock.id);
     setEditingLabelDraft(newBlock.label);
     setActiveTool("select");
@@ -738,6 +778,9 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     event.stopPropagation();
     setSelectedAnnotationId(annotation.id);
     setSelectedIds(new Set());
+    // Anotação bloqueada (correção do bug da Caneta): seleciona (pra
+    // permitir desbloquear via menu de contexto/Camadas) mas não arrasta.
+    if (annotation.locked) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const originalPathData = annotation.pathData;
@@ -770,16 +813,112 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     window.addEventListener("pointerup", onUp);
   }
 
-  async function deleteSelectedAnnotation() {
-    const id = selectedAnnotationId;
-    if (!id) return;
-    setSelectedAnnotationId(null);
+  async function deleteAnnotationById(id: string) {
+    setSelectedAnnotationId((current) => (current === id ? null : current));
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    setContextMenu(null);
     try {
       await fetch(`/api/bridges/${bridge.id}/annotations/${id}`, { method: "DELETE" });
     } catch {
       // silencioso
     }
+  }
+
+  function deleteSelectedAnnotation() {
+    if (selectedAnnotationId) deleteAnnotationById(selectedAnnotationId);
+  }
+
+  async function toggleAnnotationHidden(id: string) {
+    const current = annotationsRef.current.find((a) => a.id === id);
+    if (!current) return;
+    const nextHidden = !current.hidden;
+    setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, hidden: nextHidden } : a)));
+    setContextMenu(null);
+    try {
+      await fetch(`/api/bridges/${bridge.id}/annotations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: nextHidden }),
+      });
+    } catch {
+      // silencioso
+    }
+  }
+
+  async function toggleAnnotationLocked(id: string) {
+    const current = annotationsRef.current.find((a) => a.id === id);
+    if (!current) return;
+    const nextLocked = !current.locked;
+    setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, locked: nextLocked } : a)));
+    setContextMenu(null);
+    try {
+      await fetch(`/api/bridges/${bridge.id}/annotations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locked: nextLocked }),
+      });
+    } catch {
+      // silencioso
+    }
+  }
+
+  // --- Redimensionar uma anotação de Caneta pelas alças dos cantos
+  // (correção do bug da Caneta): como o path é livre (não um retângulo),
+  // redimensionar ESCALA todos os pontos proporcionalmente a partir da
+  // caixa delimitadora atual, ancorada no canto OPOSTO ao arrastado — mesmo
+  // padrão de dx/dy dividido pelo zoom usado no resize de blocos, só que
+  // aplicado via scalePathData em vez de width/height diretos. ---
+  function handleAnnotationResizePointerDown(event: ReactPointerEvent, annotation: ApiWireframeAnnotation, corner: "nw" | "ne" | "se" | "sw") {
+    event.stopPropagation();
+    event.preventDefault();
+    const box = getAnnotationBoundingBox(annotation.pathData);
+    const startWidth = Math.max(1, box.maxX - box.minX);
+    const startHeight = Math.max(1, box.maxY - box.minY);
+    const anchorX = corner.includes("w") ? box.maxX : box.minX;
+    const anchorY = corner.includes("n") ? box.maxY : box.minY;
+    const originalPathData = annotation.pathData;
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    function onMove(moveEvent: PointerEvent) {
+      const dx = (moveEvent.clientX - startX) / zoomRef.current;
+      const dy = (moveEvent.clientY - startY) / zoomRef.current;
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+      if (corner.includes("e")) newWidth = Math.max(4, startWidth + dx);
+      if (corner.includes("w")) newWidth = Math.max(4, startWidth - dx);
+      if (corner.includes("s")) newHeight = Math.max(4, startHeight + dy);
+      if (corner.includes("n")) newHeight = Math.max(4, startHeight - dy);
+      const sx = newWidth / startWidth;
+      const sy = newHeight / startHeight;
+      const scaled = scalePathData(originalPathData, anchorX, anchorY, sx, sy);
+      setAnnotations((prev) => prev.map((a) => (a.id === annotation.id ? { ...a, pathData: scaled } : a)));
+    }
+    async function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const current = annotationsRef.current.find((a) => a.id === annotation.id);
+      if (!current || current.pathData === originalPathData) return;
+      try {
+        await fetch(`/api/bridges/${bridge.id}/annotations/${annotation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathData: current.pathData }),
+        });
+      } catch {
+        // silencioso — a forma já está correta no state local
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function handleAnnotationContextMenu(event: ReactMouseEvent, annotation: ApiWireframeAnnotation) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedAnnotationId(annotation.id);
+    setSelectedIds(new Set());
+    setContextMenu({ x: event.clientX, y: event.clientY, target: { type: "annotation", id: annotation.id } });
   }
 
   // Tecla Delete/Backspace apaga o traço de anotação selecionado (não
@@ -799,6 +938,46 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAnnotationId]);
 
+  // --- Painel lateral único (Camadas/Propriedades/Comentários em
+  // acordeão): abrir/fechar o painel inteiro, expandir/recolher uma seção,
+  // e o gatilho específico de criar/abrir um comentário (que força
+  // Comentários expandida + Camadas recolhida, mesmo que já estivesse
+  // expandida antes). ---
+  function toggleSidePanel() {
+    if (sidePanelOpen) {
+      setSidePanelOpen(false);
+    } else {
+      setSidePanelOpen(true);
+      setExpandedSections(new Set<"camadas" | "comentarios">(["camadas"]));
+    }
+  }
+
+  function toggleSection(section: "camadas" | "comentarios") {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
+
+  function openCommentsPanel() {
+    setSidePanelOpen(true);
+    setExpandedSections(new Set<"camadas" | "comentarios">(["comentarios"]));
+  }
+
+  // Clicar numa thread na lista da seção Comentários "volta" o foco pro
+  // pino correspondente no canvas: abre a thread E centraliza a rolagem do
+  // canvas nele (mesma matemática de pan usada pelo minimapa).
+  function focusComment(comment: ApiWireframeComment) {
+    setActiveCommentId(comment.id);
+    const container = canvasScrollRef.current;
+    const frame = frameRef.current;
+    if (!container || !frame) return;
+    container.scrollLeft = Math.max(0, frame.offsetLeft + comment.x * zoomRef.current - container.clientWidth / 2);
+    container.scrollTop = Math.max(0, frame.offsetTop + comment.y * zoomRef.current - container.clientHeight / 2);
+  }
+
   // --- Ferramenta "Comentário" (Wireframe-1b): clicar posiciona um pino e
   // abre o campo de texto do comentário inicial. ---
   function startNewComment(event: ReactPointerEvent) {
@@ -808,6 +987,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setPendingCommentPos(pos);
     setPendingCommentText("");
     setActiveTool("select");
+    openCommentsPanel();
   }
 
   async function submitNewComment() {
@@ -978,7 +1158,6 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
     commitBlocks([...current, newBlock]);
     setSelectedIds(new Set([newBlock.id]));
-    setPropertiesOpen(true);
     setContextMenu(null);
   }
 
@@ -1048,7 +1227,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     event.preventDefault();
     event.stopPropagation();
     if (!selectedIds.has(block.id)) setSelectedIds(new Set([block.id]));
-    setContextMenu({ x: event.clientX, y: event.clientY, blockId: block.id });
+    setSelectedAnnotationId(null);
+    setContextMenu({ x: event.clientX, y: event.clientY, target: { type: "block", id: block.id } });
   }
 
   // --- Ctrl+scroll = zoom centralizado no cursor (Ajuste 1). Precisa de um
@@ -1322,7 +1502,15 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const selectedBlocksList = blocks.filter((b) => selectedIds.has(b.id));
   const allSelectedHidden = selectedBlocksList.length > 0 && selectedBlocksList.every((b) => b.hidden);
   const allSelectedLocked = selectedBlocksList.length > 0 && selectedBlocksList.every((b) => b.locked);
-  const contextMenuBlock = contextMenu ? blocks.find((b) => b.id === contextMenu.blockId) ?? null : null;
+  const contextMenuBlock = contextMenu && contextMenu.target.type === "block" ? blocks.find((b) => b.id === contextMenu.target.id) ?? null : null;
+  const contextMenuAnnotation =
+    contextMenu && contextMenu.target.type === "annotation" ? annotations.find((a) => a.id === contextMenu.target.id) ?? null : null;
+  // Correção do bug da Caneta: alças de redimensionamento da anotação
+  // selecionada — só faz sentido mostrar quando ela está visível e
+  // destravada (igual ao tratamento de blocos selecionados/bloqueados).
+  const selectedAnnotation = selectedAnnotationId ? annotations.find((a) => a.id === selectedAnnotationId) ?? null : null;
+  const selectedAnnotationBox = selectedAnnotation ? getAnnotationBoundingBox(selectedAnnotation.pathData) : null;
+  const SIDE_PANEL_WIDTH = 320;
 
   // Ajuste 1: padding-esquerdo/topo dinâmico — cresce além do mínimo
   // (clearance pro painel de ferramentas flutuante / toolbar) só quando
@@ -1548,196 +1736,263 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           </ToolButton>
         </div>
 
-        {/* Aba Camadas — árvore de verdade (Ajuste 4) */}
+        {/* Aba/seta fixa na borda direita da tela (fora do painel, sempre
+            visível): abre/fecha o painel lateral único inteiro. Desloca
+            junto com a borda esquerda do painel (dynamic `right`, mesmo
+            padrão usado antes pro minimapa) pra parecer uma alça presa nele,
+            mas continua acessível mesmo com o painel fechado/fora da tela. */}
         <button
           type="button"
-          onClick={() => setLayersOpen((v) => !v)}
-          className={`absolute bottom-[30px] left-1 z-20 flex w-[43px] flex-col items-center gap-2 rounded-lg bg-white py-3.5 shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] ${layersOpen ? "text-[#7c3aed]" : "text-[#2a2a2e]"}`}
-          style={{ height: 158 }}
+          onClick={toggleSidePanel}
+          aria-label={sidePanelOpen ? "Fechar painel" : "Abrir painel"}
+          title={sidePanelOpen ? "Fechar painel" : "Abrir painel"}
+          className="absolute top-1/2 z-[70] -translate-y-1/2 rounded-l-lg bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] transition-[right] duration-200"
+          style={{ right: sidePanelOpen ? SIDE_PANEL_WIDTH : 0 }}
         >
-          <LayersTabIcon className="h-[17px] w-[17px]" />
-          <span className="[writing-mode:vertical-rl] text-[13.5px]">Camadas</span>
-          <ChevronDownIcon className={`h-[11px] w-[11px] transition-transform ${layersOpen ? "rotate-180" : ""}`} />
+          <ChevronLeftIcon className={`h-4 w-4 text-[#2a2a2e] transition-transform duration-200 ${sidePanelOpen ? "rotate-180" : ""}`} />
         </button>
 
-        {layersOpen && (
-          <div
-            className="absolute bottom-[30px] left-[52px] z-20 max-h-[420px] w-64 overflow-y-auto rounded-lg border border-[#e4e4e7] bg-white p-2 shadow-lg"
-            onDragOver={(event) => {
-              event.preventDefault();
-              setLayerDropTargetId("root");
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              handleLayerDrop("root");
-            }}
-          >
-            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">Camadas ({blocks.length})</p>
-            {tree.map((node) => (
-              <LayerRow
-                key={node.block.id}
-                node={node}
-                depth={0}
-                selectedIds={selectedIds}
-                collapsedGroupIds={collapsedGroupIds}
-                onToggleCollapse={(id) =>
-                  setCollapsedGroupIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(id)) next.delete(id);
-                    else next.add(id);
-                    return next;
-                  })
-                }
-                onSelect={(id, shift) => (shift ? toggleSelection(id) : selectOnly(id))}
-                onContextMenu={handleBlockContextMenu}
-                onToggleHidden={(id) => toggleHidden(new Set([id]))}
-                onToggleLocked={(id) => toggleLocked(new Set([id]))}
-                draggedLayerId={draggedLayerId}
-                layerDropTargetId={layerDropTargetId}
-                layerDropPosition={layerDropPosition}
-                onDragStartLayer={setDraggedLayerId}
-                onDragOverLayer={(id, position) => {
-                  setLayerDropTargetId(id);
-                  setLayerDropPosition(position);
-                }}
-                onDropLayer={handleLayerDrop}
-              />
-            ))}
-
-            {/* Wireframe-1b: anotações de Caneta numa seção separada — não
-                fazem parte da árvore hierárquica dos blocos (sem
-                agrupar/reordenar/ocultar/bloquear), só seleção simples e
-                exclusão via Delete. */}
-            {annotations.length > 0 && (
-              <>
-                <p className="mt-2 border-t border-[#f0f0f1] px-2 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">
-                  Anotações ({annotations.length})
-                </p>
-                {annotations.map((annotation, index) => (
-                  <div
-                    key={annotation.id}
-                    onClick={() => {
-                      setSelectedAnnotationId(annotation.id);
-                      setSelectedIds(new Set());
-                    }}
-                    className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pl-2 pr-1.5 text-left text-sm ${
-                      selectedAnnotationId === annotation.id ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
-                    }`}
-                  >
-                    <PenToolIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">Traço {index + 1}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Aba Propriedades */}
-        <button
-          type="button"
-          onClick={() => setPropertiesOpen((v) => !v)}
-          className={`absolute right-1 top-1/2 z-20 flex w-[43px] -translate-y-1/2 flex-col items-center gap-2 rounded-lg bg-white py-3.5 shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] ${propertiesOpen ? "text-[#7c3aed]" : "text-[#2a2a2e]"}`}
-          style={{ height: 183 }}
-        >
-          <PropertiesTabIcon className="h-[17px] w-[17px]" />
-          <span className="[writing-mode:vertical-rl] text-[13.5px]">Propriedades</span>
-          <ChevronDownIcon className={`h-[11px] w-[11px] transition-transform ${propertiesOpen ? "rotate-180" : ""}`} />
-        </button>
-
-        {propertiesOpen && (
-          <div className="absolute right-[52px] top-1/2 z-20 w-72 -translate-y-1/2 rounded-lg border border-[#e4e4e7] bg-white p-4 shadow-lg">
-            {selectedIds.size === 0 ? (
-              <p className="text-sm text-[#8e8e93]">Selecione um bloco no canvas pra ver e editar suas propriedades.</p>
-            ) : selectedIds.size > 1 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-[#1d1d1f]">{selectedIds.size} blocos selecionados.</p>
-                <button
-                  type="button"
-                  onClick={groupSelection}
-                  className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
-                >
-                  Agrupar seleção (Ctrl+G)
-                </button>
-                <div className="flex gap-1.5">
-                  <PropertyActionButton label={allSelectedHidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(selectedIds)}>
-                    {allSelectedHidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
-                  </PropertyActionButton>
-                  <PropertyActionButton label={allSelectedLocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(selectedIds)}>
-                    {allSelectedLocked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
-                  </PropertyActionButton>
-                  <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(selectedIds)} danger>
-                    <TrashIcon className="h-4 w-4" />
-                  </PropertyActionButton>
-                </div>
-              </div>
-            ) : !selectedBlock ? (
-              <p className="text-sm text-[#8e8e93]">Selecione um bloco no canvas pra ver e editar suas propriedades.</p>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">Nome</label>
-                  <input
-                    type="text"
-                    value={selectedBlock.label}
-                    onChange={(event) => handlePropertyChange({ label: event.target.value })}
-                    onBlur={commitPropertyChange}
-                    onKeyDown={(event) => event.key === "Enter" && commitPropertyChange()}
-                    className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <NumberField label="X" value={selectedBlock.x} onChange={(v) => handlePropertyChange({ x: v })} onCommit={commitPropertyChange} />
-                  <NumberField label="Y" value={selectedBlock.y} onChange={(v) => handlePropertyChange({ y: v })} onCommit={commitPropertyChange} />
-                  <NumberField
-                    label="Largura"
-                    value={selectedBlock.width}
-                    onChange={(v) => handlePropertyChange({ width: Math.max(MIN_BLOCK_SIZE, v) })}
-                    onCommit={commitPropertyChange}
-                  />
-                  <NumberField
-                    label="Altura"
-                    value={selectedBlock.height}
-                    onChange={(v) => handlePropertyChange({ height: Math.max(MIN_BLOCK_SIZE, v) })}
-                    onCommit={commitPropertyChange}
-                  />
-                </div>
-                <div className="flex gap-1.5">
-                  <PropertyActionButton label={selectedBlock.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(new Set([selectedBlock.id]))}>
-                    {selectedBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
-                  </PropertyActionButton>
-                  <PropertyActionButton label={selectedBlock.locked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(new Set([selectedBlock.id]))}>
-                    {selectedBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
-                  </PropertyActionButton>
-                  {selectedBlock.kind === "GROUP" ? (
-                    <PropertyActionButton label="Desagrupar" onClick={() => ungroupBlock(selectedBlock.id)}>
-                      <FolderIcon className="h-4 w-4" />
-                    </PropertyActionButton>
-                  ) : (
-                    <PropertyActionButton label="Adicionar texto" onClick={() => addTextAnnotation(selectedBlock.id)}>
-                      <TextToolIcon className="h-4 w-4" />
-                    </PropertyActionButton>
-                  )}
-                  <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(new Set([selectedBlock.id]))} danger>
-                    <TrashIcon className="h-4 w-4" />
-                  </PropertyActionButton>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Minimapa — Ajuste 4: quando o painel de Camadas está aberto, ele
-            ocupa exatamente a faixa (left-[52px], largura 256px) onde o
-            minimapa ficava (left-[86px]), e por ter z-index maior cobria o
-            minimapa por completo. Em vez de brigar por z-index (o que só
-            deixaria um dos dois inacessível), desloca o minimapa pra depois
-            da borda direita do painel aberto — os dois convivem lado a lado
-            sempre, em qualquer zoom. */}
+        {/* Painel lateral único — Camadas/Propriedades/Comentários em
+            acordeão, substitui as antigas abas separadas. Sempre montado
+            (não só quando aberto) pra ter a transição de slide suave;
+            translateX(100%) o joga fora da tela quando fechado. */}
         <div
-          className="absolute bottom-[30px] z-20 hidden h-[126px] w-[206px] overflow-hidden rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] transition-[left] sm:block"
-          style={{ left: layersOpen ? 324 : 86 }}
+          className="absolute right-0 top-0 z-[60] flex h-full w-80 flex-col border-l border-[#e4e4e7] bg-white shadow-[-6px_0_24px_rgba(0,0,0,.10)] transition-transform duration-200 ease-out"
+          style={{ transform: sidePanelOpen ? "translateX(0)" : "translateX(100%)" }}
         >
+          <div className="flex items-center justify-between border-b border-[#e4e4e7] px-4 py-3">
+            <h2 className="text-sm font-semibold text-[#141416]">Painel</h2>
+            <button type="button" onClick={() => setSidePanelOpen(false)} aria-label="Fechar painel" className="text-[#8e8e93] hover:text-[#1d1d1f]">
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {/* Seção Camadas — árvore de blocos + anotações de Caneta */}
+            <AccordionSection
+              title={`Camadas (${blocks.length})`}
+              icon={<LayersTabIcon className="h-4 w-4" />}
+              expanded={expandedSections.has("camadas")}
+              onToggle={() => toggleSection("camadas")}
+            >
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setLayerDropTargetId("root");
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleLayerDrop("root");
+                }}
+              >
+                {tree.map((node) => (
+                  <LayerRow
+                    key={node.block.id}
+                    node={node}
+                    depth={0}
+                    selectedIds={selectedIds}
+                    collapsedGroupIds={collapsedGroupIds}
+                    onToggleCollapse={(id) =>
+                      setCollapsedGroupIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(id)) next.delete(id);
+                        else next.add(id);
+                        return next;
+                      })
+                    }
+                    onSelect={(id, shift) => (shift ? toggleSelection(id) : selectOnly(id))}
+                    onContextMenu={handleBlockContextMenu}
+                    onToggleHidden={(id) => toggleHidden(new Set([id]))}
+                    onToggleLocked={(id) => toggleLocked(new Set([id]))}
+                    draggedLayerId={draggedLayerId}
+                    layerDropTargetId={layerDropTargetId}
+                    layerDropPosition={layerDropPosition}
+                    onDragStartLayer={setDraggedLayerId}
+                    onDragOverLayer={(id, position) => {
+                      setLayerDropTargetId(id);
+                      setLayerDropPosition(position);
+                    }}
+                    onDropLayer={handleLayerDrop}
+                  />
+                ))}
+
+                {/* Anotações de Caneta numa seção separada — não fazem parte
+                    da árvore hierárquica dos blocos (sem agrupar/reordenar),
+                    mas agora com olho/cadeado + menu de contexto igual aos
+                    blocos (correção do bug da Caneta). */}
+                {annotations.length > 0 && (
+                  <>
+                    <p className="mt-2 border-t border-[#f0f0f1] px-2 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">
+                      Anotações ({annotations.length})
+                    </p>
+                    {annotations.map((annotation, index) => (
+                      <div
+                        key={annotation.id}
+                        onClick={() => {
+                          setSelectedAnnotationId(annotation.id);
+                          setSelectedIds(new Set());
+                        }}
+                        onContextMenu={(event) => handleAnnotationContextMenu(event, annotation)}
+                        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pl-2 pr-1.5 text-left text-sm ${
+                          selectedAnnotationId === annotation.id ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+                        }`}
+                      >
+                        <PenToolIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className={`min-w-0 flex-1 truncate ${annotation.hidden ? "text-[#b4b4b9]" : ""}`}>Traço {index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleAnnotationHidden(annotation.id);
+                          }}
+                          aria-label={annotation.hidden ? "Mostrar" : "Ocultar"}
+                          title={annotation.hidden ? "Mostrar" : "Ocultar"}
+                          className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
+                        >
+                          {annotation.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleAnnotationLocked(annotation.id);
+                          }}
+                          aria-label={annotation.locked ? "Desbloquear" : "Bloquear"}
+                          title={annotation.locked ? "Desbloquear" : "Bloquear"}
+                          className={`shrink-0 hover:text-[#1d1d1f] ${annotation.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+                        >
+                          {annotation.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </AccordionSection>
+
+            {/* Seção Propriedades — sem estado de aberto/fechado próprio,
+                sempre expandida como seção; o conteúdo é que muda conforme a
+                seleção no canvas. */}
+            <AccordionSection title="Propriedades" icon={<PropertiesTabIcon className="h-4 w-4" />} expanded>
+              {selectedIds.size === 0 ? (
+                <p className="px-2 text-sm text-[#8e8e93]">Selecione um elemento para ver suas propriedades.</p>
+              ) : selectedIds.size > 1 ? (
+                <div className="space-y-3 px-2">
+                  <p className="text-sm text-[#1d1d1f]">{selectedIds.size} blocos selecionados.</p>
+                  <button
+                    type="button"
+                    onClick={groupSelection}
+                    className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
+                  >
+                    Agrupar seleção (Ctrl+G)
+                  </button>
+                  <div className="flex gap-1.5">
+                    <PropertyActionButton label={allSelectedHidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(selectedIds)}>
+                      {allSelectedHidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+                    </PropertyActionButton>
+                    <PropertyActionButton label={allSelectedLocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(selectedIds)}>
+                      {allSelectedLocked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+                    </PropertyActionButton>
+                    <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(selectedIds)} danger>
+                      <TrashIcon className="h-4 w-4" />
+                    </PropertyActionButton>
+                  </div>
+                </div>
+              ) : !selectedBlock ? (
+                <p className="px-2 text-sm text-[#8e8e93]">Selecione um elemento para ver suas propriedades.</p>
+              ) : (
+                <div className="space-y-3 px-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93]">Nome</label>
+                    <input
+                      type="text"
+                      value={selectedBlock.label}
+                      onChange={(event) => handlePropertyChange({ label: event.target.value })}
+                      onBlur={commitPropertyChange}
+                      onKeyDown={(event) => event.key === "Enter" && commitPropertyChange()}
+                      className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumberField label="X" value={selectedBlock.x} onChange={(v) => handlePropertyChange({ x: v })} onCommit={commitPropertyChange} />
+                    <NumberField label="Y" value={selectedBlock.y} onChange={(v) => handlePropertyChange({ y: v })} onCommit={commitPropertyChange} />
+                    <NumberField
+                      label="Largura"
+                      value={selectedBlock.width}
+                      onChange={(v) => handlePropertyChange({ width: Math.max(MIN_BLOCK_SIZE, v) })}
+                      onCommit={commitPropertyChange}
+                    />
+                    <NumberField
+                      label="Altura"
+                      value={selectedBlock.height}
+                      onChange={(v) => handlePropertyChange({ height: Math.max(MIN_BLOCK_SIZE, v) })}
+                      onCommit={commitPropertyChange}
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <PropertyActionButton label={selectedBlock.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(new Set([selectedBlock.id]))}>
+                      {selectedBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+                    </PropertyActionButton>
+                    <PropertyActionButton label={selectedBlock.locked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(new Set([selectedBlock.id]))}>
+                      {selectedBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+                    </PropertyActionButton>
+                    {selectedBlock.kind === "GROUP" ? (
+                      <PropertyActionButton label="Desagrupar" onClick={() => ungroupBlock(selectedBlock.id)}>
+                        <FolderIcon className="h-4 w-4" />
+                      </PropertyActionButton>
+                    ) : (
+                      <PropertyActionButton label="Adicionar texto" onClick={() => addTextAnnotation(selectedBlock.id)}>
+                        <TextToolIcon className="h-4 w-4" />
+                      </PropertyActionButton>
+                    )}
+                    <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(new Set([selectedBlock.id]))} danger>
+                      <TrashIcon className="h-4 w-4" />
+                    </PropertyActionButton>
+                  </div>
+                </div>
+              )}
+            </AccordionSection>
+
+            {/* Seção Comentários — todas as threads do Wireframe atual;
+                clicar numa thread volta o foco pro pino correspondente no
+                canvas (focusComment: abre a thread + centraliza a rolagem). */}
+            <AccordionSection
+              title={`Comentários${comments.length > 0 ? ` (${comments.length})` : ""}`}
+              icon={<CommentToolIcon className="h-4 w-4" />}
+              expanded={expandedSections.has("comentarios")}
+              onToggle={() => toggleSection("comentarios")}
+            >
+              {comments.length === 0 ? (
+                <p className="px-2 text-sm text-[#8e8e93]">Nenhum comentário ainda neste Wireframe.</p>
+              ) : (
+                <div className="space-y-1">
+                  {comments.map((comment) => (
+                    <button
+                      key={comment.id}
+                      type="button"
+                      onClick={() => focusComment(comment)}
+                      className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-[#f7f7f8] ${
+                        activeCommentId === comment.id ? "bg-[#f1ebfe]" : ""
+                      }`}
+                    >
+                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${comment.resolved ? "bg-[#9ca3af]" : "bg-[#f59e0b]"}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium text-[#1d1d1f]">{comment.author.name}</span>
+                        <span className="block truncate text-sm text-[#333336]">{comment.text}</span>
+                        <span className="block text-[11px] text-[#8e8e93]">
+                          {comment.replies.length} resposta{comment.replies.length === 1 ? "" : "s"} · {comment.resolved ? "Resolvido" : "Aberto"}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </AccordionSection>
+          </div>
+        </div>
+
+        {/* Minimapa */}
+        <div className="absolute bottom-[30px] left-[86px] z-20 hidden h-[126px] w-[206px] overflow-hidden rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] sm:block">
           <div className="relative h-full w-full p-2">
             <div
               className="relative h-full w-full cursor-grab border border-[#3b82f6] active:cursor-grabbing"
@@ -1772,8 +2027,13 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           </div>
         </div>
 
-        {/* Controles de zoom */}
-        <div className="absolute bottom-[30px] right-[30px] z-20 flex items-center gap-2">
+        {/* Controles de zoom — desloca pra esquerda quando o painel lateral
+            está aberto, senão ficaria coberto por ele (mesmo padrão de
+            offset dinâmico usado antes pro minimapa). */}
+        <div
+          className="absolute bottom-[30px] z-20 flex items-center gap-2 transition-[right] duration-200"
+          style={{ right: sidePanelOpen ? SIDE_PANEL_WIDTH + 30 : 30 }}
+        >
           <div className="flex h-10 items-center rounded-lg bg-white px-1 shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)]">
             <button type="button" onClick={() => zoomTo(zoom - 0.1)} aria-label="Diminuir zoom" className="grid h-8 w-8 place-items-center rounded-md text-[#1d1d1f] hover:bg-[#f2f2f3]">
               <MinusIcon className="h-3.5 w-3.5" />
@@ -1863,21 +2123,27 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
               height={frameHeight * zoom}
               viewBox={`0 0 ${frameWidth} ${frameHeight}`}
             >
-              {annotations.map((annotation) => (
-                <path
-                  key={annotation.id}
-                  d={annotation.pathData}
-                  fill="none"
-                  stroke={annotation.color}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                  style={{ pointerEvents: activeTool === "select" ? "stroke" : "none", cursor: "move" }}
-                  className={selectedAnnotationId === annotation.id ? "drop-shadow-[0_0_0_2px_rgba(124,58,237,0.5)]" : undefined}
-                  onPointerDown={(event) => handleAnnotationPointerDown(event, annotation)}
-                />
-              ))}
+              {annotations
+                .filter((a) => !a.hidden)
+                .map((annotation) => (
+                  <path
+                    key={annotation.id}
+                    d={annotation.pathData}
+                    fill="none"
+                    stroke={annotation.color}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                    style={{
+                      pointerEvents: activeTool === "select" ? "stroke" : "none",
+                      cursor: annotation.locked ? "default" : "move",
+                    }}
+                    className={selectedAnnotationId === annotation.id ? "drop-shadow-[0_0_0_2px_rgba(124,58,237,0.5)]" : undefined}
+                    onPointerDown={(event) => handleAnnotationPointerDown(event, annotation)}
+                    onContextMenu={(event) => handleAnnotationContextMenu(event, annotation)}
+                  />
+                ))}
               {penPoints && penPoints.length > 1 && (
                 <path
                   d={`M ${penPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`}
@@ -1890,6 +2156,33 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                 />
               )}
             </svg>
+
+            {/* Alças de redimensionamento da anotação selecionada (correção
+                do bug da Caneta): escalam o path inteiro a partir da caixa
+                delimitadora atual — só aparecem se a anotação estiver
+                visível e destravada. */}
+            {selectedAnnotation && selectedAnnotationBox && !selectedAnnotation.hidden && !selectedAnnotation.locked && (
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: selectedAnnotationBox.minX * zoom,
+                  top: selectedAnnotationBox.minY * zoom,
+                  width: Math.max(1, selectedAnnotationBox.maxX - selectedAnnotationBox.minX) * zoom,
+                  height: Math.max(1, selectedAnnotationBox.maxY - selectedAnnotationBox.minY) * zoom,
+                  zIndex: 50,
+                }}
+              >
+                <div className="pointer-events-none h-full w-full rounded-sm border border-dashed border-[#7c3aed]/60" />
+                {ANNOTATION_RESIZE_HANDLES.map((handle) => (
+                  <div
+                    key={handle.corner}
+                    onPointerDown={(event) => handleAnnotationResizePointerDown(event, selectedAnnotation, handle.corner)}
+                    style={{ cursor: handle.cursor }}
+                    className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border border-[#7c3aed] bg-white ${handle.className}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Retângulo de pré-visualização ao vivo (ferramentas Frame/Elipse) */}
             {drawRect && (
@@ -1920,6 +2213,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     event.stopPropagation();
                     setPendingCommentPos(null);
                     setActiveCommentId(comment.id);
+                    openCommentsPanel();
                   }}
                   title={comment.text}
                   className={`absolute z-40 grid h-6 w-6 -translate-x-1/2 -translate-y-full place-items-center rounded-full border-2 border-white text-[10px] font-bold text-white shadow ${
@@ -2029,7 +2323,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
       {contextMenu && contextMenuBlock && (
         <div
-          className="fixed z-50 w-60 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
+          className="fixed z-[80] w-60 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -2084,6 +2378,43 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <button
             type="button"
             onClick={() => deleteBlocks(selectedIds)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-luminous-error hover:bg-red-50"
+          >
+            <TrashIcon className="h-4 w-4" />
+            Apagar
+          </button>
+        </div>
+      )}
+
+      {/* Menu de contexto de uma anotação de Caneta (correção do bug da
+          Caneta): subconjunto de ações que fazem sentido pra um traço livre
+          — sem Agrupar/Adicionar texto, que são específicos de blocos. */}
+      {contextMenu && contextMenuAnnotation && (
+        <div
+          className="fixed z-[80] w-56 overflow-hidden rounded-lg border border-[#e4e4e7] bg-white py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => toggleAnnotationHidden(contextMenuAnnotation.id)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
+          >
+            {contextMenuAnnotation.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+            {contextMenuAnnotation.hidden ? "Mostrar" : "Ocultar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleAnnotationLocked(contextMenuAnnotation.id)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1d1d1f] hover:bg-[#f7f7f8]"
+          >
+            {contextMenuAnnotation.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+            {contextMenuAnnotation.locked ? "Desbloquear" : "Bloquear"}
+          </button>
+          <div className="my-1 h-px bg-[#eee]" />
+          <button
+            type="button"
+            onClick={() => deleteAnnotationById(contextMenuAnnotation.id)}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-luminous-error hover:bg-red-50"
           >
             <TrashIcon className="h-4 w-4" />
@@ -2149,6 +2480,40 @@ function ToolButton({ active, onClick, label, children }: { active?: boolean; on
     >
       {children}
     </button>
+  );
+}
+
+// Uma seção do painel lateral único (Camadas/Propriedades/Comentários em
+// acordeão). Sem `onToggle`, a seção fica sempre expandida e sem cabeçalho
+// clicável (caso da Propriedades, que não tem estado de aberto/fechado
+// próprio — só conteúdo condicional à seleção).
+function AccordionSection({
+  title,
+  icon,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  expanded: boolean;
+  onToggle?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="border-b border-[#f0f0f1]">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={!onToggle}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-[#55555b] hover:bg-[#f7f7f8] disabled:cursor-default disabled:hover:bg-transparent"
+      >
+        {icon}
+        <span className="flex-1">{title}</span>
+        {onToggle && <ChevronDownIcon className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`} />}
+      </button>
+      {expanded && <div className="px-2 pb-3">{children}</div>}
+    </div>
   );
 }
 
@@ -2408,6 +2773,17 @@ function GroupOutline({
     </div>
   );
 }
+
+// Alças de redimensionamento de uma anotação de Caneta (correção do bug da
+// Caneta) — só os 4 cantos da caixa delimitadora (não os 8 pontos dos
+// blocos), já que o path livre não tem bordas retas pra justificar alças no
+// meio de cada lado.
+const ANNOTATION_RESIZE_HANDLES: { corner: "nw" | "ne" | "se" | "sw"; className: string; cursor: string }[] = [
+  { corner: "nw", className: "-left-1 -top-1", cursor: "nwse-resize" },
+  { corner: "ne", className: "-right-1 -top-1", cursor: "nesw-resize" },
+  { corner: "se", className: "-right-1 -bottom-1", cursor: "nwse-resize" },
+  { corner: "sw", className: "-left-1 -bottom-1", cursor: "nesw-resize" },
+];
 
 const RESIZE_HANDLES: { direction: ResizeDirection; className: string; cursor: string }[] = [
   { direction: "nw", className: "-left-1 -top-1", cursor: "nwse-resize" },

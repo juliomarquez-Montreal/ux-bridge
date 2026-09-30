@@ -7,9 +7,10 @@ interface Params {
   params: { id: string; annotationId: string };
 }
 
-// PATCH /api/bridges/:id/annotations/:annotationId -> move um traço inteiro
-// (arrastar no canvas já recalcula o pathData deslocado no client, aqui só
-// grava o resultado final).
+// PATCH /api/bridges/:id/annotations/:annotationId -> move/redimensiona um
+// traço (pathData recalculado no client, aqui só grava o resultado final) e/
+// ou alterna oculto/bloqueado (menu de contexto). Qualquer subconjunto dos 3
+// campos pode vir no body.
 export async function PATCH(request: Request, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -24,10 +25,13 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
   const body = await request.json().catch(() => ({}));
-  const pathData = typeof body.pathData === "string" ? body.pathData.trim() : "";
-  if (!pathData) return NextResponse.json({ error: "pathData é obrigatório." }, { status: 400 });
+  const data: { pathData?: string; hidden?: boolean; locked?: boolean } = {};
+  if (typeof body.pathData === "string" && body.pathData.trim()) data.pathData = body.pathData.trim();
+  if (typeof body.hidden === "boolean") data.hidden = body.hidden;
+  if (typeof body.locked === "boolean") data.locked = body.locked;
+  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nenhum campo válido para atualizar." }, { status: 400 });
 
-  const updated = await db.wireframeAnnotation.update({ where: { id: params.annotationId }, data: { pathData } });
+  const updated = await db.wireframeAnnotation.update({ where: { id: params.annotationId }, data });
   return NextResponse.json({ annotation: updated });
 }
 
