@@ -221,6 +221,10 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // redistribuído (o container não tem largura própria fixa, ela vem do
   // flex-1 do pai), então não há dependência circular em usá-los aqui.
   const [canvasViewport, setCanvasViewport] = useState({ width: 0, height: 0 });
+  // Posição de rolagem do canvas (Ajuste B) — precisa estar em estado (não só
+  // lida direto do DOM) pra o retângulo indicador do minimapa re-renderizar
+  // seguindo o scroll/pan/zoom em tempo real.
+  const [scrollPos, setScrollPos] = useState({ left: 0, top: 0 });
 
   const historyRef = useRef<WireframeBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
@@ -291,6 +295,57 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     centerScrollIfOverflowing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge.id]);
+
+  // Acompanha scrollLeft/scrollTop do canvas (Ajuste B) — inclui os ajustes
+  // programáticos de pan/zoom/centralização, já que setar container.scrollLeft
+  // via JS também dispara o evento nativo "scroll".
+  useEffect(() => {
+    const container = canvasScrollRef.current;
+    if (!container) return;
+    function onScroll() {
+      setScrollPos({ left: container!.scrollLeft, top: container!.scrollTop });
+    }
+    onScroll();
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // --- Minimapa: clicar ou arrastar dentro da área do frame em miniatura faz
+  // pan do canvas principal, centralizando a área visível no ponto do cursor
+  // e seguindo o arraste em tempo real (Ajuste B — antes o minimapa só
+  // mostrava os blocos, sem nenhum listener de clique/arraste: nem clicar
+  // nem arrastar o retângulo indicador faziam qualquer coisa). Um único
+  // handler cobre as duas interações pedidas (clicar em qualquer ponto E
+  // arrastar o retângulo indicador), já que visualmente o efeito esperado é
+  // o mesmo: o retângulo (e o canvas atrás dele) segue o cursor. ---
+  function handleMinimapPointerDown(event: ReactPointerEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const box = event.currentTarget.getBoundingClientRect();
+    const container = canvasScrollRef.current;
+    const frame = frameRef.current;
+    if (!container || !frame) return;
+
+    function moveTo(clientX: number, clientY: number) {
+      const ratioX = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+      const ratioY = Math.min(1, Math.max(0, (clientY - box.top) / box.height));
+      const frameX = ratioX * frameWidth;
+      const frameY = ratioY * frameHeight;
+      container!.scrollLeft = Math.max(0, frame!.offsetLeft + frameX * zoomRef.current - container!.clientWidth / 2);
+      container!.scrollTop = Math.max(0, frame!.offsetTop + frameY * zoomRef.current - container!.clientHeight / 2);
+    }
+    moveTo(event.clientX, event.clientY);
+
+    function onMove(moveEvent: PointerEvent) {
+      moveTo(moveEvent.clientX, moveEvent.clientY);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
 
   async function doSave(next: WireframeBlock[]) {
     setSaveState("saving");
@@ -908,6 +963,17 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const canvasPadLeft = Math.max(MIN_CANVAS_PAD_X, (canvasViewport.width - frameWidth * zoom) / 2);
   const canvasPadTop = Math.max(MIN_CANVAS_PAD_Y, (canvasViewport.height - frameHeight * zoom) / 2);
 
+  // Ajuste B: retângulo indicador da área visível dentro do minimapa —
+  // converte scrollPos/zoom/canvasViewport (área visível de verdade do
+  // canvas) pra coordenadas do frame, depois pra porcentagem (mesmo sistema
+  // usado pra posicionar os blocos em miniatura logo abaixo).
+  const frameOffsetLeft = frameRef.current?.offsetLeft ?? canvasPadLeft;
+  const frameOffsetTop = frameRef.current?.offsetTop ?? canvasPadTop;
+  const visibleLeftFrame = Math.max(0, (scrollPos.left - frameOffsetLeft) / zoom);
+  const visibleTopFrame = Math.max(0, (scrollPos.top - frameOffsetTop) / zoom);
+  const visibleWidthFrame = Math.min(frameWidth - visibleLeftFrame, canvasViewport.width / zoom);
+  const visibleHeightFrame = Math.min(frameHeight - visibleTopFrame, canvasViewport.height / zoom);
+
   return (
     <div ref={editorRootRef} className="flex h-full flex-col overflow-hidden bg-[#f3f3f4] text-[#1d1d1f]">
       {/* Subheader */}
@@ -1252,11 +1318,14 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           style={{ left: layersOpen ? 324 : 86 }}
         >
           <div className="relative h-full w-full p-2">
-            <div className="relative h-full w-full border border-[#3b82f6]">
+            <div
+              className="relative h-full w-full cursor-grab border border-[#3b82f6] active:cursor-grabbing"
+              onPointerDown={handleMinimapPointerDown}
+            >
               {blocks.map((block) => (
                 <div
                   key={block.id}
-                  className="absolute bg-[#d8d8db]"
+                  className="pointer-events-none absolute bg-[#d8d8db]"
                   style={{
                     left: `${(block.x / frameWidth) * 100}%`,
                     top: `${(block.y / frameHeight) * 100}%`,
@@ -1266,6 +1335,18 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                   }}
                 />
               ))}
+              {/* Retângulo indicador da área visível (Ajuste B) — clicar ou
+                  arrastar aqui (ou em qualquer ponto do minimapa) faz pan do
+                  canvas principal, ver handleMinimapPointerDown. */}
+              <div
+                className="pointer-events-none absolute border-2 border-[#7c3aed] bg-[#7c3aed]/10"
+                style={{
+                  left: `${(visibleLeftFrame / frameWidth) * 100}%`,
+                  top: `${(visibleTopFrame / frameHeight) * 100}%`,
+                  width: `${(visibleWidthFrame / frameWidth) * 100}%`,
+                  height: `${(visibleHeightFrame / frameHeight) * 100}%`,
+                }}
+              />
             </div>
           </div>
         </div>
@@ -1706,7 +1787,13 @@ function GroupOutline({
   return (
     <div
       className="absolute"
-      style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
+      style={{
+        left: block.x * zoom,
+        top: block.y * zoom,
+        width: block.width * zoom,
+        height: block.height * zoom,
+        zIndex: selected ? 50 : undefined,
+      }}
     >
       <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#7c3aed]" : "border-[#c4b5fd]"}`} />
       <span
@@ -1763,7 +1850,19 @@ function CanvasBlock({
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       className={`absolute border bg-white ${block.locked ? "cursor-default" : "cursor-move"} ${selected ? "border-[#3b82f6]" : "border-[#dcdce0] hover:border-[#b4b4b9]"}`}
-      style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, height: block.height * zoom }}
+      style={{
+        left: block.x * zoom,
+        top: block.y * zoom,
+        width: block.width * zoom,
+        height: block.height * zoom,
+        // Ajuste A: sem isso, o rótulo de dimensão (WxH) e as guias de
+        // medição — que estouram pra FORA dos limites do bloco (bottom-6,
+        // etc.) — ficavam atrás de blocos vizinhos "depois" dele na ordem
+        // do DOM (pilha de empilhamento por ordem de renderização, já que
+        // nenhum bloco tinha z-index próprio). Selecionado sempre vem pra
+        // frente de tudo mais no canvas.
+        zIndex: selected ? 50 : undefined,
+      }}
     >
       <span className="pointer-events-none flex items-center gap-1 truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">
         {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#7c3aed]" />}
