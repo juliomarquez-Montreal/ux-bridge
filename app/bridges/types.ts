@@ -63,6 +63,12 @@ export interface WireframeBlock {
   // seleção mesmo bloqueado).
   locked: boolean;
   shape: WireframeBlockShape;
+  // Preenchido quando o bloco nasceu de um arraste da ferramenta Componentes
+  // (Wireframe-1c) — referencia DesignSystemComponent.id. Puramente
+  // informativo/rastreável (aprendizado futuro, envio ao Figma na
+  // Wireframe-2): o bloco em si continua sendo um retângulo de wireframe
+  // padrão, sem renderizar nada do componente real.
+  sourceComponentId: string | null;
 }
 
 export interface WireframeData {
@@ -108,6 +114,16 @@ export interface ApiWireframeComment {
   resolved: boolean;
   createdAt: string;
   replies: ApiWireframeCommentReply[];
+}
+
+// Wireframe-1c: componente do Design System disponível pra arrastar pro
+// canvas (ferramenta Componentes) — ver app/api/bridges/[id]/design-system-
+// components. Só o necessário pro painel (grade com busca); nada de
+// metadata/figmaComponentKey, que não são usados no editor.
+export interface ApiWireframeDragComponent {
+  id: string;
+  name: string;
+  thumbnailUrl: string | null;
 }
 
 export interface ApiBridgeListItem {

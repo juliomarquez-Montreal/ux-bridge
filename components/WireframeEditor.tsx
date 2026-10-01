@@ -11,7 +11,14 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { ApiBridge, ApiUserRef, ApiWireframeAnnotation, ApiWireframeComment, WireframeBlock } from "@/app/bridges/types";
+import type {
+  ApiBridge,
+  ApiUserRef,
+  ApiWireframeAnnotation,
+  ApiWireframeComment,
+  ApiWireframeDragComponent,
+  WireframeBlock,
+} from "@/app/bridges/types";
 import { normalizeWireframeBlocks } from "@/lib/bridges/wireframeLayout";
 import Avatar from "@/components/Avatar";
 import {
@@ -38,6 +45,7 @@ import {
   PlusIcon,
   PropertiesTabIcon,
   RedoIcon,
+  SearchIcon,
   SelectToolIcon,
   TextToolIcon,
   ThumbsDownIcon,
@@ -56,6 +64,10 @@ const MAX_ZOOM = 4;
 const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const MIN_BLOCK_SIZE = 24;
 const AUTOSAVE_DEBOUNCE_MS = 900;
+// Tipo de dado customizado do drag-and-drop nativo (Wireframe-1c, ferramenta
+// Componentes) — carrega só o id do DesignSystemComponent arrastado do
+// painel flutuante até o drop no canvas.
+const COMPONENT_DRAG_MIME = "application/x-ux-bridge-component-id";
 // Cursor customizado da ferramenta "Mão" (Ajuste C) — o cursor nativo
 // "grab" do sistema operacional fica quase invisível sobre o fundo branco
 // do canvas em alguns navegadores/SOs. Uma mão aberta simplificada (palma +
@@ -91,9 +103,11 @@ type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 // Wireframe-1b: "frame"/"ellipse" desenham um bloco novo por arraste;
 // "pen" desenha uma anotação livre; "text" cria um bloco shape="text" por
-// clique; "comment" cria um pino de comentário por clique. "Componentes"
-// (Wireframe-1c) fica fora do enum — o botão continua sem função própria.
-type Tool = "select" | "hand" | "frame" | "ellipse" | "pen" | "text" | "comment";
+// clique; "comment" cria um pino de comentário por clique. "components"
+// (Wireframe-1c) abre o painel flutuante de componentes do Design System —
+// o bloco em si nasce por arrastar um item do painel pro canvas (drag-and-
+// drop nativo), não por um gesto direto no canvas como as outras.
+type Tool = "select" | "hand" | "frame" | "ellipse" | "pen" | "text" | "comment" | "components";
 
 // Desloca todos os pontos numéricos de um path SVG simples ("M x y L x y
 // ...", o único formato que este editor gera) por (dx, dy) — usado pra
@@ -308,12 +322,26 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [replyDraft, setReplyDraft] = useState("");
   const [commentFilter, setCommentFilter] = useState<"all" | "open" | "resolved">("all");
 
+  // --- Wireframe-1c: painel flutuante de componentes do Design System
+  // (ferramenta Componentes). `designSystemLinked` distingue "Galáxia sem
+  // nenhum Design System vinculado" de "vinculado, só não tem componentes" —
+  // null enquanto a busca inicial ainda não voltou (evita piscar o estado
+  // vazio errado por uma fração de segundo). ---
+  const [dragComponents, setDragComponents] = useState<ApiWireframeDragComponent[]>([]);
+  const [designSystemLinked, setDesignSystemLinked] = useState<boolean | null>(null);
+  const [componentSearch, setComponentSearch] = useState("");
+
   const historyRef = useRef<WireframeBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
   const [historyTick, setHistoryTick] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasScrollRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  // Wireframe-1c: painel flutuante de Componentes — refs usadas só pra
+  // detectar clique-fora (fecha o painel revertendo a ferramenta pra
+  // "select"), excluindo o próprio painel e o botão que o abre/fecha.
+  const componentsPanelRef = useRef<HTMLDivElement>(null);
+  const componentsButtonRef = useRef<HTMLDivElement>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
   const pendingScrollAdjustRef = useRef<{ dx: number; dy: number } | null>(null);
   // Ajuste 1: quando true, o próximo efeito disparado por mudança de `zoom`
@@ -354,6 +382,23 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       .then((res) => (res.ok ? res.json() : { comments: [] }))
       .then((data: { comments?: ApiWireframeComment[] }) => setComments(data.comments ?? []))
       .catch(() => setComments([]));
+  }, [bridge.id]);
+
+  // Wireframe-1c: componentes do Design System vinculados à Galáxia do
+  // Bridge — carregados uma vez por Bridge (igual anotações/comentários),
+  // não só quando o painel abre, pra já estarem prontos na primeira vez que
+  // o usuário clicar em "Componentes".
+  useEffect(() => {
+    fetch(`/api/bridges/${bridge.id}/design-system-components`)
+      .then((res) => (res.ok ? res.json() : { linked: false, components: [] }))
+      .then((data: { linked?: boolean; components?: ApiWireframeDragComponent[] }) => {
+        setDesignSystemLinked(data.linked ?? false);
+        setDragComponents(data.components ?? []);
+      })
+      .catch(() => {
+        setDesignSystemLinked(false);
+        setDragComponents([]);
+      });
   }, [bridge.id]);
 
   // Ajuste 1: mede continuamente a área visível do canvas (ver
@@ -683,6 +728,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       hidden: false,
       locked: false,
       shape,
+      sourceComponentId: null,
     };
     commitBlocks([...blocksRef.current, newBlock]);
     setSelectedIds(new Set([newBlock.id]));
@@ -716,6 +762,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       hidden: false,
       locked: false,
       shape: "text",
+      sourceComponentId: null,
     };
     commitBlocks([...blocksRef.current, newBlock]);
     setSelectedIds(new Set([newBlock.id]));
@@ -730,6 +777,43 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     const next = blocksRef.current.map((b) => (b.id === id ? { ...b, label: editingLabelDraft.trim() || b.label } : b));
     commitBlocks(next);
     setEditingBlockId(null);
+  }
+
+  // --- Ferramenta "Componentes" (Wireframe-1c): soltar um item arrastado do
+  // painel flutuante cria um bloco de wireframe padrão (mesmo estilo visual
+  // de qualquer outro bloco — sem renderizar a thumbnail real, de propósito)
+  // com o NOME do componente como label e sourceComponentId preenchido pra
+  // rastreabilidade. Tamanho fixo (não tenta herdar dimensões do Figma nesta
+  // fase), centralizado no ponto onde foi solto. ---
+  function createComponentBlock(componentId: string, clientX: number, clientY: number) {
+    const component = dragComponents.find((c) => c.id === componentId);
+    if (!component) return;
+    const pos = clientToFrame(clientX, clientY);
+    const width = 200;
+    const height = 48;
+    const newBlock: WireframeBlock = {
+      id: makeId(),
+      label: component.name,
+      zone: "content",
+      row: 0,
+      order: 0,
+      widthHint: "auto",
+      heightHint: "compact",
+      x: Math.round(pos.x - width / 2),
+      y: Math.round(pos.y - height / 2),
+      width,
+      height,
+      parentBlockId: null,
+      kind: "ELEMENT",
+      siblingOrder: nextRootSiblingOrder(),
+      hidden: false,
+      locked: false,
+      shape: "rectangle",
+      sourceComponentId: component.id,
+    };
+    commitBlocks([...blocksRef.current, newBlock]);
+    setSelectedIds(new Set([newBlock.id]));
+    setActiveTool("select");
   }
 
   // --- Ferramenta "Caneta" (Wireframe-1b): clicar e arrastar desenha um
@@ -1083,6 +1167,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       hidden: false,
       locked: false,
       shape: "rectangle",
+      sourceComponentId: null,
     };
 
     let childOrder = 0;
@@ -1154,6 +1239,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       hidden: false,
       locked: false,
       shape: "text",
+      sourceComponentId: null,
     };
 
     commitBlocks([...current, newBlock]);
@@ -1222,6 +1308,23 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       window.removeEventListener("keydown", onKey);
     };
   }, [contextMenu]);
+
+  // Painel de Componentes (Wireframe-1c): fecha sozinho (volta a ferramenta
+  // pra "select") ao clicar fora dele — exceto no próprio botão que o abre/
+  // fecha, cujo onClick já cuida do toggle; sem essa exclusão, o clique pra
+  // FECHAR pelo botão reabriria o painel (pointerdown já teria revertido pra
+  // "select" antes do onClick do botão rodar e alternar de novo).
+  useEffect(() => {
+    if (activeTool !== "components") return;
+    function onPointerDownOutside(event: PointerEvent) {
+      const target = event.target as Node;
+      if (componentsPanelRef.current?.contains(target)) return;
+      if (componentsButtonRef.current?.contains(target)) return;
+      setActiveTool("select");
+    }
+    window.addEventListener("pointerdown", onPointerDownOutside);
+    return () => window.removeEventListener("pointerdown", onPointerDownOutside);
+  }, [activeTool]);
 
   function handleBlockContextMenu(event: ReactMouseEvent, block: WireframeBlock) {
     event.preventDefault();
@@ -1512,6 +1615,12 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const selectedAnnotationBox = selectedAnnotation ? getAnnotationBoundingBox(selectedAnnotation.pathData) : null;
   const SIDE_PANEL_WIDTH = 320;
 
+  // Wireframe-1c: componentes filtrados pelo campo de busca do painel de
+  // Componentes (substring case-insensitive no nome).
+  const filteredDragComponents = componentSearch.trim()
+    ? dragComponents.filter((c) => c.name.toLowerCase().includes(componentSearch.trim().toLowerCase()))
+    : dragComponents;
+
   // Ajuste 1: padding-esquerdo/topo dinâmico — cresce além do mínimo
   // (clearance pro painel de ferramentas flutuante / toolbar) só quando
   // sobra espaço de verdade, centralizando o frame em telas largas em vez
@@ -1722,9 +1831,15 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <ToolButton active={activeTool === "ellipse"} onClick={() => setActiveTool("ellipse")} label="Elipse">
             <EllipseToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton onClick={() => {}} label="Componentes (em breve)">
-            <ComponentsToolIcon className="h-[18px] w-[18px]" />
-          </ToolButton>
+          <div ref={componentsButtonRef}>
+            <ToolButton
+              active={activeTool === "components"}
+              onClick={() => setActiveTool((t) => (t === "components" ? "select" : "components"))}
+              label="Componentes"
+            >
+              <ComponentsToolIcon className="h-[18px] w-[18px]" />
+            </ToolButton>
+          </div>
           <ToolButton active={activeTool === "pen"} onClick={() => setActiveTool("pen")} label="Caneta">
             <PenToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
@@ -1735,6 +1850,74 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
             <CommentToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
         </div>
+
+        {/* Painel flutuante de Componentes (Wireframe-1c) — aberto enquanto
+            activeTool === "components"; fecha sozinho ao trocar de
+            ferramenta ou clicar fora (ver efeito de pointerdown acima). Fica
+            ao lado da coluna de ferramentas, nunca sobre o canvas/painel
+            lateral direito. */}
+        {activeTool === "components" && (
+          <div
+            ref={componentsPanelRef}
+            className="absolute left-[105px] top-[30px] z-30 flex max-h-[min(70vh,560px)] w-72 flex-col rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)]"
+          >
+            <div className="border-b border-[#f0f0f1] p-3">
+              <p className="mb-2 text-[13px] font-semibold text-[#141416]">Componentes</p>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8e8e93]" />
+                <input
+                  type="text"
+                  value={componentSearch}
+                  onChange={(event) => setComponentSearch(event.target.value)}
+                  placeholder="Buscar componente..."
+                  className="w-full rounded-md border border-[#e4e4e7] py-1.5 pl-8 pr-2.5 text-[13px] text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {designSystemLinked === null ? (
+                <p className="px-1 text-sm text-[#8e8e93]">Carregando componentes...</p>
+              ) : designSystemLinked === false ? (
+                <div className="px-1">
+                  <p className="mb-2 text-sm text-[#55555b]">Nenhum Design System vinculado a esta Galáxia.</p>
+                  <a href="/nova" target="_blank" rel="noreferrer" className="text-sm font-medium text-[#7c3aed] hover:underline">
+                    Vincular um Design System em /nova →
+                  </a>
+                </div>
+              ) : filteredDragComponents.length === 0 ? (
+                <p className="px-1 text-sm text-[#8e8e93]">
+                  {dragComponents.length === 0 ? "Nenhum componente sincronizado ainda." : `Nenhum componente encontrado para "${componentSearch}".`}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {filteredDragComponents.map((component) => (
+                    <div
+                      key={component.id}
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData(COMPONENT_DRAG_MIME, component.id);
+                        event.dataTransfer.effectAllowed = "copy";
+                      }}
+                      title={component.name}
+                      className="cursor-grab rounded-lg border border-[#e4e4e7] bg-white p-1.5 hover:border-[#7c3aed] active:cursor-grabbing"
+                    >
+                      <div className="mb-1 flex h-14 items-center justify-center overflow-hidden rounded-md bg-[#f3f3f4]">
+                        {component.thumbnailUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- thumbnail externa do Figma, fora dos domínios do next/image
+                          <img src={component.thumbnailUrl} alt="" className="h-full w-full object-contain" />
+                        ) : (
+                          <ComponentsToolIcon className="h-5 w-5 text-[#b4b4b9]" />
+                        )}
+                      </div>
+                      <p className="truncate text-[11px] text-[#333336]">{component.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Aba/seta fixa na borda direita da tela (fora do painel, sempre
             visível): abre/fecha o painel lateral único inteiro. Desloca
@@ -2071,6 +2254,17 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
             paddingBottom: MIN_CANVAS_PAD_Y,
           }}
           onPointerDown={handleCanvasMouseDown}
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes(COMPONENT_DRAG_MIME)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }}
+          onDrop={(event) => {
+            const componentId = event.dataTransfer.getData(COMPONENT_DRAG_MIME);
+            if (!componentId) return;
+            event.preventDefault();
+            createComponentBlock(componentId, event.clientX, event.clientY);
+          }}
         >
           <p className="mb-2 pl-1 text-[13.5px] text-[#4b4b52]" style={{ width: frameWidth * zoom }}>
             Desktop - {frameWidth} × {frameHeight}
@@ -2679,7 +2873,18 @@ function LayerRow({
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="relative shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+          {/* Indicador discreto de bloco nascido de um componente do Design
+              System (Wireframe-1c) — só um pontinho no canto, sem badge de
+              texto, pra não poluir a lista. */}
+          {block.sourceComponentId && (
+            <span
+              title="Baseado em um componente do Design System"
+              className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-white bg-[#7c3aed]"
+            />
+          )}
+        </span>
         <span className={`min-w-0 flex-1 truncate ${block.hidden ? "text-[#b4b4b9]" : ""}`}>{block.label}</span>
         <button
           type="button"
