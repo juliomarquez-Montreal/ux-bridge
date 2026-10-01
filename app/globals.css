@@ -14,10 +14,21 @@
 /* Barra de progresso indeterminada (GeneratingProgress) — a duração real de
    uma geração de IA é desconhecida, então ela só comunica "em andamento". */
 .progress-bar-indeterminate { animation: progress-indeterminate 1.4s ease-in-out infinite; }
+/* Skeleton de carregamento (Projeto-1, componente Skeleton.tsx) — gradiente
+   varrendo em loop, no lugar de texto estático "Carregando...". */
+.skeleton-shimmer { position: relative; overflow: hidden; }
+.skeleton-shimmer::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: skeleton-shimmer-sweep 1.6s ease-in-out infinite;
+}
 
 @keyframes float-slow { from { transform: translate3d(-2%, -1%, 0) rotate(-5deg); } to { transform: translate3d(4%, 3%, 0) rotate(7deg); } }
 @keyframes float-reverse { from { transform: translate3d(3%, 2%, 0) rotate(6deg); } to { transform: translate3d(-3%, -3%, 0) rotate(-7deg); } }
 @keyframes drift-line { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
 @keyframes progress-indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+@keyframes skeleton-shimmer-sweep { 100% { transform: translateX(100%); } }
+/* Transição suave ao trocar de aba (Projeto-1, ProjectDetail.tsx). */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-@media (prefers-reduced-motion: reduce) { .float-slow, .float-reverse, .drift-line, .progress-bar-indeterminate { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .float-slow, .float-reverse, .drift-line, .progress-bar-indeterminate, .skeleton-shimmer::after { animation: none; } }

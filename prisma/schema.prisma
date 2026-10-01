@@ -149,6 +149,9 @@ model Bridge {
   // não entram no agrupamento/Camadas/undo-redo dos blocos.
   annotations           WireframeAnnotation[]
   comments              WireframeComment[]
+  // Vínculo com um Projeto (Projeto-1) — um Bridge só pode estar em UM
+  // Projeto por vez (@@unique em ProjectBridgeLink.bridgeId garante isso).
+  projectLink           ProjectBridgeLink?
 }
 
 // Traço de desenho livre (ferramenta Caneta, Wireframe-1b) — pontos
@@ -442,4 +445,79 @@ model Notification {
   relatedEntityId   String
   channel           String   @default("EMAIL")
   sentAt            DateTime @default(now())
+}
+
+// Projeto-1: agrupa vários Bridges (+ equipe + sprints + decisões) sob um
+// mesmo guarda-chuva de entrega. Um Bridge pertence a no máximo um Projeto
+// (ver ProjectBridgeLink.bridgeId @unique); um Projeto pode ter qualquer
+// número de Bridges, vinculados a qualquer momento. `code` é gerado
+// automaticamente na criação (ex: "PRJ-001", sequencial — ver
+// app/api/projetos/route.ts). createdById é só um scalar id, sem relação
+// formal (mesmo padrão de Bridge.createdById — ver comentário lá), resolvido
+// via lookup separado quando precisa exibir o nome.
+model Project {
+  id          String              @id @default(cuid())
+  code        String              @unique
+  name        String
+  objective   String?
+  // "PLANEJAMENTO" | "EM_EXECUCAO" | "EM_VALIDACAO" | "FINALIZADO"
+  status      String
+  createdById String
+  createdAt   DateTime            @default(now())
+  bridgeLinks ProjectBridgeLink[]
+  members     ProjectMember[]
+  sprints     ProjectSprint[]
+  decisions   ProjectDecision[]
+}
+
+// Vínculo N:1 entre Bridge e Project (um Bridge só pode estar vinculado a um
+// Project por vez — @@unique em bridgeId). Desvincular (DELETE) só remove
+// este registro, nunca o Bridge em si.
+model ProjectBridgeLink {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bridgeId   String   @unique
+  bridge     Bridge   @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+  linkedById String?
+  linkedAt   DateTime @default(now())
+}
+
+// Colaborador de um Projeto (PO ou UX) — lista de "quem está envolvido no
+// Projeto como um todo", pra visibilidade/organização, DIFERENTE de
+// Bridge.poUserId/uxUserId (que controla quem aprova o quê dentro do fluxo
+// de CADA Bridge individual). Um Projeto pode ter vários PO e vários UX ao
+// mesmo tempo (sem @@unique em [projectId, role] — só o trio completo
+// [projectId, userId, role] precisa ser único, pra não duplicar a mesma
+// pessoa no mesmo papel).
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  // "PO" | "UX"
+  role      String
+  addedAt   DateTime @default(now())
+
+  @@unique([projectId, userId, role])
+}
+
+model ProjectSprint {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model ProjectDecision {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  text      String
+  authorId  String
+  createdAt DateTime @default(now())
 }

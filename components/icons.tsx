@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Filter,
+  FolderPlus,
   Globe,
   Hand,
   Layers,
@@ -233,6 +234,11 @@ export function MailIcon(props: SVGProps<SVGSVGElement>) {
 
 export function UploadIcon(props: SVGProps<SVGSVGElement>) {
   return <Upload strokeWidth={1.7} {...props} />;
+}
+
+// Ação "Converter em Projeto" (ícone de ações de /bridges) — Projeto-1.
+export function FolderPlusIcon(props: SVGProps<SVGSVGElement>) {
+  return <FolderPlus strokeWidth={1.7} {...props} />;
 }
 
 // Três pontos preenchidos (não o outline do lucide) — bate com o mockup NOVA.

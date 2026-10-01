@@ -27,7 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
   { label: "Atividades", icon: ActivityIcon },
-  { label: "Projetos", icon: FolderIcon },
+  { label: "Projetos", icon: FolderIcon, href: "/projetos" },
   { label: "Transcrições", icon: DocumentIcon },
   { label: "Protótipos", icon: LayersIcon },
   { label: "Wireframes", icon: FrameIcon },

@@ -52,6 +52,7 @@ export async function GET() {
           parent: { select: { id: true, name: true, parent: { select: { id: true, name: true } } } },
         },
       },
+      projectLink: { select: { project: { select: { id: true, name: true } } } },
     },
   });
 
@@ -74,6 +75,7 @@ export async function GET() {
     galaxia: bridge.planet.parent?.parent
       ? { id: bridge.planet.parent.parent.id, name: bridge.planet.parent.parent.name }
       : null,
+    project: bridge.projectLink ? { id: bridge.projectLink.project.id, name: bridge.projectLink.project.name } : null,
   }));
 
   return NextResponse.json({ bridges: result });

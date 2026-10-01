@@ -137,6 +137,9 @@ export interface ApiBridgeListItem {
   planeta: { id: string; name: string };
   estrela: { id: string; name: string } | null;
   galaxia: { id: string; name: string } | null;
+  // Projeto-1: Projeto ao qual este Bridge está vinculado, se houver — um
+  // Bridge só pode pertencer a um Projeto por vez.
+  project: { id: string; name: string } | null;
 }
 
 export interface ApiBridge {

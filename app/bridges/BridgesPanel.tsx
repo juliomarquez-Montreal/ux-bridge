@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import CreateBridgeModal from "@/components/CreateBridgeModal";
+import ConvertToProjectModal from "@/components/ConvertToProjectModal";
 import {
   AlertIcon,
   CheckCircleIcon,
@@ -13,6 +14,8 @@ import {
   DownloadIcon,
   EyeIcon,
   FilterIcon,
+  FolderIcon,
+  FolderPlusIcon,
   MailIcon,
   PackageIcon,
   PlusIcon,
@@ -137,12 +140,19 @@ export default function BridgesPanel() {
   // Confirmação visual rápida ("Link copiado!") no ícone de compartilhar —
   // guarda o id do Bridge cujo link acabou de ser copiado, por ~2s.
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
+  // Projeto-1: Bridge sendo convertido em Projeto (novo ou vínculo a um já
+  // existente) — ver ConvertToProjectModal.
+  const [convertTarget, setConvertTarget] = useState<ApiBridgeListItem | null>(null);
 
-  useEffect(() => {
-    fetch("/api/bridges")
+  function refreshBridges() {
+    return fetch("/api/bridges")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: { bridges: ApiBridgeListItem[] }) => setBridges(data.bridges))
       .catch(() => setLoadError("Não foi possível carregar os Bridges. Tente recarregar a página."));
+  }
+
+  useEffect(() => {
+    refreshBridges();
   }, []);
 
   const stats = useMemo(() => {
@@ -400,6 +410,26 @@ export default function BridgesPanel() {
                                     </a>
                                   </>
                                 )}
+                                {bridge.project ? (
+                                  <a
+                                    href={`/projetos/${bridge.project.id}`}
+                                    aria-label={`Ver Projeto ${bridge.project.name}`}
+                                    title={`Projeto: ${bridge.project.name}`}
+                                    className="grid h-8 w-8 place-items-center rounded-lg border border-luminous-primary/30 bg-luminous-primary/15 text-luminous-primary-fixed-dim transition hover:bg-luminous-primary/25"
+                                  >
+                                    <FolderIcon className="h-4 w-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    aria-label={`Converter ${bridge.planeta.name} em Projeto`}
+                                    title="Converter em Projeto"
+                                    onClick={() => setConvertTarget(bridge)}
+                                    className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                  >
+                                    <FolderPlusIcon className="h-4 w-4" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   aria-label={`Excluir Bridge de ${bridge.planeta.name}`}
@@ -494,6 +524,17 @@ export default function BridgesPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {convertTarget && (
+        <ConvertToProjectModal
+          bridge={convertTarget}
+          onClose={() => setConvertTarget(null)}
+          onConverted={() => {
+            setConvertTarget(null);
+            refreshBridges();
+          }}
+        />
       )}
     </div>
   );
