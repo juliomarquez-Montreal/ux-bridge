@@ -11,6 +11,7 @@ import {
   Clock,
   Cloud,
   Copy,
+  Download,
   Eye,
   EyeOff,
   Filter,
@@ -19,6 +20,7 @@ import {
   Layers,
   Link2,
   Lock,
+  Mail,
   Maximize2,
   MessageSquare,
   Minimize2,
@@ -30,6 +32,7 @@ import {
   PenTool,
   Redo2,
   Settings,
+  Share2,
   SlidersHorizontal,
   Square,
   Star,
@@ -213,6 +216,18 @@ export function CloseIcon(props: SVGProps<SVGSVGElement>) {
 
 export function LinkIcon(props: SVGProps<SVGSVGElement>) {
   return <Link2 strokeWidth={1.7} {...props} />;
+}
+
+export function ShareIcon(props: SVGProps<SVGSVGElement>) {
+  return <Share2 strokeWidth={1.7} {...props} />;
+}
+
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return <Download strokeWidth={1.7} {...props} />;
+}
+
+export function MailIcon(props: SVGProps<SVGSVGElement>) {
+  return <Mail strokeWidth={1.7} {...props} />;
 }
 
 // Três pontos preenchidos (não o outline do lucide) — bate com o mockup NOVA.

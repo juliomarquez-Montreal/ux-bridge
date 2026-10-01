@@ -29,6 +29,7 @@ import {
   CloudIcon,
   CommentToolIcon,
   ComponentsToolIcon,
+  DocumentIcon,
   EllipseToolIcon,
   EyeOffIcon,
   EyeOpenIcon,
@@ -283,6 +284,12 @@ export default function WireframeEditor({
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [regenerateOpen, setRegenerateOpen] = useState(false);
+  // Correção: antes, uma vez que o Bridge saía de AGUARDANDO_APROVACAO_BDD,
+  // não tinha mais nenhum jeito de ver o texto do BDD/PBI aprovado — só o
+  // editor de Wireframe. Um botão no subheader (ver `bridge.bddApprovedAt`
+  // abaixo) abre esse modal com o texto, disponível em qualquer fase do
+  // editor (PO ou UX).
+  const [bddModalOpen, setBddModalOpen] = useState(false);
   const [regenerateComment, setRegenerateComment] = useState("");
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
@@ -1726,6 +1733,16 @@ export default function WireframeEditor({
         </a>
         <h1 className="text-lg font-semibold text-[#141416]">{bridge.planet.name}</h1>
         <span className="rounded-2xl bg-[#f0f0f1] px-3.5 py-1.5 text-[13.5px] text-[#55555b]">Wireframe</span>
+        {bridge.bddApprovedAt && bridge.generatedBddPbi && (
+          <button
+            type="button"
+            onClick={() => setBddModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-2xl border border-[#e6e6e9] bg-white px-3.5 py-1.5 text-[13.5px] text-[#55555b] hover:bg-[#f7f7f8]"
+          >
+            <DocumentIcon className="h-3.5 w-3.5" />
+            Ver BDD/PBI
+          </button>
+        )}
         <span className={`flex items-center gap-1.5 text-[13.5px] ${saveState === "error" ? "text-luminous-error" : "text-[#55555b]"}`}>
           <CloudIcon className="h-4 w-4" />
           {saveLabel}
@@ -2775,6 +2792,24 @@ export default function WireframeEditor({
                 {regenerateBusy ? "Gerando..." : "Gerar de novo"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal "Ver BDD/PBI" — correção do bug de BDD inacessível depois de
+          avançar pro Wireframe. */}
+      {bddModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setBddModalOpen(false)}>
+          <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#141416]">BDD/PBI aprovado</h2>
+              <button type="button" onClick={() => setBddModalOpen(false)} className="text-[#8e8e93] hover:text-[#1d1d1f]">
+                <CloseIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <pre className="max-h-[65vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-[#e4e4e7] bg-[#f7f7f8] p-4 text-sm text-[#2a2a2e]">
+              {bridge.generatedBddPbi}
+            </pre>
           </div>
         </div>
       )}

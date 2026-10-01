@@ -10,11 +10,14 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
+  DownloadIcon,
   EyeIcon,
   FilterIcon,
+  MailIcon,
   PackageIcon,
   PlusIcon,
   SearchIcon,
+  ShareIcon,
   SortIcon,
   TrashIcon,
 } from "@/components/icons";
@@ -131,6 +134,9 @@ export default function BridgesPanel() {
   const [deleteTarget, setDeleteTarget] = useState<ApiBridgeListItem | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Confirmação visual rápida ("Link copiado!") no ícone de compartilhar —
+  // guarda o id do Bridge cujo link acabou de ser copiado, por ~2s.
+  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/bridges")
@@ -180,6 +186,39 @@ export default function BridgesPanel() {
     } finally {
       setDeleteBusy(false);
     }
+  }
+
+  // Link de compartilhar: permanente, sem token/expiração — qualquer usuário
+  // autenticado que abrir essa URL vê a versão somente-leitura (ver
+  // app/bridges/[id]/share/page.tsx e .../api/bridges/[id]/shared, que de
+  // propósito não checam acesso por Galáxia).
+  function shareUrlFor(bridgeId: string): string {
+    return `${window.location.origin}/bridges/${bridgeId}/share`;
+  }
+
+  async function handleCopyShareLink(bridge: ApiBridgeListItem) {
+    const url = shareUrlFor(bridge.id);
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Fallback pra navegadores/contextos sem Clipboard API (ex: HTTP sem
+      // permissão) — um textarea temporário + document.execCommand ainda
+      // funciona na maioria dos casos.
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        // silencioso — melhor não copiar do que travar a ação
+      }
+      document.body.removeChild(textarea);
+    }
+    setCopiedShareId(bridge.id);
+    setTimeout(() => setCopiedShareId((current) => (current === bridge.id ? null : current)), 2000);
   }
 
   return (
@@ -326,6 +365,41 @@ export default function BridgesPanel() {
                                 >
                                   <EyeIcon className="h-4 w-4" />
                                 </a>
+                                {/* Compartilhar/baixar PDF/e-mail — só fazem sentido a partir do BDD
+                                    aprovado (antes disso não há nada substancial pra ver/exportar). */}
+                                {bridge.bddApprovedAt && (
+                                  <>
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        aria-label={`Copiar link de compartilhamento de ${bridge.planeta.name}`}
+                                        onClick={() => handleCopyShareLink(bridge)}
+                                        className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                      >
+                                        <ShareIcon className="h-4 w-4" />
+                                      </button>
+                                      {copiedShareId === bridge.id && (
+                                        <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-luminous-on-surface px-2.5 py-1 text-[11px] font-medium text-luminous-surface shadow-lg">
+                                          Link copiado!
+                                        </span>
+                                      )}
+                                    </div>
+                                    <a
+                                      href={`/api/bridges/${bridge.id}/pdf`}
+                                      aria-label={`Baixar PDF de ${bridge.planeta.name}`}
+                                      className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                    >
+                                      <DownloadIcon className="h-4 w-4" />
+                                    </a>
+                                    <a
+                                      href={`mailto:?subject=${encodeURIComponent(`UX Bridge — ${bridge.planeta.name}`)}&body=${encodeURIComponent(shareUrlFor(bridge.id))}`}
+                                      aria-label={`Enviar ${bridge.planeta.name} por e-mail`}
+                                      className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                    >
+                                      <MailIcon className="h-4 w-4" />
+                                    </a>
+                                  </>
+                                )}
                                 <button
                                   type="button"
                                   aria-label={`Excluir Bridge de ${bridge.planeta.name}`}
