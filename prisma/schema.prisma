@@ -112,7 +112,8 @@ model Bridge {
   uxUserId              String?
   uxUser                User?       @relation("BridgeUX", fields: [uxUserId], references: [id])
   // GERANDO_BDD | AGUARDANDO_APROVACAO_BDD | GERANDO_WIREFRAME |
-  // AGUARDANDO_APROVACAO_WIREFRAME_PO | AGUARDANDO_APROVACAO_UX | ERRO_GERACAO
+  // AGUARDANDO_APROVACAO_WIREFRAME_PO | AGUARDANDO_APROVACAO_UX | FINALIZADO |
+  // ERRO_GERACAO
   status              String
   // Material de entrada — arquivo OU texto colado (nunca os dois).
   rawMaterialText     String?
@@ -131,6 +132,10 @@ model Bridge {
   wireframeData             Json?
   wireframeAttemptCount     Int      @default(0)
   lastWireframeRejectionComment String?
+  // URL pública do SVG exportado (Wireframe-2, botão "Aprovar e Exportar") —
+  // preenchido quando status vira FINALIZADO, permite baixar de novo a
+  // qualquer momento pela tela de detalhe sem precisar gerar outra vez.
+  wireframeExportUrl        String?
   // Mensagem de erro da IA quando status=ERRO_GERACAO (não faz sentido
   // reaproveitar lastRejectionComment, que é do PO, não da falha técnica).
   errorMessage          String?

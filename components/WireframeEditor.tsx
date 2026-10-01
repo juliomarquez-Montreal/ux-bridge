@@ -236,7 +236,19 @@ function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `w${Math.random().toString(36).slice(2)}`;
 }
 
-export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridge; onUpdate: (bridge: ApiBridge) => void }) {
+export default function WireframeEditor({
+  bridge,
+  onUpdate,
+  readOnly = false,
+}: {
+  bridge: ApiBridge;
+  onUpdate: (bridge: ApiBridge) => void;
+  // Wireframe-2: true quando o Bridge está em AGUARDANDO_APROVACAO_UX e quem
+  // está vendo NÃO é o uxUserId atribuído (nem ADMIN) — o PO passa a só
+  // visualizar nessa fase. Default false preserva o comportamento de sempre
+  // (fase do PO, sempre editável) sem exigir que todo caller passe a prop.
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const frameWidth = bridge.wireframeData?.frameWidth ?? 1440;
   const frameHeight = bridge.wireframeData?.frameHeight ?? 1024;
@@ -274,6 +286,11 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   const [regenerateComment, setRegenerateComment] = useState("");
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
+  // Wireframe-2: "Aprovar e Exportar" (fase do UX) — exportResult guarda a
+  // URL do SVG recém-gerado pro modal de confirmação ("Salvar" + explicação
+  // do Figma); null fecha o modal.
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportResult, setExportResult] = useState<{ svgUrl: string } | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<ApiUserRef[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -533,7 +550,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   function undo() {
-    if (historyIndexRef.current <= 0) return;
+    if (historyIndexRef.current <= 0 || readOnly) return;
     historyIndexRef.current -= 1;
     const snapshot = historyRef.current[historyIndexRef.current];
     setBlocks(snapshot);
@@ -542,7 +559,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   function redo() {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    if (historyIndexRef.current >= historyRef.current.length - 1 || readOnly) return;
     historyIndexRef.current += 1;
     const snapshot = historyRef.current[historyIndexRef.current];
     setBlocks(snapshot);
@@ -592,6 +609,9 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
     const effectiveSelection = selectedIds.has(block.id) && selectedIds.size > 1 ? selectedIds : new Set([block.id]);
     setSelectedIds(effectiveSelection);
+    // Modo leitura (Wireframe-2, PO vendo a fase do UX): pode selecionar pra
+    // inspecionar propriedades, não arrastar.
+    if (readOnly) return;
 
     const moveSet = getMoveSet(block.id, blocks, effectiveSelection);
     const startX = event.clientX;
@@ -624,7 +644,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleResizeMouseDown(event: ReactPointerEvent, block: WireframeBlock, direction: ResizeDirection) {
     event.stopPropagation();
     event.preventDefault();
-    if (block.locked) return;
+    if (block.locked || readOnly) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const start = { x: block.x, y: block.y, width: block.width, height: block.height };
@@ -773,7 +793,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
   function commitEditingLabel() {
     const id = editingBlockId;
-    if (!id) return;
+    if (!id || readOnly) return;
     const next = blocksRef.current.map((b) => (b.id === id ? { ...b, label: editingLabelDraft.trim() || b.label } : b));
     commitBlocks(next);
     setEditingBlockId(null);
@@ -786,6 +806,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // rastreabilidade. Tamanho fixo (não tenta herdar dimensões do Figma nesta
   // fase), centralizado no ponto onde foi solto. ---
   function createComponentBlock(componentId: string, clientX: number, clientY: number) {
+    if (readOnly) return;
     const component = dragComponents.find((c) => c.id === componentId);
     if (!component) return;
     const pos = clientToFrame(clientX, clientY);
@@ -864,7 +885,8 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     setSelectedIds(new Set());
     // Anotação bloqueada (correção do bug da Caneta): seleciona (pra
     // permitir desbloquear via menu de contexto/Camadas) mas não arrasta.
-    if (annotation.locked) return;
+    // Modo leitura (Wireframe-2): mesma ideia, seleciona pra inspecionar.
+    if (annotation.locked || readOnly) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const originalPathData = annotation.pathData;
@@ -898,6 +920,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function deleteAnnotationById(id: string) {
+    if (readOnly) return;
     setSelectedAnnotationId((current) => (current === id ? null : current));
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
     setContextMenu(null);
@@ -913,6 +936,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function toggleAnnotationHidden(id: string) {
+    if (readOnly) return;
     const current = annotationsRef.current.find((a) => a.id === id);
     if (!current) return;
     const nextHidden = !current.hidden;
@@ -930,6 +954,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function toggleAnnotationLocked(id: string) {
+    if (readOnly) return;
     const current = annotationsRef.current.find((a) => a.id === id);
     if (!current) return;
     const nextLocked = !current.locked;
@@ -955,6 +980,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleAnnotationResizePointerDown(event: ReactPointerEvent, annotation: ApiWireframeAnnotation, corner: "nw" | "ne" | "se" | "sw") {
     event.stopPropagation();
     event.preventDefault();
+    if (readOnly) return;
     const box = getAnnotationBoundingBox(annotation.pathData);
     const startWidth = Math.max(1, box.maxX - box.minX);
     const startHeight = Math.max(1, box.maxY - box.minY);
@@ -1000,6 +1026,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleAnnotationContextMenu(event: ReactMouseEvent, annotation: ApiWireframeAnnotation) {
     event.preventDefault();
     event.stopPropagation();
+    if (readOnly) return;
     setSelectedAnnotationId(annotation.id);
     setSelectedIds(new Set());
     setContextMenu({ x: event.clientX, y: event.clientY, target: { type: "annotation", id: annotation.id } });
@@ -1066,6 +1093,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // abre o campo de texto do comentário inicial. ---
   function startNewComment(event: ReactPointerEvent) {
     event.preventDefault();
+    if (readOnly) return;
     const pos = clientToFrame(event.clientX, event.clientY);
     setActiveCommentId(null);
     setPendingCommentPos(pos);
@@ -1075,7 +1103,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function submitNewComment() {
-    if (!pendingCommentPos || !pendingCommentText.trim()) return;
+    if (!pendingCommentPos || !pendingCommentText.trim() || readOnly) return;
     try {
       const res = await fetch(`/api/bridges/${bridge.id}/comments`, {
         method: "POST",
@@ -1095,7 +1123,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function submitReply(commentId: string) {
-    if (!replyDraft.trim()) return;
+    if (!replyDraft.trim() || readOnly) return;
     const text = replyDraft.trim();
     setReplyDraft("");
     try {
@@ -1112,6 +1140,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   async function toggleCommentResolved(comment: ApiWireframeComment) {
+    if (readOnly) return;
     try {
       const res = await fetch(`/api/bridges/${bridge.id}/comments/${comment.id}`, {
         method: "PATCH",
@@ -1126,16 +1155,17 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   function handlePropertyChange(patch: Partial<WireframeBlock>) {
-    if (!selectedBlock) return;
+    if (!selectedBlock || readOnly) return;
     updateBlockLive(selectedBlock.id, patch);
   }
   function commitPropertyChange() {
-    if (!selectedBlock) return;
+    if (!selectedBlock || readOnly) return;
     commitBlocks(blocksRef.current);
   }
 
   // --- Agrupar seleção (Ajuste 4 — Ctrl+G / menu de contexto) ---
   function groupSelection() {
+    if (readOnly) return;
     const ids = selectedIdsRef.current;
     if (ids.size < 2) return;
     const current = blocksRef.current;
@@ -1184,6 +1214,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // de groupSelection — usado pelo menu de contexto quando o item clicado é
   // um GROUP (Ajuste 2).
   function ungroupBlock(groupId: string) {
+    if (readOnly) return;
     const current = blocksRef.current;
     const group = current.find((b) => b.id === groupId);
     if (!group || group.kind !== "GROUP") return;
@@ -1211,6 +1242,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // GROUP (organização hierárquica de verdade); senão vira irmão do alvo
   // (mesmo parentBlockId), já que um ELEMENT não pode ter filhos.
   function addTextAnnotation(targetId: string) {
+    if (readOnly) return;
     const current = blocksRef.current;
     const target = current.find((b) => b.id === targetId);
     if (!target) return;
@@ -1252,6 +1284,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   // estiver visível/destravado, a ação vira "ocultar/bloquear todos"; só
   // quando TODOS já estão ocultos/bloqueados é que a ação reverte.
   function toggleHidden(ids: Set<string>) {
+    if (readOnly) return;
     const current = blocksRef.current;
     const nextHidden = current.some((b) => ids.has(b.id) && !b.hidden);
     commitBlocks(current.map((b) => (ids.has(b.id) ? { ...b, hidden: nextHidden } : b)));
@@ -1259,6 +1292,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   }
 
   function toggleLocked(ids: Set<string>) {
+    if (readOnly) return;
     const current = blocksRef.current;
     const nextLocked = current.some((b) => ids.has(b.id) && !b.locked);
     commitBlocks(current.map((b) => (ids.has(b.id) ? { ...b, locked: nextLocked } : b)));
@@ -1267,6 +1301,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
   // Apaga os blocos selecionados + todos os descendentes (se algum for GROUP).
   function deleteBlocks(ids: Set<string>) {
+    if (readOnly) return;
     const current = blocksRef.current;
     const allIds = new Set(ids);
     for (const id of Array.from(ids)) {
@@ -1329,6 +1364,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
   function handleBlockContextMenu(event: ReactMouseEvent, block: WireframeBlock) {
     event.preventDefault();
     event.stopPropagation();
+    if (readOnly) return;
     if (!selectedIds.has(block.id)) setSelectedIds(new Set([block.id]));
     setSelectedAnnotationId(null);
     setContextMenu({ x: event.clientX, y: event.clientY, target: { type: "block", id: block.id } });
@@ -1425,22 +1461,28 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
     // Wireframe-1b: ferramentas de desenho/comentário — cada uma trata seu
     // próprio gesto de clique/arraste (ver funções startDrawingBlock,
-    // startDrawingAnnotation, createTextBlock, startNewComment acima).
-    if (activeTool === "frame" || activeTool === "ellipse") {
-      startDrawingBlock(event, activeTool === "ellipse" ? "ellipse" : "rectangle");
-      return;
-    }
-    if (activeTool === "pen") {
-      startDrawingAnnotation(event);
-      return;
-    }
-    if (activeTool === "text") {
-      createTextBlock(event);
-      return;
-    }
-    if (activeTool === "comment") {
-      startNewComment(event);
-      return;
+    // startDrawingAnnotation, createTextBlock, startNewComment acima). Modo
+    // leitura (Wireframe-2): nenhuma delas é alcançável de verdade (os
+    // botões dessas ferramentas ficam desabilitados), mas a checagem fica
+    // aqui também em defesa — pan e limpar seleção continuam liberados, são
+    // só navegação/inspeção, não edição.
+    if (!readOnly) {
+      if (activeTool === "frame" || activeTool === "ellipse") {
+        startDrawingBlock(event, activeTool === "ellipse" ? "ellipse" : "rectangle");
+        return;
+      }
+      if (activeTool === "pen") {
+        startDrawingAnnotation(event);
+        return;
+      }
+      if (activeTool === "text") {
+        createTextBlock(event);
+        return;
+      }
+      if (activeTool === "comment") {
+        startNewComment(event);
+        return;
+      }
     }
 
     setSelectedIds(new Set());
@@ -1483,6 +1525,30 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
       setActionError(err instanceof Error ? err.message : "Falha ao aprovar o wireframe.");
     } finally {
       setApproveBusy(false);
+    }
+  }
+
+  // Wireframe-2: botão "Aprovar e Exportar" (fase do UX, substitui "Tentar
+  // de novo"/"Aprovar Wireframe" da fase do PO) — gera o SVG final no
+  // servidor, muda o status pra FINALIZADO, e abre o modal de confirmação
+  // com o link pra baixar (ver exportResult). Não navega pra fora do editor
+  // sozinho: bridge.status já reflete FINALIZADO depois do onUpdate, então o
+  // header some de botões de ação, mas o canvas continua visível (modo
+  // leitura) até o usuário clicar em "Concluir" no modal.
+  async function handleApproveAndExport() {
+    if (readOnly) return;
+    setExportBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/bridges/${bridge.id}/approve-ux`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Falha ao aprovar e exportar.");
+      onUpdate(data.bridge);
+      setExportResult({ svgUrl: data.bridge.wireframeExportUrl });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Falha ao aprovar e exportar.");
+    } finally {
+      setExportBusy(false);
     }
   }
 
@@ -1550,7 +1616,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
     const draggedId = draggedLayerId;
     setDraggedLayerId(null);
     setLayerDropTargetId(null);
-    if (!draggedId || targetId === draggedId) return;
+    if (!draggedId || targetId === draggedId || readOnly) return;
 
     const current = blocksRef.current;
 
@@ -1715,24 +1781,46 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
 
           <div className="mx-1 h-[30px] w-px bg-[#e4e4e7]" />
 
-          <button
-            type="button"
-            onClick={() => setRegenerateOpen(true)}
-            aria-label="Tentar de novo"
-            className="flex items-center gap-2 rounded-lg border border-[#e6e6e9] bg-white px-4 py-2.5 text-[14.5px] text-[#0077ff] hover:bg-[#f7f7f8]"
-          >
-            <ThumbsDownIcon className="h-4 w-4" />
-            Tentar de novo
-          </button>
-          <button
-            type="button"
-            onClick={handleApprove}
-            disabled={approveBusy}
-            className="flex items-center gap-2 rounded-lg bg-[#7c3aed] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
-          >
-            <CheckIcon className="h-3.5 w-3.5" />
-            {approveBusy ? "Aprovando..." : "Aprovar Wireframe"}
-          </button>
+          {bridge.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO" && (
+            <>
+              <button
+                type="button"
+                onClick={() => setRegenerateOpen(true)}
+                aria-label="Tentar de novo"
+                className="flex items-center gap-2 rounded-lg border border-[#e6e6e9] bg-white px-4 py-2.5 text-[14.5px] text-[#0077ff] hover:bg-[#f7f7f8]"
+              >
+                <ThumbsDownIcon className="h-4 w-4" />
+                Tentar de novo
+              </button>
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={approveBusy}
+                className="flex items-center gap-2 rounded-lg bg-[#7c3aed] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
+              >
+                <CheckIcon className="h-3.5 w-3.5" />
+                {approveBusy ? "Aprovando..." : "Aprovar Wireframe"}
+              </button>
+            </>
+          )}
+
+          {/* Wireframe-2: fase do UX — só quem pode editar (uxUserId/ADMIN)
+              vê o botão de aprovar e exportar; o PO em modo leitura vê só um
+              aviso explicando por que não há ações pra ele aqui. */}
+          {bridge.status === "AGUARDANDO_APROVACAO_UX" &&
+            (readOnly ? (
+              <span className="text-[13.5px] text-[#8e8e93]">Modo leitura — aguardando aprovação do UX</span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleApproveAndExport}
+                disabled={exportBusy}
+                className="flex items-center gap-2 rounded-lg bg-[#7c3aed] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
+              >
+                <CheckIcon className="h-3.5 w-3.5" />
+                {exportBusy ? "Exportando..." : "Aprovar e Exportar"}
+              </button>
+            ))}
         </div>
       </div>
 
@@ -1743,7 +1831,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <button
             type="button"
             onClick={undo}
-            disabled={!canUndo}
+            disabled={!canUndo || readOnly}
             aria-label="Desfazer"
             className="grid h-[34px] w-[38px] place-items-center rounded-lg text-[#1d1d1f] hover:bg-[#f2f2f3] disabled:text-[#b4b4b9] disabled:hover:bg-transparent"
           >
@@ -1752,7 +1840,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <button
             type="button"
             onClick={redo}
-            disabled={!canRedo}
+            disabled={!canRedo || readOnly}
             aria-label="Refazer"
             className="grid h-[34px] w-[38px] place-items-center rounded-lg text-[#1d1d1f] hover:bg-[#f2f2f3] disabled:text-[#b4b4b9] disabled:hover:bg-transparent"
           >
@@ -1825,10 +1913,10 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           <ToolButton active={activeTool === "hand"} onClick={() => setActiveTool("hand")} label="Mão (arrastar tela)">
             <HandToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton active={activeTool === "frame"} onClick={() => setActiveTool("frame")} label="Frame">
+          <ToolButton active={activeTool === "frame"} onClick={() => setActiveTool("frame")} label="Frame" disabled={readOnly}>
             <FrameToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton active={activeTool === "ellipse"} onClick={() => setActiveTool("ellipse")} label="Elipse">
+          <ToolButton active={activeTool === "ellipse"} onClick={() => setActiveTool("ellipse")} label="Elipse" disabled={readOnly}>
             <EllipseToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
           <div ref={componentsButtonRef}>
@@ -1836,17 +1924,18 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
               active={activeTool === "components"}
               onClick={() => setActiveTool((t) => (t === "components" ? "select" : "components"))}
               label="Componentes"
+              disabled={readOnly}
             >
               <ComponentsToolIcon className="h-[18px] w-[18px]" />
             </ToolButton>
           </div>
-          <ToolButton active={activeTool === "pen"} onClick={() => setActiveTool("pen")} label="Caneta">
+          <ToolButton active={activeTool === "pen"} onClick={() => setActiveTool("pen")} label="Caneta" disabled={readOnly}>
             <PenToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton active={activeTool === "text"} onClick={() => setActiveTool("text")} label="Texto">
+          <ToolButton active={activeTool === "text"} onClick={() => setActiveTool("text")} label="Texto" disabled={readOnly}>
             <TextToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
-          <ToolButton active={activeTool === "comment"} onClick={() => setActiveTool("comment")} label="Comentário">
+          <ToolButton active={activeTool === "comment"} onClick={() => setActiveTool("comment")} label="Comentário" disabled={readOnly}>
             <CommentToolIcon className="h-[18px] w-[18px]" />
           </ToolButton>
         </div>
@@ -1996,6 +2085,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                       setLayerDropPosition(position);
                     }}
                     onDropLayer={handleLayerDrop}
+                    readOnly={readOnly}
                   />
                 ))}
 
@@ -2022,30 +2112,34 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                       >
                         <PenToolIcon className="h-3.5 w-3.5 shrink-0" />
                         <span className={`min-w-0 flex-1 truncate ${annotation.hidden ? "text-[#b4b4b9]" : ""}`}>Traço {index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            toggleAnnotationHidden(annotation.id);
-                          }}
-                          aria-label={annotation.hidden ? "Mostrar" : "Ocultar"}
-                          title={annotation.hidden ? "Mostrar" : "Ocultar"}
-                          className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
-                        >
-                          {annotation.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            toggleAnnotationLocked(annotation.id);
-                          }}
-                          aria-label={annotation.locked ? "Desbloquear" : "Bloquear"}
-                          title={annotation.locked ? "Desbloquear" : "Bloquear"}
-                          className={`shrink-0 hover:text-[#1d1d1f] ${annotation.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
-                        >
-                          {annotation.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
-                        </button>
+                        {!readOnly && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleAnnotationHidden(annotation.id);
+                              }}
+                              aria-label={annotation.hidden ? "Mostrar" : "Ocultar"}
+                              title={annotation.hidden ? "Mostrar" : "Ocultar"}
+                              className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
+                            >
+                              {annotation.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleAnnotationLocked(annotation.id);
+                              }}
+                              aria-label={annotation.locked ? "Desbloquear" : "Bloquear"}
+                              title={annotation.locked ? "Desbloquear" : "Bloquear"}
+                              className={`shrink-0 hover:text-[#1d1d1f] ${annotation.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+                            >
+                              {annotation.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))}
                   </>
@@ -2062,24 +2156,28 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
               ) : selectedIds.size > 1 ? (
                 <div className="space-y-3 px-2">
                   <p className="text-sm text-[#1d1d1f]">{selectedIds.size} blocos selecionados.</p>
-                  <button
-                    type="button"
-                    onClick={groupSelection}
-                    className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
-                  >
-                    Agrupar seleção (Ctrl+G)
-                  </button>
-                  <div className="flex gap-1.5">
-                    <PropertyActionButton label={allSelectedHidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(selectedIds)}>
-                      {allSelectedHidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
-                    </PropertyActionButton>
-                    <PropertyActionButton label={allSelectedLocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(selectedIds)}>
-                      {allSelectedLocked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
-                    </PropertyActionButton>
-                    <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(selectedIds)} danger>
-                      <TrashIcon className="h-4 w-4" />
-                    </PropertyActionButton>
-                  </div>
+                  {!readOnly && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={groupSelection}
+                        className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
+                      >
+                        Agrupar seleção (Ctrl+G)
+                      </button>
+                      <div className="flex gap-1.5">
+                        <PropertyActionButton label={allSelectedHidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(selectedIds)}>
+                          {allSelectedHidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
+                        </PropertyActionButton>
+                        <PropertyActionButton label={allSelectedLocked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(selectedIds)}>
+                          {allSelectedLocked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
+                        </PropertyActionButton>
+                        <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(selectedIds)} danger>
+                          <TrashIcon className="h-4 w-4" />
+                        </PropertyActionButton>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : !selectedBlock ? (
                 <p className="px-2 text-sm text-[#8e8e93]">Selecione um elemento para ver suas propriedades.</p>
@@ -2093,45 +2191,62 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                       onChange={(event) => handlePropertyChange({ label: event.target.value })}
                       onBlur={commitPropertyChange}
                       onKeyDown={(event) => event.key === "Enter" && commitPropertyChange()}
-                      className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                      readOnly={readOnly}
+                      className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed] read-only:bg-[#f7f7f8] read-only:text-[#8e8e93]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <NumberField label="X" value={selectedBlock.x} onChange={(v) => handlePropertyChange({ x: v })} onCommit={commitPropertyChange} />
-                    <NumberField label="Y" value={selectedBlock.y} onChange={(v) => handlePropertyChange({ y: v })} onCommit={commitPropertyChange} />
+                    <NumberField
+                      label="X"
+                      value={selectedBlock.x}
+                      onChange={(v) => handlePropertyChange({ x: v })}
+                      onCommit={commitPropertyChange}
+                      readOnly={readOnly}
+                    />
+                    <NumberField
+                      label="Y"
+                      value={selectedBlock.y}
+                      onChange={(v) => handlePropertyChange({ y: v })}
+                      onCommit={commitPropertyChange}
+                      readOnly={readOnly}
+                    />
                     <NumberField
                       label="Largura"
                       value={selectedBlock.width}
                       onChange={(v) => handlePropertyChange({ width: Math.max(MIN_BLOCK_SIZE, v) })}
                       onCommit={commitPropertyChange}
+                      readOnly={readOnly}
                     />
                     <NumberField
                       label="Altura"
                       value={selectedBlock.height}
                       onChange={(v) => handlePropertyChange({ height: Math.max(MIN_BLOCK_SIZE, v) })}
                       onCommit={commitPropertyChange}
+                      readOnly={readOnly}
                     />
                   </div>
-                  <div className="flex gap-1.5">
-                    <PropertyActionButton label={selectedBlock.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(new Set([selectedBlock.id]))}>
-                      {selectedBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
-                    </PropertyActionButton>
-                    <PropertyActionButton label={selectedBlock.locked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(new Set([selectedBlock.id]))}>
-                      {selectedBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
-                    </PropertyActionButton>
-                    {selectedBlock.kind === "GROUP" ? (
-                      <PropertyActionButton label="Desagrupar" onClick={() => ungroupBlock(selectedBlock.id)}>
-                        <FolderIcon className="h-4 w-4" />
+                  {!readOnly && (
+                    <div className="flex gap-1.5">
+                      <PropertyActionButton label={selectedBlock.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleHidden(new Set([selectedBlock.id]))}>
+                        {selectedBlock.hidden ? <EyeOffIcon className="h-4 w-4" /> : <EyeOpenIcon className="h-4 w-4" />}
                       </PropertyActionButton>
-                    ) : (
-                      <PropertyActionButton label="Adicionar texto" onClick={() => addTextAnnotation(selectedBlock.id)}>
-                        <TextToolIcon className="h-4 w-4" />
+                      <PropertyActionButton label={selectedBlock.locked ? "Desbloquear" : "Bloquear"} onClick={() => toggleLocked(new Set([selectedBlock.id]))}>
+                        {selectedBlock.locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
                       </PropertyActionButton>
-                    )}
-                    <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(new Set([selectedBlock.id]))} danger>
-                      <TrashIcon className="h-4 w-4" />
-                    </PropertyActionButton>
-                  </div>
+                      {selectedBlock.kind === "GROUP" ? (
+                        <PropertyActionButton label="Desagrupar" onClick={() => ungroupBlock(selectedBlock.id)}>
+                          <FolderIcon className="h-4 w-4" />
+                        </PropertyActionButton>
+                      ) : (
+                        <PropertyActionButton label="Adicionar texto" onClick={() => addTextAnnotation(selectedBlock.id)}>
+                          <TextToolIcon className="h-4 w-4" />
+                        </PropertyActionButton>
+                      )}
+                      <PropertyActionButton label="Apagar" onClick={() => deleteBlocks(new Set([selectedBlock.id]))} danger>
+                        <TrashIcon className="h-4 w-4" />
+                      </PropertyActionButton>
+                    </div>
+                  )}
                 </div>
               )}
             </AccordionSection>
@@ -2331,7 +2446,7 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     vectorEffect="non-scaling-stroke"
                     style={{
                       pointerEvents: activeTool === "select" ? "stroke" : "none",
-                      cursor: annotation.locked ? "default" : "move",
+                      cursor: annotation.locked || readOnly ? "default" : "move",
                     }}
                     className={selectedAnnotationId === annotation.id ? "drop-shadow-[0_0_0_2px_rgba(124,58,237,0.5)]" : undefined}
                     onPointerDown={(event) => handleAnnotationPointerDown(event, annotation)}
@@ -2485,30 +2600,34 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
                     </div>
                   ))}
                 </div>
-                <textarea
-                  rows={2}
-                  value={replyDraft}
-                  onChange={(event) => setReplyDraft(event.target.value)}
-                  placeholder="Responder..."
-                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
-                />
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleCommentResolved(activeComment)}
-                    className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-xs text-[#2a2a2e] hover:bg-[#f7f7f8]"
-                  >
-                    {activeComment.resolved ? "Reabrir" : "Marcar como resolvido"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitReply(activeComment.id)}
-                    disabled={!replyDraft.trim()}
-                    className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
-                  >
-                    Responder
-                  </button>
-                </div>
+                {!readOnly && (
+                  <>
+                    <textarea
+                      rows={2}
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                      placeholder="Responder..."
+                      className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleCommentResolved(activeComment)}
+                        className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-xs text-[#2a2a2e] hover:bg-[#f7f7f8]"
+                      >
+                        {activeComment.resolved ? "Reabrir" : "Marcar como resolvido"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitReply(activeComment.id)}
+                        disabled={!replyDraft.trim()}
+                        className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                      >
+                        Responder
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -2659,18 +2778,70 @@ export default function WireframeEditor({ bridge, onUpdate }: { bridge: ApiBridg
           </div>
         </div>
       )}
+
+      {/* Wireframe-2: confirmação após "Aprovar e Exportar" — sem botão de
+          fechar/cancelar (a ação já aconteceu, status já virou FINALIZADO);
+          só "Salvar" (baixa o SVG) e "Concluir" (sai do editor pra tela de
+          detalhe, que também vai mostrar o botão de baixar de novo). */}
+      {exportResult && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 className="mb-3 text-base font-semibold text-[#141416]">Wireframe exportado!</h2>
+            <p className="mb-5 text-sm text-[#55555b]">
+              O arquivo está pronto para ser importado dentro do Figma — arraste o SVG baixado para dentro de qualquer arquivo do Figma para
+              continuar o trabalho visual lá.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => router.push(`/bridges/${bridge.id}`)}
+                className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-2 text-sm text-[#2a2a2e] hover:bg-[#f7f7f8]"
+              >
+                Concluir
+              </button>
+              <a
+                href={exportResult.svgUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg bg-[#7c3aed] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6d28d9]"
+              >
+                Salvar
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ToolButton({ active, onClick, label, children }: { active?: boolean; onClick: () => void; label: string; children: ReactNode }) {
+function ToolButton({
+  active,
+  onClick,
+  label,
+  children,
+  disabled,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       title={label}
-      className={`grid h-[41px] w-[41px] place-items-center rounded-lg ${active ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#2a2a2e] hover:bg-[#f2f2f3]"}`}
+      className={`grid h-[41px] w-[41px] place-items-center rounded-lg ${
+        disabled
+          ? "cursor-not-allowed text-[#c4c4c8]"
+          : active
+            ? "bg-[#f1ebfe] text-[#7c3aed]"
+            : "text-[#2a2a2e] hover:bg-[#f2f2f3]"
+      }`}
     >
       {children}
     </button>
@@ -2745,11 +2916,13 @@ function NumberField({
   value,
   onChange,
   onCommit,
+  readOnly,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   onCommit: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -2760,7 +2933,11 @@ function NumberField({
         onChange={(event) => onChange(Number(event.target.value) || 0)}
         onBlur={onCommit}
         onKeyDown={(event) => event.key === "Enter" && onCommit()}
-        className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+        // input[type=number] ignora readOnly pros botões de incrementar/
+        // decrementar e pro scroll — disabled é o único jeito de bloquear de
+        // verdade (modo leitura, Wireframe-2).
+        disabled={readOnly}
+        className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed] disabled:bg-[#f7f7f8] disabled:text-[#8e8e93]"
       />
     </div>
   );
@@ -2799,6 +2976,7 @@ function LayerRow({
   onDragStartLayer,
   onDragOverLayer,
   onDropLayer,
+  readOnly,
 }: {
   node: TreeNode;
   depth: number;
@@ -2815,6 +2993,7 @@ function LayerRow({
   onDragStartLayer: (id: string) => void;
   onDragOverLayer: (id: string | null | "root", position: LayerDropPosition) => void;
   onDropLayer: (id: string | "root", position: LayerDropPosition) => void;
+  readOnly?: boolean;
 }) {
   const { block, children } = node;
   const isGroup = block.kind === "GROUP";
@@ -2835,7 +3014,7 @@ function LayerRow({
   return (
     <div>
       <div
-        draggable
+        draggable={!readOnly}
         onDragStart={(event) => {
           event.stopPropagation();
           onDragStartLayer(block.id);
@@ -2886,30 +3065,34 @@ function LayerRow({
           )}
         </span>
         <span className={`min-w-0 flex-1 truncate ${block.hidden ? "text-[#b4b4b9]" : ""}`}>{block.label}</span>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleHidden(block.id);
-          }}
-          aria-label={block.hidden ? "Mostrar" : "Ocultar"}
-          title={block.hidden ? "Mostrar" : "Ocultar"}
-          className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
-        >
-          {block.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleLocked(block.id);
-          }}
-          aria-label={block.locked ? "Desbloquear" : "Bloquear"}
-          title={block.locked ? "Desbloquear" : "Bloquear"}
-          className={`shrink-0 hover:text-[#1d1d1f] ${block.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
-        >
-          {block.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
-        </button>
+        {!readOnly && (
+          <>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleHidden(block.id);
+              }}
+              aria-label={block.hidden ? "Mostrar" : "Ocultar"}
+              title={block.hidden ? "Mostrar" : "Ocultar"}
+              className="shrink-0 text-[#8e8e93] hover:text-[#1d1d1f]"
+            >
+              {block.hidden ? <EyeOffIcon className="h-3.5 w-3.5" /> : <EyeOpenIcon className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleLocked(block.id);
+              }}
+              aria-label={block.locked ? "Desbloquear" : "Bloquear"}
+              title={block.locked ? "Desbloquear" : "Bloquear"}
+              className={`shrink-0 hover:text-[#1d1d1f] ${block.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+            >
+              {block.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
+            </button>
+          </>
+        )}
       </div>
       {isGroup && !isCollapsed && children.length > 0 && (
         <div>
@@ -2931,6 +3114,7 @@ function LayerRow({
               onDragStartLayer={onDragStartLayer}
               onDragOverLayer={onDragOverLayer}
               onDropLayer={onDropLayer}
+              readOnly={readOnly}
             />
           ))}
         </div>

@@ -8,11 +8,16 @@ import BridgeDetail from "./BridgeDetail";
 import WireframeEditorPage from "./WireframeEditorPage";
 
 // /bridges/[id]: tela de revisão do BDD/PBI (se pendente), editor de
-// Wireframe em tela cheia (se aguardando aprovação do PO — Wireframe-1a) ou
-// resultado final (se já aprovado/aguardando UX). Decide a casca aqui, no
-// Server Component, checando o status ANTES de renderizar — o editor de
-// Wireframe é uma experiência full-bleed (sem o container centralizado
-// max-w-4xl nem o rodapé), então não cabe dentro da casca normal.
+// Wireframe em tela cheia (se aguardando aprovação do PO — Wireframe-1a — ou
+// do UX — Wireframe-2) ou resultado final (se já finalizado). Decide a casca
+// aqui, no Server Component, checando o status ANTES de renderizar — o
+// editor de Wireframe é uma experiência full-bleed (sem o container
+// centralizado max-w-4xl nem o rodapé), então não cabe dentro da casca
+// normal. Nas duas fases o MESMO editor é montado — quem pode editar de
+// verdade (PO-phase: qualquer um da Galáxia; UX-phase: só o uxUserId) é
+// decidido dentro do próprio editor (ver WireframeEditorPage/WireframeEditor).
+const WIREFRAME_EDITING_STATUSES = ["AGUARDANDO_APROVACAO_WIREFRAME_PO", "AGUARDANDO_APROVACAO_UX"];
+
 export default async function BridgeDetailPage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
 
@@ -21,7 +26,7 @@ export default async function BridgeDetailPage({ params }: { params: { id: strin
   }
 
   const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { status: true } });
-  const isWireframeEditing = bridge?.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO";
+  const isWireframeEditing = !!bridge && WIREFRAME_EDITING_STATUSES.includes(bridge.status);
 
   if (isWireframeEditing) {
     return (

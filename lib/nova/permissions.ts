@@ -149,3 +149,22 @@ export async function canAccessBridgeForPlanet(input: { planetId: string; user: 
 
   return { allowed: true };
 }
+
+// Regra de EDIÇÃO do conteúdo do Wireframe (blocos, anotações, comentários —
+// toda rota de escrita em app/api/bridges/[id]/{wireframe-edit,annotations,
+// comments}), separada de canAccessBridgeForPlanet (que só cobre acesso de
+// LEITURA, por Galáxia). Depende da fase do Bridge:
+// - AGUARDANDO_APROVACAO_WIREFRAME_PO: qualquer usuário com acesso à Galáxia
+//   pode editar (mesmo comportamento de sempre, Wireframe-1a/1b/1c).
+// - AGUARDANDO_APROVACAO_UX: só o uxUserId atribuído pode editar — o PO
+//   (dono do Bridge) passa a ter só leitura nessa fase, a decisão agora é do
+//   UX (Wireframe-2).
+// - Qualquer outro status (gerando, erro, finalizado): ninguém edita.
+// ADMIN sempre pode, em qualquer fase. Síncrona (sem acesso a banco) porque
+// quem chama já tem o Bridge em mãos.
+export function canEditWireframeContent(bridge: { status: string; uxUserId: string | null }, user: PermissionUser): boolean {
+  if (user.permissionLevel === "ADMIN") return true;
+  if (bridge.status === "AGUARDANDO_APROVACAO_WIREFRAME_PO") return true;
+  if (bridge.status === "AGUARDANDO_APROVACAO_UX") return bridge.uxUserId === user.id;
+  return false;
+}

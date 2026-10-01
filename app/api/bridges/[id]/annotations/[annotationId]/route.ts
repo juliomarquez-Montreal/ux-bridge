@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
-import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { canAccessBridgeForPlanet, canEditWireframeContent } from "@/lib/nova/permissions";
 
 interface Params {
   params: { id: string; annotationId: string };
@@ -18,11 +18,15 @@ export async function PATCH(request: Request, { params }: Params) {
   const annotation = await db.wireframeAnnotation.findUnique({ where: { id: params.annotationId } });
   if (!annotation || annotation.bridgeId !== params.id) return NextResponse.json({ error: "Anotação não encontrada." }, { status: 404 });
 
-  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true } });
+  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true, status: true, uxUserId: true } });
   if (!bridge) return NextResponse.json({ error: "Bridge não encontrado." }, { status: 404 });
 
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
+
+  if (!canEditWireframeContent(bridge, user)) {
+    return NextResponse.json({ error: "Você não tem permissão para editar o Wireframe neste momento." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const data: { pathData?: string; hidden?: boolean; locked?: boolean } = {};
@@ -43,11 +47,15 @@ export async function DELETE(_request: Request, { params }: Params) {
   const annotation = await db.wireframeAnnotation.findUnique({ where: { id: params.annotationId } });
   if (!annotation || annotation.bridgeId !== params.id) return NextResponse.json({ error: "Anotação não encontrada." }, { status: 404 });
 
-  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true } });
+  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true, status: true, uxUserId: true } });
   if (!bridge) return NextResponse.json({ error: "Bridge não encontrado." }, { status: 404 });
 
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
+
+  if (!canEditWireframeContent(bridge, user)) {
+    return NextResponse.json({ error: "Você não tem permissão para editar o Wireframe neste momento." }, { status: 403 });
+  }
 
   await db.wireframeAnnotation.delete({ where: { id: params.annotationId } });
   return NextResponse.json({ ok: true });

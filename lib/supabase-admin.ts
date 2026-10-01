@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export const AVATAR_BUCKET = "avatars";
 export const PLANET_EXAMPLES_BUCKET = "planet-examples";
 export const BRIDGE_MATERIALS_BUCKET = "bridge-materials";
+export const WIREFRAME_EXPORTS_BUCKET = "wireframe-exports";
 
 let cached: SupabaseClient | null = null;
 
@@ -53,6 +54,13 @@ export async function ensurePlanetExamplesBucket(): Promise<void> {
 // limite igual ao usado para RAW_TRANSCRIPT na NOVA (só .txt/.docx).
 export async function ensureBridgeMaterialsBucket(): Promise<void> {
   await ensureBucket(BRIDGE_MATERIALS_BUCKET, "5MB");
+}
+
+// SVG final exportado no "Aprovar e Exportar" (Wireframe-2) — um por Bridge
+// finalizado, público pra poder ser baixado de novo a qualquer momento pela
+// tela de detalhe (Bridge.wireframeExportUrl).
+export async function ensureWireframeExportsBucket(): Promise<void> {
+  await ensureBucket(WIREFRAME_EXPORTS_BUCKET, "5MB");
 }
 
 // Extrai o path dentro do bucket a partir de uma URL pública do Supabase

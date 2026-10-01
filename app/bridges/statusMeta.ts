@@ -5,7 +5,8 @@ export const STATUS_LABEL: Record<BridgeStatus, string> = {
   AGUARDANDO_APROVACAO_BDD: "Aguardando aprovação do BDD/PBI",
   GERANDO_WIREFRAME: "Gerando Wireframe...",
   AGUARDANDO_APROVACAO_WIREFRAME_PO: "Aguardando aprovação do PO",
-  AGUARDANDO_APROVACAO_UX: "Aguardando avaliação do UX",
+  AGUARDANDO_APROVACAO_UX: "Aguardando aprovação do UX",
+  FINALIZADO: "Finalizado",
   ERRO_GERACAO: "Erro na geração",
 };
 
@@ -14,7 +15,8 @@ export const STATUS_BADGE_VARIANT: Record<BridgeStatus, "success" | "warning" | 
   AGUARDANDO_APROVACAO_BDD: "warning",
   GERANDO_WIREFRAME: "info",
   AGUARDANDO_APROVACAO_WIREFRAME_PO: "warning",
-  AGUARDANDO_APROVACAO_UX: "success",
+  AGUARDANDO_APROVACAO_UX: "warning",
+  FINALIZADO: "success",
   ERRO_GERACAO: "error",
 };
 
@@ -27,7 +29,8 @@ export const STATUS_TONE: Record<BridgeStatus, StatusTone> = {
   AGUARDANDO_APROVACAO_BDD: "pending",
   GERANDO_WIREFRAME: "pending",
   AGUARDANDO_APROVACAO_WIREFRAME_PO: "pending",
-  AGUARDANDO_APROVACAO_UX: "done",
+  AGUARDANDO_APROVACAO_UX: "pending",
+  FINALIZADO: "done",
   ERRO_GERACAO: "error",
 };
 
@@ -39,7 +42,8 @@ export const STATUS_PROGRESS: Record<Exclude<BridgeStatus, "ERRO_GERACAO">, numb
   AGUARDANDO_APROVACAO_BDD: 35,
   GERANDO_WIREFRAME: 55,
   AGUARDANDO_APROVACAO_WIREFRAME_PO: 75,
-  AGUARDANDO_APROVACAO_UX: 100,
+  AGUARDANDO_APROVACAO_UX: 90,
+  FINALIZADO: 100,
 };
 
 // bddApprovedAt já preenchido em ERRO_GERACAO indica que a falha aconteceu

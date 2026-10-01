@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
-import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { canAccessBridgeForPlanet, canEditWireframeContent } from "@/lib/nova/permissions";
 import { resolveAuthors } from "@/lib/bridges/comments";
 
 interface Params {
@@ -17,11 +17,15 @@ export async function POST(request: Request, { params }: Params) {
   const comment = await db.wireframeComment.findUnique({ where: { id: params.commentId } });
   if (!comment || comment.bridgeId !== params.id) return NextResponse.json({ error: "Comentário não encontrado." }, { status: 404 });
 
-  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true } });
+  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true, status: true, uxUserId: true } });
   if (!bridge) return NextResponse.json({ error: "Bridge não encontrado." }, { status: 404 });
 
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
+
+  if (!canEditWireframeContent(bridge, user)) {
+    return NextResponse.json({ error: "Você não tem permissão para editar o Wireframe neste momento." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const text = typeof body.text === "string" ? body.text.trim() : "";

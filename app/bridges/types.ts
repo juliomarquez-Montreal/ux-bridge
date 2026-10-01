@@ -4,6 +4,7 @@ export type BridgeStatus =
   | "GERANDO_WIREFRAME"
   | "AGUARDANDO_APROVACAO_WIREFRAME_PO"
   | "AGUARDANDO_APROVACAO_UX"
+  | "FINALIZADO"
   | "ERRO_GERACAO";
 
 // Modelo genérico de "hints" que a IA usa pra descrever a estrutura de uma
@@ -154,6 +155,7 @@ export interface ApiBridge {
   wireframeData: WireframeData | null;
   wireframeAttemptCount: number;
   lastWireframeRejectionComment: string | null;
+  wireframeExportUrl: string | null;
   errorMessage: string | null;
   attemptCount: number;
   lastRejectionComment: string | null;

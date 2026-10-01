@@ -12,10 +12,11 @@ import type { ApiBridge } from "../types";
 const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_WIREFRAME"];
 
 // Tela de revisão do Bridge — cobre GERANDO_BDD, AGUARDANDO_APROVACAO_BDD,
-// GERANDO_WIREFRAME, AGUARDANDO_APROVACAO_UX e ERRO_GERACAO. O status
-// AGUARDANDO_APROVACAO_WIREFRAME_PO é tratado à parte por page.tsx, que
-// renderiza o WireframeEditor em tela cheia nesse caso (nunca chega a
-// montar este componente pra esse status).
+// GERANDO_WIREFRAME, FINALIZADO e ERRO_GERACAO. AGUARDANDO_APROVACAO_
+// WIREFRAME_PO e AGUARDANDO_APROVACAO_UX são tratados à parte por page.tsx,
+// que renderiza o WireframeEditor em tela cheia nesses dois casos (nunca
+// chega a montar este componente pra esses status — ver WIREFRAME_EDITING_
+// STATUSES lá).
 export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   const router = useRouter();
   const [bridge, setBridge] = useState<ApiBridge | null>(null);
@@ -206,13 +207,23 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
         </GlassCard>
       )}
 
-      {bridge.status === "AGUARDANDO_APROVACAO_UX" && (
+      {bridge.status === "FINALIZADO" && (
         <>
           <GlassCard className="mt-6 border-emerald-300/30 bg-emerald-300/5">
-            <p className="text-sm font-medium text-emerald-200">Wireframe aprovado pelo PO.</p>
+            <p className="text-sm font-medium text-emerald-200">Wireframe aprovado pelo UX e finalizado.</p>
             <p className="mt-1 text-sm text-luminous-on-surface-variant">
-              Aguardando avaliação do UX — disponível em breve.
+              O arquivo SVG já foi exportado e está pronto para ser importado dentro do Figma.
             </p>
+            {bridge.wireframeExportUrl && (
+              <a
+                href={bridge.wireframeExportUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-block rounded-full bg-luminous-primary px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] text-luminous-on-primary transition hover:bg-luminous-primary-fixed"
+              >
+                Baixar SVG novamente
+              </a>
+            )}
           </GlassCard>
           <GlassCard className="mt-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">BDD/PBI final</p>

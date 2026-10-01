@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
-import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { canAccessBridgeForPlanet, canEditWireframeContent } from "@/lib/nova/permissions";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { WIREFRAME_LAYOUT_CORRECTION_PATTERN_TYPE } from "@/lib/bridges/generate";
 import { normalizeWireframeBlocks, WIREFRAME_FRAME_WIDTH, WIREFRAME_FRAME_HEIGHT } from "@/lib/bridges/wireframeLayout";
@@ -13,16 +13,21 @@ interface Params {
 }
 
 // POST /api/bridges/:id/wireframe-edit -> autosave do editor visual do
-// Wireframe (Wireframe-1a): toda edição manual no canvas (mover, redimensionar
-// pela ferramenta Selecionar, renomear pela aba Propriedades) chama esta rota
-// com debounce (ver components/WireframeEditor.tsx), sem confirmação
-// separada — o "Aprovar Wireframe" que avança o status é uma ação à parte
-// (ver approve-wireframe/route.ts).
+// Wireframe: toda edição manual no canvas (mover, redimensionar pela
+// ferramenta Selecionar, renomear pela aba Propriedades) chama esta rota com
+// debounce (ver components/WireframeEditor.tsx), sem confirmação separada —
+// "Aprovar Wireframe" (PO) e "Aprovar e Exportar" (UX, Wireframe-2) são
+// ações à parte que só fecham cada fase. Funciona tanto na fase do PO
+// (AGUARDANDO_APROVACAO_WIREFRAME_PO) quanto na fase do UX
+// (AGUARDANDO_APROVACAO_UX) — quem exatamente pode editar em cada fase é
+// decidido por canEditWireframeContent (só o uxUserId atribuído na fase do
+// UX, não qualquer usuário da Galáxia como na fase do PO).
 //
 // Toda edição manual grava um MemoryPattern WIREFRAME_LAYOUT_CORRECTION com
 // confidence 1.0 (correção humana explícita = verdade absoluta, não uma
 // inferência) — é isso que runWireframeGeneration usa pra priorizar esse
-// padrão nas próximas gerações do mesmo Tipo de Planeta.
+// padrão nas próximas gerações do mesmo Tipo de Planeta. Não diferencia se
+// quem editou foi o PO ou o UX — o aprendizado trata as duas origens iguais.
 export async function POST(request: Request, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -33,10 +38,10 @@ export async function POST(request: Request, { params }: Params) {
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
-  if (bridge.status !== "AGUARDANDO_APROVACAO_WIREFRAME_PO") {
+  if (!canEditWireframeContent(bridge, user)) {
     return NextResponse.json(
-      { error: "Só é possível editar manualmente um Wireframe que esteja aguardando aprovação do PO." },
-      { status: 400 }
+      { error: "Você não tem permissão para editar o Wireframe neste momento." },
+      { status: 403 }
     );
   }
 

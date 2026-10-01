@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
-import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { canAccessBridgeForPlanet, canEditWireframeContent } from "@/lib/nova/permissions";
 import { resolveAuthors, serializeComment } from "@/lib/bridges/comments";
 
 interface Params {
@@ -39,11 +39,15 @@ export async function POST(request: Request, { params }: Params) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
-  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true } });
+  const bridge = await db.bridge.findUnique({ where: { id: params.id }, select: { planetContextNodeId: true, status: true, uxUserId: true } });
   if (!bridge) return NextResponse.json({ error: "Bridge não encontrado." }, { status: 404 });
 
   const permission = await canAccessBridgeForPlanet({ planetId: bridge.planetContextNodeId, user });
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
+
+  if (!canEditWireframeContent(bridge, user)) {
+    return NextResponse.json({ error: "Você não tem permissão para editar o Wireframe neste momento." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const x = typeof body.x === "number" && Number.isFinite(body.x) ? body.x : null;
