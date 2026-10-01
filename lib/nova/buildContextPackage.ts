@@ -24,6 +24,13 @@ export interface ContextPackage {
     metadata: unknown;
     source: { id: string; name: string };
   }>;
+  // PBIs de exemplo enviados pra esta Galáxia (aba "Ajustes Design System e
+  // PBIs" da NOVA), usados SÓ como referência de ESTILO DE ESCRITA/FORMATO
+  // do Acceptance Criteria — escopo por Galáxia, não por Tipo de Planeta
+  // (diferente de trainingExamples acima), porque o padrão de escrita de uma
+  // equipe vale pra QUALQUER tela que ela produz. Ver buildBddPrompt em
+  // lib/bridges/generate.ts.
+  pbiStyleExamples: Array<{ id: string; fileName: string; extractedAcceptanceCriteria: string }>;
 }
 
 // Monta o contexto completo que uma geração de BDD/PBI ou wireframe recebe.
@@ -46,7 +53,7 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
 
   if (!universo || !galaxia || !estrela) throw new Error("A árvore do Planeta está incompleta: esperado Universo > Galáxia > Estrela > Planeta.");
 
-  const [memoryPatterns, examples, galaxyLinks] = await Promise.all([
+  const [memoryPatterns, examples, galaxyLinks, pbiStyleSources] = await Promise.all([
     getRelevantPatterns(planet.id),
     db.planetExample.findMany({
       where: { contextNode: { type: "PLANETA", planetTypeId: planet.planetTypeId } },
@@ -65,6 +72,7 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
       where: { galaxyId: galaxia.id },
       include: { source: { include: { components: { orderBy: { name: "asc" } } } } },
     }),
+    db.pbiStyleSource.findMany({ where: { galaxyId: galaxia.id }, orderBy: { createdAt: "asc" } }),
   ]);
 
   const trainingExamples: Record<PlanetExampleKind, ExampleWithOrigin[]> = { RAW_TRANSCRIPT: [], FINAL_BDD_PBI: [], WIREFRAME_REFERENCE: [] };
@@ -92,5 +100,10 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
       thumbnailUrl: component.thumbnailUrl, description: component.description, metadata: component.metadata,
       source: { id: link.source.id, name: link.source.name },
     }))),
+    pbiStyleExamples: pbiStyleSources.map((source) => ({
+      id: source.id,
+      fileName: source.fileName,
+      extractedAcceptanceCriteria: source.extractedAcceptanceCriteria,
+    })),
   };
 }

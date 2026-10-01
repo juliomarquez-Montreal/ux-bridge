@@ -8,6 +8,7 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import DesignSystemTab from "./DesignSystemTab";
 import NodeFormModal from "./NodeFormModal";
 import NodeRow from "./NodeRow";
+import PbiStyleSourcesSection from "./PbiStyleSourcesSection";
 import PlanetTypesTab from "./PlanetTypesTab";
 import { collectAllIds, filterTreeBySearch } from "./search";
 import { canCreateUniverso, flattenTree } from "./clientPermissions";
@@ -17,7 +18,7 @@ type Tab = "universo" | "design-system" | "planetas";
 
 const TABS: { key: Tab; label: string; icon: typeof UniversoIcon }[] = [
   { key: "universo", label: "Universo", icon: UniversoIcon },
-  { key: "design-system", label: "Design System", icon: LayersIcon },
+  { key: "design-system", label: "Ajustes Design System e PBIs", icon: LayersIcon },
   { key: "planetas", label: "Gestão de Planetas", icon: GearIcon },
 ];
 
@@ -273,16 +274,19 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
         ))}
 
       {activeTab === "design-system" && (
-        <DesignSystemTab
-          user={user}
-          sources={sources}
-          galaxies={galaxies}
-          userGalaxyIds={userGalaxyIds}
-          search={search}
-          showCreateForm={showCreateForm}
-          onCreateFormClose={() => setShowCreateForm(false)}
-          onChanged={refreshSources}
-        />
+        <>
+          <DesignSystemTab
+            user={user}
+            sources={sources}
+            galaxies={galaxies}
+            userGalaxyIds={userGalaxyIds}
+            search={search}
+            showCreateForm={showCreateForm}
+            onCreateFormClose={() => setShowCreateForm(false)}
+            onChanged={refreshSources}
+          />
+          <PbiStyleSourcesSection user={user} galaxies={galaxies} userGalaxyIds={userGalaxyIds} />
+        </>
       )}
 
       {activeTab === "planetas" && (

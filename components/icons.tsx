@@ -41,6 +41,7 @@ import {
   Type,
   Undo2,
   Unlock,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -228,6 +229,10 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
 
 export function MailIcon(props: SVGProps<SVGSVGElement>) {
   return <Mail strokeWidth={1.7} {...props} />;
+}
+
+export function UploadIcon(props: SVGProps<SVGSVGElement>) {
+  return <Upload strokeWidth={1.7} {...props} />;
 }
 
 // Três pontos preenchidos (não o outline do lucide) — bate com o mockup NOVA.

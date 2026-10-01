@@ -4,6 +4,7 @@ export const AVATAR_BUCKET = "avatars";
 export const PLANET_EXAMPLES_BUCKET = "planet-examples";
 export const BRIDGE_MATERIALS_BUCKET = "bridge-materials";
 export const WIREFRAME_EXPORTS_BUCKET = "wireframe-exports";
+export const PBI_STYLE_SOURCES_BUCKET = "pbi-style-sources";
 
 let cached: SupabaseClient | null = null;
 
@@ -61,6 +62,13 @@ export async function ensureBridgeMaterialsBucket(): Promise<void> {
 // tela de detalhe (Bridge.wireframeExportUrl).
 export async function ensureWireframeExportsBucket(): Promise<void> {
   await ensureBucket(WIREFRAME_EXPORTS_BUCKET, "5MB");
+}
+
+// PBI de exemplo (PDF/DOCX/MD) enviado por Galáxia, pra aprender o padrão de
+// escrita do Acceptance Criteria (ver PbiStyleSource) — mesmo padrão, limite
+// um pouco maior pra acomodar PDFs exportados com imagens/anexos embutidos.
+export async function ensurePbiStyleSourcesBucket(): Promise<void> {
+  await ensureBucket(PBI_STYLE_SOURCES_BUCKET, "10MB");
 }
 
 // Extrai o path dentro do bucket a partir de uma URL pública do Supabase

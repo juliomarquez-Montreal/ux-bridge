@@ -39,11 +39,27 @@ interface HintBlock {
 // na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta
 // e componentes de Design System) vai à parte, via `context`/`memoryPatterns`
 // do AIProvider — aqui só o material bruto + instrução + comentário de
-// rejeição (quando houver).
-function buildBddPrompt(rawMaterialText: string | null, rawMaterialFileUrl: string | null, lastRejectionComment: string | null): string {
+// rejeição (quando houver) + os PBIs de estilo da Galáxia (explicitados em
+// texto, não só via `context`, pra deixar clara a distinção entre ESTILO DE
+// ESCRITA e CONTEÚDO/ESTRUTURA — ver nota abaixo).
+function buildBddPrompt(
+  rawMaterialText: string | null,
+  rawMaterialFileUrl: string | null,
+  lastRejectionComment: string | null,
+  pbiStyleExamples: ContextPackage["pbiStyleExamples"]
+): string {
   const parts: string[] = [
     "Você transforma material bruto (transcrição, anotações, rascunho ou qualquer texto de entrada) em um BDD (Behavior-Driven Development) e PBI (Product Backlog Item) completo para um time ágil de produto/UX. Use o contexto fornecido — posição na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta (especialmente pares inicial/final de BDD/PBI já aprovados, que mostram a transformação esperada) e componentes de Design System da Galáxia, quando houver — como referência de padrão e estilo esperado.",
   ];
+
+  if (pbiStyleExamples.length > 0) {
+    const examplesText = pbiStyleExamples
+      .map((example, index) => `Exemplo ${index + 1} (de "${example.fileName}"):\n${example.extractedAcceptanceCriteria}`)
+      .join("\n\n");
+    parts.push(
+      `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do BDD/PBI para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever o Acceptance Criteria, nunca o conteúdo específico de uma tela diferente:\n\n${examplesText}`
+    );
+  }
 
   if (rawMaterialText) {
     parts.push(`Material de entrada (arquivo de texto):\n"""\n${rawMaterialText}\n"""`);
@@ -270,7 +286,12 @@ export async function runBddGeneration(bridgeId: string): Promise<void> {
   try {
     const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
     const provider = await getAIProvider();
-    const prompt = buildBddPrompt(bridge.rawMaterialText, bridge.rawMaterialFileUrl, bridge.lastRejectionComment);
+    const prompt = buildBddPrompt(
+      bridge.rawMaterialText,
+      bridge.rawMaterialFileUrl,
+      bridge.lastRejectionComment,
+      contextPackage.pbiStyleExamples
+    );
 
     const { text } = await provider.generate({
       prompt,

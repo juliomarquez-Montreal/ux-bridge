@@ -65,6 +65,18 @@ export interface ApiDesignSystemSource {
   galaxyLinks: ApiDesignSystemGalaxyLink[];
 }
 
+// PBI de exemplo enviado por Galáxia, pra aprender o padrão de escrita do
+// Acceptance Criteria em Gherkin (Fase N8) — ver PbiStyleSource no schema.
+export interface ApiPbiStyleSource {
+  id: string;
+  galaxyId: string;
+  fileName: string;
+  fileUrl: string;
+  extractedAcceptanceCriteria: string;
+  uploadedById: string | null;
+  createdAt: string;
+}
+
 export interface DesignSystemSyncResult {
   created: number;
   updated: number;

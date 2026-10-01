@@ -218,6 +218,9 @@ model ContextNode {
   // Fase N5, N:N via DesignSystemGalaxyLink (uma fonte pode servir várias
   // Galáxias, uma Galáxia pode ter várias fontes).
   designSystemLinks DesignSystemGalaxyLink[]
+  // Exemplos de PBI enviados pra esta Galáxia aprender o padrão de escrita
+  // do Acceptance Criteria (só faz sentido para GALAXIA) — ver PbiStyleSource.
+  pbiStyleSources   PbiStyleSource[]
 }
 
 // Catálogo global de tipos de Planeta (reutilizável entre Universos/Galáxias
@@ -314,6 +317,27 @@ model DesignSystemComponent {
   // onDelete: Cascade — componente é um item importado da fonte, não uma
   // entidade independente; remover a fonte remove os componentes junto.
   source            DesignSystemSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+// PBI já aprovado, enviado por Galáxia (PDF/DOCX/MD), usado SÓ pra o sistema
+// aprender o PADRÃO DE ESCRITA/FORMATO do Acceptance Criteria em Gherkin
+// (Funcionalidade/Cenário/Dado/Quando/Então) — independente de Tipo de
+// Planeta ou Estrela, diferente do PlanetExample (que cruza por Tipo de
+// Planeta e guia CONTEÚDO/ESTRUTURA, não estilo de escrita). O arquivo real
+// de PBI costuma ter muito ruído irrelevante (ID da tarefa, story points,
+// iteration path, commits, branches, pull requests etc.) — fileUrl guarda o
+// original só pra referência/auditoria; extractedAcceptanceCriteria é o
+// texto já limpo pela IA (só o bloco Gherkin), o único usado na geração do
+// BDD (ver lib/nova/buildContextPackage.ts e lib/bridges/generate.ts).
+model PbiStyleSource {
+  id                          String      @id @default(cuid())
+  galaxyId                    String
+  galaxy                      ContextNode @relation(fields: [galaxyId], references: [id], onDelete: Cascade)
+  fileName                    String
+  fileUrl                     String
+  extractedAcceptanceCriteria String
+  uploadedById                String?
+  createdAt                   DateTime    @default(now())
 }
 
 model Transcription {
