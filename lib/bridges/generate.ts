@@ -35,62 +35,31 @@ interface HintBlock {
   heightHint: WireframeHeightHint;
 }
 
-// Exemplo de referência de FORMATO/ESTRUTURA do Acceptance Criteria — conteúdo
-// fictício-mas-real (extraído de um PBI real só pra ilustrar a formatação,
-// nunca enviado como PbiStyleSource de nenhuma Galáxia), embutido direto no
-// código como baseline estrutural. Garante formatação mínima consistente
-// (Description Como/Quero/Para, "Funcionalidade:", divisores de seção com
-// "#", tags "@nome", Cenário/Dado/Quando/Então/E, tabelas "| item |") mesmo
-// pra Galáxias que ainda não enviaram nenhum PbiStyleSource próprio — ver
-// buildBddPrompt abaixo, onde isso é sempre incluído, mas com prioridade
-// menor que um PbiStyleSource real da Galáxia quando houver.
-const ACCEPTANCE_CRITERIA_FORMAT_EXAMPLE = `Description: Como usuário Delegatária, SEINFRA ou DER do sistema
-Quero visualizar os menus reorganizados conforme o novo padrão
-Para garantir melhor organização e usabilidade do sistema
+// Instrução de FORMATO/ESTRUTURA do Acceptance Criteria — puramente
+// abstrata, sem nenhum exemplo de conteúdo de domínio real (nada de nome de
+// sistema, tela, agência, perfil específico etc.), embutida direto no código
+// como baseline estrutural mínima. Garante formatação consistente (História
+// de Usuário no formato Connextra + Gherkin) mesmo pra Galáxias que ainda
+// não enviaram nenhum PbiStyleSource próprio — ver buildBddPrompt abaixo,
+// onde isso é sempre incluído, mas com prioridade menor que um PbiStyleSource
+// real da Galáxia quando houver.
+const ACCEPTANCE_CRITERIA_FORMAT_INSTRUCTION = `O Acceptance Criteria deve seguir a estrutura de História de Usuário no formato Connextra, complementada por cenários no formato Gherkin:
 
-Acceptance Criteria:
-Funcionalidade: Reordenação dos menus do sistema SGTP conforme novo modelo
-Como usuário do sistema
-Quero visualizar os menus reorganizados conforme o novo padrão
-Para garantir melhor organização e usabilidade do sistema
+1. Bloco de História de Usuário:
+   Como [tipo de usuário/persona]
+   Eu quero [ação ou funcionalidade]
+   Para [benefício ou objetivo]
 
-################################################################################
-# Submenus e funcionalidades de Metropolitano
-################################################################################
-@menu_operacional
-Cenário: Exibir submenus e funcionalidades dentro do menu Metropolitano
-Dado que o usuário está autenticado no sistema SGTP
-Quando o usuário acessar o menu "Metropolitano"
-Então o sistema deve exibir os seguintes submenus:
-| Frotas |
-| Operacional |
-E dentro do submenu "Frotas" devem existir as funcionalidades:
-| Listagem de Veículos |
-| Movimentação de Veículos |
-| Vistoria |
-E dentro do submenu "Operacional" devem existir as funcionalidades:
-| Atendimentos |
-| QCO |
-| Alteração de QCO|
-| Processamento de QCO|
-| Ajustes de Catraca|
+2. Bloco de Acceptance Criteria, iniciado com "Funcionalidade:" seguido do mesmo padrão Como/Eu quero/Para, descrevendo o objetivo geral da funcionalidade.
 
-################################################################################
-# Reflexo da nova estrutura no cadastro de perfil
-################################################################################
-@perfil_nova_estrutura
-Cenário: Atualizar cadastro de perfil de usuário conforme nova estrutura de menus
-Dado que a nova estrutura de menus do SGTP foi implantada
-Quando o administrador acessar o cadastro de Perfil de Usuário
-Então o sistema deve exibir as permissões organizadas conforme a nova estrutura:
-| Gestão de usuário |
-| Especificações |
-| Assinatura |
-| Configuração |
-| TAXI |
-| Metropolitano |
-| Relatórios |
-E as funcionalidades devem estar vinculadas aos respectivos menus e submenus`;
+3. Um ou mais Cenários, cada um no formato Gherkin:
+   Cenário: [nome descritivo do cenário]
+   Dado [uma pré-condição]
+   Quando [uma ação do usuário ou evento do sistema]
+   Então [o resultado esperado]
+   (podendo usar "E" para encadear condições/resultados adicionais dentro do mesmo cenário)
+
+4. Quando fizer sentido, cenários distintos podem ser organizados em seções, e listas de itens relacionados podem ser representadas como tabelas simples.`;
 
 // Monta o prompt de geração do BDD/PBI. O pacote de contexto completo (posição
 // na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta
@@ -110,7 +79,7 @@ function buildBddPrompt(
   ];
 
   parts.push(
-    `EXEMPLO DE REFERÊNCIA DE FORMATO ESPERADO PARA O ACCEPTANCE CRITERIA (baseline — use SEMPRE como referência mínima de formatação, mesmo sem nenhum PbiStyleSource real desta Galáxia abaixo):\n\n"""\n${ACCEPTANCE_CRITERIA_FORMAT_EXAMPLE}\n"""\n\nIMPORTANTE: esse exemplo serve SÓ pra ilustrar a ESTRUTURA/FORMATAÇÃO esperada, NUNCA o conteúdo — o CONTEÚDO dele (menus do SGTP, Metropolitano, Frotas, Delegatária/SEINFRA/DER etc.) é fictício-ilustrativo e NUNCA deve ser copiado, mencionado ou reaproveitado no BDD que você vai gerar, que é de uma Galáxia/Planeta completamente diferente. Replique APENAS os seguintes elementos de FORMATO: (1) bloco "Description" no formato "Como / Quero / Para"; (2) bloco "Acceptance Criteria" começando com "Funcionalidade:" seguido do mesmo "Como / Quero / Para"; (3) divisores de seção usando linhas de "#" (################) com um comentário "# Nome da seção" entre elas, separando cenários relacionados a partes diferentes da funcionalidade; (4) tags no formato "@nome_da_tag" antes de cada "Cenário:"; (5) "Cenário:" seguido de "Dado"/"Quando"/"Então"/"E" no estilo Gherkin; (6) listas de itens relacionados usando tabelas simples em formato "| item |".`
+    `INSTRUÇÃO DE FORMATO DO ACCEPTANCE CRITERIA (baseline — siga SEMPRE, mesmo sem nenhum PbiStyleSource real desta Galáxia abaixo):\n\n${ACCEPTANCE_CRITERIA_FORMAT_INSTRUCTION}`
   );
 
   if (pbiStyleExamples.length > 0) {
@@ -118,7 +87,7 @@ function buildBddPrompt(
       .map((example, index) => `Exemplo ${index + 1} (de "${example.fileName}"):\n${example.extractedAcceptanceCriteria}`)
       .join("\n\n");
     parts.push(
-      `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do BDD/PBI para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever o Acceptance Criteria, nunca o conteúdo específico de uma tela diferente. Esta referência real da Galáxia tem PRIORIDADE sobre o exemplo de formato genérico mencionado acima, caso haja qualquer conflito entre os dois (ex: se este exemplo real não usar tags "@" ou divisores "#", siga o que está aqui, não o exemplo genérico):\n\n${examplesText}`
+      `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do BDD/PBI para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever o Acceptance Criteria, nunca o conteúdo específico de uma tela diferente. Esta referência real da Galáxia tem PRIORIDADE sobre a instrução de formato genérica mencionada acima, caso haja qualquer conflito entre as duas (ex: se estes exemplos reais não usarem o formato Connextra, siga o que está aqui, não a instrução genérica):\n\n${examplesText}`
     );
   }
 
