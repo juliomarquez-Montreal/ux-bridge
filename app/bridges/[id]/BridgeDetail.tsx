@@ -142,7 +142,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
 
       {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_WIREFRAME") && (
         <GlassCard className="mt-6">
-          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando Bridge Spec (BS)..." : "Gerando Wireframe..."} />
+          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando Bridge Spec..." : "Gerando Wireframe..."} />
           <div className="mt-4 flex justify-end">
             <PillButton type="button" variant="inactive" onClick={() => router.push("/bridges")}>
               Fechar e continuar depois
@@ -154,7 +154,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       {bridge.status === "ERRO_GERACAO" && (
         <GlassCard className="mt-6">
           <p className="text-sm font-medium text-luminous-error">
-            {bridge.bddApprovedAt ? "Falha ao gerar o wireframe" : "Falha ao gerar o Bridge Spec (BS)"}
+            {bridge.bddApprovedAt ? "Falha ao gerar o wireframe" : "Falha ao gerar o Bridge Spec"}
           </p>
           <p className="mt-1 text-sm text-luminous-on-surface-variant">
             {bridge.errorMessage ?? "Erro desconhecido."}
@@ -168,7 +168,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
       {/* Revisão do Bridge Spec (BS) */}
       {bridge.status === "AGUARDANDO_APROVACAO_BDD" && (
         <GlassCard className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec (BS) gerado</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec gerado</p>
           <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
             {bridge.generatedBddPbi}
           </pre>
@@ -190,7 +190,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
             </div>
           ) : busy ? (
             <div className="mt-4">
-              <GeneratingProgress label="Gerando Bridge Spec (BS)..." />
+              <GeneratingProgress label="Gerando Bridge Spec..." />
             </div>
           ) : (
             <RejectForm
@@ -226,7 +226,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
             )}
           </GlassCard>
           <GlassCard className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec (BS) final</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec final</p>
             <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
               {bridge.generatedBddPbi}
             </pre>

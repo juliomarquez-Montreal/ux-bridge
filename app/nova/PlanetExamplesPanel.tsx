@@ -327,7 +327,7 @@ function BddPbiPairSection({ nodeId, examples, canManage, onChanged, onDelete }:
 
   return (
     <div>
-      <p className="text-sm font-medium text-luminous-on-surface">Bridge Spec (BS) final</p>
+      <p className="text-sm font-medium text-luminous-on-surface">Bridge Spec final</p>
       <p className="mt-0.5 text-[11px] text-luminous-on-surface-variant/70">
         Versão inicial e final, cada uma opcional — ajuda o sistema a aprender a transformação.
       </p>
