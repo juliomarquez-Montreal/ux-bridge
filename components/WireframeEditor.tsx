@@ -25,6 +25,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
+  ClockIcon,
   CloseIcon,
   CloudIcon,
   CommentToolIcon,
@@ -1750,6 +1751,20 @@ export default function WireframeEditor({
 
         <div className="ml-auto flex items-center gap-2">
           {actionError && <p className="mr-2 text-sm text-luminous-error">{actionError}</p>}
+          {/* Indicador de quem precisa validar nesta etapa — some quando
+              Finalizado (não há mais validação pendente). A bolinha usa o
+              "pulse" nativo do Tailwind (opacidade), discreto o bastante pra
+              não competir com o resto do subheader. */}
+          {bridge.status !== "FINALIZADO" && (
+            <div className="flex items-center gap-1.5 text-[13.5px] text-[#55555b]">
+              <ClockIcon className="h-3.5 w-3.5" />
+              <span>{bridge.status === "AGUARDANDO_APROVACAO_UX" ? "Validação de UX" : "Validação de Product Owner"}</span>
+              <span
+                className="h-2 w-2 shrink-0 animate-pulse rounded-full"
+                style={{ backgroundColor: bridge.status === "AGUARDANDO_APROVACAO_UX" ? "#0077ff" : "#f97316" }}
+              />
+            </div>
+          )}
           <div className="flex items-center -space-x-1.5">
             <Avatar name={bridge.poUser?.name ?? "PO"} avatarUrl={bridge.poUser?.avatarUrl} size={35} />
             <Avatar name={bridge.uxUser?.name ?? "UX"} avatarUrl={bridge.uxUser?.avatarUrl} size={35} />
