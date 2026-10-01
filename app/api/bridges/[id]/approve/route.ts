@@ -31,10 +31,10 @@ export async function POST(_request: Request, { params }: Params) {
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
   if (bridge.status !== "AGUARDANDO_APROVACAO_BDD") {
-    return NextResponse.json({ error: "Este Bridge não está aguardando aprovação do BDD/PBI." }, { status: 400 });
+    return NextResponse.json({ error: "Este Bridge não está aguardando aprovação do Bridge Spec (BS)." }, { status: 400 });
   }
   if (!bridge.generatedBddPbi) {
-    return NextResponse.json({ error: "Este Bridge não tem um BDD/PBI gerado." }, { status: 400 });
+    return NextResponse.json({ error: "Este Bridge não tem um Bridge Spec (BS) gerado." }, { status: 400 });
   }
 
   await db.bridge.update({ where: { id: bridge.id }, data: { bddApprovedAt: new Date() } });

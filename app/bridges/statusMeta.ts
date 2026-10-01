@@ -1,8 +1,8 @@
 import type { BridgeStatus } from "./types";
 
 export const STATUS_LABEL: Record<BridgeStatus, string> = {
-  GERANDO_BDD: "Gerando BDD/PBI...",
-  AGUARDANDO_APROVACAO_BDD: "Aguardando aprovação do BDD/PBI",
+  GERANDO_BDD: "Gerando Bridge Spec (BS)...",
+  AGUARDANDO_APROVACAO_BDD: "Aguardando aprovação do Bridge Spec (BS)",
   GERANDO_WIREFRAME: "Gerando Wireframe...",
   AGUARDANDO_APROVACAO_WIREFRAME_PO: "Aguardando aprovação do PO",
   AGUARDANDO_APROVACAO_UX: "Aguardando aprovação do UX",

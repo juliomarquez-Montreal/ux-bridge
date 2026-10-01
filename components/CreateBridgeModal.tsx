@@ -313,7 +313,7 @@ export default function CreateBridgeModal({ onClose }: { onClose: () => void }) 
           </div>
         ) : submitting ? (
           <div className="space-y-4">
-            <GeneratingProgress label="Gerando BDD/PBI..." />
+            <GeneratingProgress label="Gerando Bridge Spec (BS)..." />
             <div className="flex justify-end pt-2">
               <PillButton type="button" variant="inactive" onClick={handleCloseAndContinueLater}>
                 Fechar e continuar depois

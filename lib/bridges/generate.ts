@@ -35,39 +35,65 @@ interface HintBlock {
   heightHint: WireframeHeightHint;
 }
 
-// Instrução de FORMATO/ESTRUTURA do Acceptance Criteria — puramente
-// abstrata, sem nenhum exemplo de conteúdo de domínio real (nada de nome de
-// sistema, tela, agência, perfil específico etc.), embutida direto no código
-// como baseline estrutural mínima. Garante formatação consistente (História
-// de Usuário no formato Connextra + Gherkin) mesmo pra Galáxias que ainda
-// não enviaram nenhum PbiStyleSource próprio — ver buildBddPrompt abaixo,
-// onde isso é sempre incluído, mas com prioridade menor que um PbiStyleSource
-// real da Galáxia quando houver.
-const ACCEPTANCE_CRITERIA_FORMAT_INSTRUCTION = `O Acceptance Criteria deve seguir a estrutura de História de Usuário no formato Connextra, complementada por cenários no formato Gherkin:
+// Estrutura obrigatória do Bridge Spec (nome exibido na interface pro texto
+// gerado aqui — internamente ainda é "BDD/PBI": Bridge.generatedBddPbi,
+// status AGUARDANDO_APROVACAO_BDD etc., nada disso foi renomeado no
+// código/banco pra evitar migração de schema desnecessária; só o texto
+// visível ao usuário virou "Bridge Spec (BS)" — ver app/bridges/statusMeta.ts
+// e os outros pontos de UI). 10 seções, SEMPRE nesta ordem — ver
+// buildBddPrompt abaixo, onde isso é sempre incluído como baseline
+// estrutural obrigatória, independente de a Galáxia ter ou não
+// PbiStyleSource próprios (que só influenciam o ESTILO DE ESCRITA dentro de
+// cada seção, nunca a presença/ordem das seções em si).
+const BRIDGE_SPEC_STRUCTURE_INSTRUCTION = `O texto gerado deve ter EXATAMENTE estas 10 seções, nesta ordem, cada uma com esse título (em maiúsculas, como mostrado):
 
-1. Bloco de História de Usuário:
-   Como [tipo de usuário/persona]
-   Eu quero [ação ou funcionalidade]
-   Para [benefício ou objetivo]
+TÍTULO
+Título curto e descritivo da funcionalidade.
 
-2. Bloco de Acceptance Criteria, iniciado com "Funcionalidade:" seguido do mesmo padrão Como/Eu quero/Para, descrevendo o objetivo geral da funcionalidade.
+CONTEXTO / PROBLEMA
+Breve parágrafo explicando por que essa funcionalidade é necessária, com base no material bruto fornecido.
 
-3. Um ou mais Cenários, cada um no formato Gherkin:
-   Cenário: [nome descritivo do cenário]
-   Dado [uma pré-condição]
-   Quando [uma ação do usuário ou evento do sistema]
-   Então [o resultado esperado]
-   (podendo usar "E" para encadear condições/resultados adicionais dentro do mesmo cenário)
+HISTÓRIA DE USUÁRIO
+Como [tipo de usuário/persona]
+Eu quero [ação ou funcionalidade]
+Para [benefício ou objetivo]
 
-4. Quando fizer sentido, cenários distintos podem ser organizados em seções, e listas de itens relacionados podem ser representadas como tabelas simples.`;
+CRITÉRIOS DE ACEITE
+Lista de critérios objetivos e verificáveis.
 
-// Monta o prompt de geração do BDD/PBI. O pacote de contexto completo (posição
-// na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta
-// e componentes de Design System) vai à parte, via `context`/`memoryPatterns`
-// do AIProvider — aqui só o material bruto + instrução + comentário de
-// rejeição (quando houver) + os PBIs de estilo da Galáxia (explicitados em
-// texto, não só via `context`, pra deixar clara a distinção entre ESTILO DE
-// ESCRITA e CONTEÚDO/ESTRUTURA — ver nota abaixo).
+CENÁRIOS BDD
+Comece com um resumo de Funcionalidade no mesmo formato Connextra da História de Usuário acima ("Funcionalidade: [nome]" seguido de Como/Eu quero/Para), depois liste um ou mais cenários no formato Gherkin, numerados sequencialmente:
+Cenário 1: [nome descritivo do cenário]
+Dado [uma pré-condição]
+Quando [uma ação do usuário ou evento do sistema]
+Então [o resultado esperado]
+(podendo usar "E" para encadear condições/resultados adicionais dentro do mesmo cenário; repita "Cenário 2:", "Cenário 3:" etc. para cada cenário adicional necessário)
+
+REGRAS DE NEGÓCIO
+Lista de regras/restrições que não são cenários de teste, mas afetam o comportamento (se não houver nenhuma relevante, indique "Nenhuma regra de negócio específica identificada").
+
+DEPENDÊNCIAS
+Lista de outras funcionalidades, sistemas ou decisões das quais esta depende (se não houver nenhuma, indique "Nenhuma dependência identificada").
+
+REQUISITOS NÃO FUNCIONAIS
+Lista de requisitos de performance, segurança, acessibilidade etc., quando aplicável (se não houver nada relevante a partir do material fornecido, indique "Nenhum requisito não funcional específico identificado").
+
+PRIORIDADE / RELEASE
+Sugira uma prioridade — Alta, Média ou Baixa — com uma breve justificativa de uma frase. Indique Release como "A definir" (o gerenciamento real de releases ainda não existe no sistema).
+
+DEFINITION OF READY
+Checklist objetivo do que precisa estar resolvido antes de começar o desenvolvimento, com base no conteúdo gerado (ex: "Critérios de aceite revisados pelo PO", "Wireframe aprovado", "Dependências identificadas resolvidas ou documentadas").
+
+Quando fizer sentido, cenários distintos dentro de CENÁRIOS BDD podem ser organizados em subseções, e listas de itens relacionados podem ser representadas como tabelas simples.`;
+
+// Monta o prompt de geração do Bridge Spec (campo Bridge.generatedBddPbi).
+// O pacote de contexto completo (posição na árvore, padrões de memória,
+// exemplos de treino do mesmo Tipo de Planeta e componentes de Design
+// System) vai à parte, via `context`/`memoryPatterns` do AIProvider — aqui
+// só o material bruto + instrução de estrutura + instrução de rejeição
+// (quando houver) + os PBIs de estilo da Galáxia (explicitados em texto, não
+// só via `context`, pra deixar clara a distinção entre ESTILO DE ESCRITA e
+// CONTEÚDO/ESTRUTURA — ver nota abaixo).
 function buildBddPrompt(
   rawMaterialText: string | null,
   rawMaterialFileUrl: string | null,
@@ -75,11 +101,11 @@ function buildBddPrompt(
   pbiStyleExamples: ContextPackage["pbiStyleExamples"]
 ): string {
   const parts: string[] = [
-    "Você transforma material bruto (transcrição, anotações, rascunho ou qualquer texto de entrada) em um BDD (Behavior-Driven Development) e PBI (Product Backlog Item) completo para um time ágil de produto/UX. Use o contexto fornecido — posição na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta (especialmente pares inicial/final de BDD/PBI já aprovados, que mostram a transformação esperada) e componentes de Design System da Galáxia, quando houver — como referência de padrão e estilo esperado.",
+    "Você transforma material bruto (transcrição, anotações, rascunho ou qualquer texto de entrada) em um Bridge Spec completo — uma especificação estruturada com História de Usuário, Critérios de Aceite e Cenários BDD, entre outras seções — para um time ágil de produto/UX. Use o contexto fornecido — posição na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta (especialmente pares inicial/final de Bridge Spec já aprovados, que mostram a transformação esperada) e componentes de Design System da Galáxia, quando houver — como referência de padrão e estilo esperado.",
   ];
 
   parts.push(
-    `INSTRUÇÃO DE FORMATO DO ACCEPTANCE CRITERIA (baseline — siga SEMPRE, mesmo sem nenhum PbiStyleSource real desta Galáxia abaixo):\n\n${ACCEPTANCE_CRITERIA_FORMAT_INSTRUCTION}`
+    `ESTRUTURA OBRIGATÓRIA DO BRIDGE SPEC (siga SEMPRE, mesmo sem nenhum PbiStyleSource real desta Galáxia abaixo — a ESTRUTURA GERAL, as 10 seções nesta ordem, é sempre obrigatória, independente de haver ou não exemplos próprios da Galáxia):\n\n${BRIDGE_SPEC_STRUCTURE_INSTRUCTION}`
   );
 
   if (pbiStyleExamples.length > 0) {
@@ -87,7 +113,7 @@ function buildBddPrompt(
       .map((example, index) => `Exemplo ${index + 1} (de "${example.fileName}"):\n${example.extractedAcceptanceCriteria}`)
       .join("\n\n");
     parts.push(
-      `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do BDD/PBI para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever o Acceptance Criteria, nunca o conteúdo específico de uma tela diferente. Esta referência real da Galáxia tem PRIORIDADE sobre a instrução de formato genérica mencionada acima, caso haja qualquer conflito entre as duas (ex: se estes exemplos reais não usarem o formato Connextra, siga o que está aqui, não a instrução genérica):\n\n${examplesText}`
+      `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do Bridge Spec para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever as seções CENÁRIOS BDD e CRITÉRIOS DE ACEITE, nunca o conteúdo específico de uma tela diferente, e nunca a presença/ordem das 10 seções em si (isso continua sempre obrigatório). Esta referência real da Galáxia tem PRIORIDADE sobre a instrução de formato genérica mencionada acima, caso haja qualquer conflito entre as duas (ex: se estes exemplos reais não usarem o formato Connextra, siga o que está aqui, não a instrução genérica):\n\n${examplesText}`
     );
   }
 
@@ -98,7 +124,7 @@ function buildBddPrompt(
     // exemplos de treino da NOVA — extração de conteúdo de arquivo não é
     // implementada nesta fase), então a IA é avisada explicitamente disso.
     parts.push(
-      "O usuário anexou um arquivo como material de entrada. O conteúdo do arquivo não é extraído automaticamente nesta fase — gere o melhor BDD/PBI possível a partir do contexto disponível e deixe claro, no início do texto gerado, que o material original em arquivo precisa ser conferido manualmente pelo PO."
+      "O usuário anexou um arquivo como material de entrada. O conteúdo do arquivo não é extraído automaticamente nesta fase — gere o melhor Bridge Spec possível a partir do contexto disponível e deixe claro, no início do texto gerado, que o material original em arquivo precisa ser conferido manualmente pelo PO."
     );
   }
 
@@ -109,7 +135,7 @@ function buildBddPrompt(
   }
 
   parts.push(
-    "Responda em português, só com o conteúdo do BDD/PBI final (título, contexto, critérios de aceite em formato Gherkin quando fizer sentido, e uma descrição de PBI clara). Não inclua comentários sobre o processo de geração."
+    "Responda em português, só com o conteúdo do Bridge Spec final, seguindo EXATAMENTE a estrutura de 10 seções descrita acima, nesta ordem, com os títulos de seção em maiúsculas. Não inclua comentários sobre o processo de geração."
   );
 
   return parts.join("\n\n");
@@ -345,7 +371,7 @@ export async function runBddGeneration(bridgeId: string): Promise<void> {
       where: { id: bridgeId },
       data: {
         status: "ERRO_GERACAO",
-        errorMessage: error instanceof Error ? error.message : "Falha desconhecida ao gerar o BDD/PBI.",
+        errorMessage: error instanceof Error ? error.message : "Falha desconhecida ao gerar o Bridge Spec.",
       },
     });
   }
@@ -362,7 +388,7 @@ export async function runWireframeGeneration(bridgeId: string): Promise<void> {
   const bridge = await db.bridge.findUniqueOrThrow({ where: { id: bridgeId } });
 
   try {
-    if (!bridge.generatedBddPbi) throw new Error("Este Bridge ainda não tem um BDD/PBI aprovado para gerar o wireframe.");
+    if (!bridge.generatedBddPbi) throw new Error("Este Bridge ainda não tem um Bridge Spec aprovado para gerar o wireframe.");
 
     const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
     const provider = await getAIProvider();

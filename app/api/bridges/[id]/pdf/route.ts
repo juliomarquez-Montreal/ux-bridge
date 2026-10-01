@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
   if (!bridge.bddApprovedAt) {
-    return NextResponse.json({ error: "Este Bridge ainda não tem um BDD/PBI aprovado." }, { status: 400 });
+    return NextResponse.json({ error: "Este Bridge ainda não tem um Bridge Spec (BS) aprovado." }, { status: 400 });
   }
 
   const planet = await db.contextNode.findUnique({ where: { id: bridge.planetContextNodeId }, select: { name: true } });

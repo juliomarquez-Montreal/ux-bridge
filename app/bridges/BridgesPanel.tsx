@@ -227,7 +227,7 @@ export default function BridgesPanel() {
         <div>
           <h1 className="text-3xl font-bold text-white">Bridges</h1>
           <p className="mt-1 text-sm text-luminous-on-surface-variant">
-            Acompanhe a criação de cada Bridge, do material bruto até o BDD/PBI aprovado.
+            Acompanhe a criação de cada Bridge, do material bruto até o Bridge Spec (BS) aprovado.
           </p>
         </div>
         <button

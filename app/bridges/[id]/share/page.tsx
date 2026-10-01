@@ -69,7 +69,7 @@ export default async function SharedBridgePage({ params }: { params: { id: strin
 
         {bridge.generatedBddPbi && bridge.bddApprovedAt && (
           <GlassCard className="mt-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">BDD/PBI aprovado</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec (BS) aprovado</p>
             <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
               {bridge.generatedBddPbi}
             </pre>

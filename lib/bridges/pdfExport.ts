@@ -83,7 +83,7 @@ export async function generateBridgePdf(input: BridgePdfInput): Promise<Uint8Arr
   y -= 6;
 
   if (input.generatedBddPbi && input.bddApprovedAt) {
-    drawHeading("BDD/PBI aprovado");
+    drawHeading("Bridge Spec (BS) aprovado");
     const lines = wrapText(input.generatedBddPbi, font, 10.5, CONTENT_WIDTH);
     drawParagraphLines(lines, 10.5, 14, font);
     y -= 16;
