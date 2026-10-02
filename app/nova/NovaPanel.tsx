@@ -164,8 +164,8 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
 
   return (
     <div>
-      <h1 className="text-[45px] font-extrabold leading-[54px] tracking-[-0.5px] text-white">NOVA</h1>
-      <p className="mt-1 text-[18px] leading-6 tracking-[-0.25px] text-[#b9b6c6]">
+      <h1 className="text-3xl font-bold text-white">NOVA</h1>
+      <p className="mt-1 text-sm text-luminous-on-surface-variant">
         Organize o contexto que orienta a criação de PBIs e wireframes.
       </p>
 
@@ -187,13 +187,13 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
                 setActiveTab(key);
                 setSearch("");
               }}
-              className={`relative flex shrink-0 items-center justify-center gap-[17px] px-9 py-[19px] text-[19px] transition ${
+              className={`relative flex shrink-0 items-center justify-center gap-2.5 px-5 py-3.5 text-[16px] transition ${
                 isActive
                   ? "rounded-t-[3px] border border-b-0 border-[#2c2550] bg-gradient-to-b from-[#1a1532] to-[#1d1738] font-medium text-[#f6f4fb]"
                   : "text-[#c3c0cf] hover:bg-white/[0.035]"
               }`}
             >
-              <Icon className={`h-7 w-7 ${isActive ? "text-[#f3f1fa]" : "text-[#bdb9ca]"}`} />
+              <Icon className={`h-5 w-5 ${isActive ? "text-[#f3f1fa]" : "text-[#bdb9ca]"}`} />
               {label}
               {isActive && <span className="absolute inset-x-0 -bottom-px h-[3px] rounded-[1px] bg-[#8e63f2]" />}
             </button>
@@ -205,11 +205,11 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
         <div className="mb-5 mt-6 flex flex-wrap items-center gap-2">
           {TRAIL.map(({ label, icon: Icon }, i) => (
             <span key={label} className="flex items-center gap-2">
-              <span className="inline-flex h-[37px] items-center gap-3.5 rounded-full border border-[#2e2b3b] bg-[#12101b] pl-[17px] pr-5 text-[15px] font-medium text-[#eeecf5]">
-                <Icon className="h-[21px] w-[21px] text-[#b9a4f7]" />
+              <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#2e2b3b] bg-[#12101b] pl-3.5 pr-4 text-sm font-medium text-[#eeecf5]">
+                <Icon className="h-4 w-4 text-[#b9a4f7]" />
                 {label}
               </span>
-              {i < TRAIL.length - 1 && <ArrowRightIcon className="h-[18px] w-5 text-[#9f9bb0]" />}
+              {i < TRAIL.length - 1 && <ArrowRightIcon className="h-4 w-4 text-[#9f9bb0]" />}
             </span>
           ))}
         </div>
@@ -217,22 +217,22 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
 
       <div className="mb-5 mt-6 flex flex-wrap gap-4">
         <div className="relative min-w-[200px] flex-1">
-          <SearchIcon className="pointer-events-none absolute left-[23px] top-1/2 h-[23px] w-[23px] -translate-y-1/2 text-[#a9a6b8]" />
+          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a9a6b8]" />
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={SEARCH_PLACEHOLDER[activeTab]}
-            className="h-[53px] w-full rounded-md border border-[#2b2837] bg-[#100e18] pl-[62px] pr-4 text-[16.5px] text-[#f1eff7] outline-none placeholder:text-[#8c899c] hover:border-[#443d5e] focus:border-[#443d5e]"
+            className="h-11 w-full rounded-lg border border-[#2b2837] bg-[#100e18] pl-10 pr-4 text-sm text-[#f1eff7] outline-none placeholder:text-[#8c899c] hover:border-[#443d5e] focus:border-[#443d5e]"
           />
         </div>
         {canUsePrimaryAction && (
           <button
             type="button"
             onClick={handlePrimaryAction}
-            className="inline-flex h-[53px] items-center justify-center gap-3 rounded-[5px] border border-[#8a66ee] bg-[#6a3bd6] px-6 text-[17px] font-medium text-white transition hover:bg-[#7a4ae8] hover:border-[#a78bfa] hover:shadow-[0_0_0_3px_rgba(122,74,232,0.25),0_6px_20px_rgba(106,59,214,0.35)]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#8a66ee] bg-[#6a3bd6] px-5 text-sm font-semibold text-white transition hover:bg-[#7a4ae8] hover:border-[#a78bfa] hover:shadow-[0_0_0_3px_rgba(122,74,232,0.25),0_6px_20px_rgba(106,59,214,0.35)]"
           >
-            <PlusIcon className="h-[18px] w-[18px]" />
+            <PlusIcon className="h-4 w-4" />
             {PRIMARY_LABEL[activeTab]}
           </button>
         )}

@@ -123,7 +123,7 @@ export default function PbiStyleSourcesSection({ user, galaxies, userGalaxyIds }
 
   return (
     <div className="mt-10 border-t border-[#252231] pt-8">
-      <h2 className="font-sora text-xl font-semibold text-white">PBIs de exemplo</h2>
+      <h2 className="font-sora text-lg font-semibold text-white">PBIs de exemplo</h2>
       <p className="mt-1 text-sm text-luminous-on-surface-variant">
         Envie PBIs já aprovados para o sistema aprender o padrão de escrita do Acceptance Criteria desta Galáxia,
         independente do tipo de tela.

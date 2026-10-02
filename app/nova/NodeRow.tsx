@@ -114,9 +114,9 @@ export default function NodeRow({
       ? "rounded-[6px] border border-[#3a2e62] bg-gradient-to-b from-[#1d1633] to-[#1b1530]"
       : "rounded-[6px] border border-[#2a2735] bg-[#13111c]";
 
-  const nameSizeClass = isRoot ? "text-[21.5px] leading-7 tracking-[-0.2px]" : "text-[19px] leading-[26px] tracking-[-0.3px]";
-  const circleSizeClass = isRoot ? "h-[49px] w-[49px]" : "h-[43px] w-[43px]";
-  const circleIconSizeClass = isRoot ? "h-9 w-9" : "h-7 w-7";
+  const nameSizeClass = "text-sm";
+  const circleSizeClass = isRoot ? "h-10 w-10" : "h-9 w-9";
+  const circleIconSizeClass = isRoot ? "h-6 w-6" : "h-5 w-5";
   const circleClass = isRoot
     ? "border-[#2f2a45] bg-[#1a1729]"
     : highlighted
@@ -132,11 +132,11 @@ export default function NodeRow({
           disabled={!isExpandable}
           aria-label={isExpanded ? "Recolher" : isPlaneta ? "Ver exemplos de treino" : "Expandir"}
           title={isPlaneta ? "Exemplos de treino" : undefined}
-          className={`grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[5px] border transition ${
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-[5px] border transition ${
             isExpandable ? squareButtonClass(highlighted) : "border-transparent opacity-0"
           }`}
         >
-          <ChevronDownIcon className={`h-5 w-5 text-[#e8e6f0] transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
+          <ChevronDownIcon className={`h-4 w-4 text-[#e8e6f0] transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
         </button>
 
         <span className={`grid shrink-0 place-items-center rounded-full border ${circleSizeClass} ${circleClass}`}>
@@ -149,7 +149,7 @@ export default function NodeRow({
             níveis — ajuda a diferenciar o nível mais específico (folha) da
             árvore num piscar de olhos, sem depender só do texto do badge. */}
         <span
-          className={`shrink-0 rounded-[4px] border px-2.5 py-1 font-mono text-[11.5px] font-bold uppercase tracking-[0.6px] ${
+          className={`shrink-0 rounded-[4px] border px-2.5 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.05em] ${
             isPlaneta
               ? "border-luminous-tertiary/40 bg-luminous-tertiary/10 text-luminous-tertiary-fixed-dim"
               : "border-[#473a74] bg-[#1c1634] text-[#c3b1fb]"
@@ -161,15 +161,15 @@ export default function NodeRow({
         {isUserGalaxy && <Badge variant="info">Sua Galáxia</Badge>}
 
         {childCountLabel && (
-          <span className="inline-flex shrink-0 items-center gap-[11px] text-[15px] text-[#b4b1c1]">
-            <LayersIcon className="h-[21px] w-[21px] text-[#b7b4c4]" />
+          <span className="inline-flex shrink-0 items-center gap-2 text-sm text-[#b4b1c1]">
+            <LayersIcon className="h-4 w-4 text-[#b7b4c4]" />
             {childCountLabel}
           </span>
         )}
 
         {isGalaxia && (
-          <span className="inline-flex shrink-0 items-center gap-[11px] text-[15px] text-[#b4b1c1]">
-            <LayersIcon className="h-[21px] w-[21px] text-[#b7b4c4]" />
+          <span className="inline-flex shrink-0 items-center gap-2 text-sm text-[#b4b1c1]">
+            <LayersIcon className="h-4 w-4 text-[#b7b4c4]" />
             {linkedSources.length === 0 ? "Sem Design System" : `${linkedSources.length} fonte(s) vinculada(s)`}
           </span>
         )}
@@ -180,9 +180,9 @@ export default function NodeRow({
               type="button"
               onClick={() => onRequestCreate(childType, node.id)}
               aria-label={`Criar ${TYPE_LABEL[childType]}`}
-              className="inline-flex h-12 items-center gap-[11px] rounded-[5px] border border-[#7456d8] bg-[#1a1433] px-4 text-[17px] font-medium text-[#cbbaff] transition hover:border-[#9477f2] hover:bg-[#261d4a] hover:shadow-[0_0_0_3px_rgba(116,86,216,0.2)]"
+              className="inline-flex h-9 items-center gap-2 rounded-[5px] border border-[#7456d8] bg-[#1a1433] px-3.5 text-sm font-medium text-[#cbbaff] transition hover:border-[#9477f2] hover:bg-[#261d4a] hover:shadow-[0_0_0_3px_rgba(116,86,216,0.2)]"
             >
-              <PlusIcon className="h-[17px] w-[17px] text-[#c7b6ff]" />
+              <PlusIcon className="h-4 w-4 text-[#c7b6ff]" />
               {TYPE_LABEL[childType]}
             </button>
           )}
@@ -192,9 +192,9 @@ export default function NodeRow({
               onClick={() => setShowLinkModal(true)}
               aria-label="Vincular Design System"
               title="Vincular Design System"
-              className={`grid h-[47px] w-[47px] place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
+              className={`grid h-9 w-9 place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
             >
-              <LinkIcon className="h-[18px] w-[18px] text-[#eeecf5]" />
+              <LinkIcon className="h-4 w-4 text-[#eeecf5]" />
             </button>
           )}
           {canModify && (
@@ -204,9 +204,9 @@ export default function NodeRow({
                 onClick={() => onRequestEdit(node)}
                 aria-label={`Editar ${node.name}`}
                 title="Editar"
-                className={`grid h-[47px] w-[47px] place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
+                className={`grid h-9 w-9 place-items-center rounded-[5px] border transition ${squareButtonClass(highlighted)}`}
               >
-                <EditIcon className="h-[18px] w-[18px] text-[#eeecf5]" />
+                <EditIcon className="h-4 w-4 text-[#eeecf5]" />
               </button>
               <OverflowMenu
                 ariaLabel={`Mais ações para ${node.name}`}
@@ -233,9 +233,9 @@ export default function NodeRow({
           <div className="space-y-2">
             {node.children.map((child) => (
               <div key={child.id} className="relative">
-                <span className="absolute left-[-27px] top-[26px] h-[1.5px] w-[27px] bg-[#4a3b86]" />
-                <span className="absolute left-[-36.5px] top-[16.5px] flex h-[19px] w-[19px] items-center justify-center rounded-full border-[1.5px] border-[#8d68f0] bg-[#1b1535]">
-                  <span className="h-2 w-2 rounded-full bg-[#9b78f6]" />
+                <span className="absolute left-[-27px] top-[29px] h-[1.5px] w-[27px] bg-[#4a3b86]" />
+                <span className="absolute left-[-34px] top-[21.5px] flex h-4 w-4 items-center justify-center rounded-full border-[1.5px] border-[#8d68f0] bg-[#1b1535]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#9b78f6]" />
                 </span>
                 <NodeRow
                   node={child}
@@ -308,27 +308,27 @@ function GalaxyDesignSystemPanel({
 }) {
   return (
     <div className="rounded-[4px] border border-[#2f2944] bg-[#110e1b] px-8 py-10">
-      <h4 className="mb-6 text-[19px] text-[#f1eff7]">Design System</h4>
+      <h4 className="mb-6 text-base text-[#f1eff7]">Design System</h4>
       {hasLinkedSources ? (
-        <p className="text-center text-[15.5px] text-[#aeabbc]">
+        <p className="text-center text-sm text-[#aeabbc]">
           Fontes já vinculadas — veja os detalhes na aba &quot;Design System&quot;.
         </p>
       ) : (
         <div className="flex flex-col items-center">
-          <LayersIcon className="mb-4 h-14 w-14 text-[#a684fa]" strokeWidth={1.1} />
-          <p className="max-w-xl text-center text-[19.5px] font-semibold text-[#f7f5fc]">
+          <LayersIcon className="mb-4 h-10 w-10 text-[#a684fa]" strokeWidth={1.1} />
+          <p className="max-w-xl text-center text-base font-semibold text-[#f7f5fc]">
             Nenhuma fonte vinculada a esta galáxia.
           </p>
-          <p className="mt-2 max-w-lg text-center text-[15.5px] text-[#aeabbc]">
+          <p className="mt-2 max-w-lg text-center text-sm text-[#aeabbc]">
             Conecte um Design System para enriquecer a memória visual do projeto.
           </p>
           {canLink && (
             <button
               type="button"
               onClick={onLinkClick}
-              className="mt-8 inline-flex h-[52px] items-center gap-[13px] rounded-[4px] border border-[#8a66ee] bg-[#6a3bd6] px-7 text-[18px] font-medium text-white transition hover:border-[#a78bfa] hover:bg-[#7a4ae8] hover:shadow-[0_0_0_3px_rgba(122,74,232,0.25),0_6px_20px_rgba(106,59,214,0.35)]"
+              className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl border border-[#8a66ee] bg-[#6a3bd6] px-5 text-sm font-semibold text-white transition hover:border-[#a78bfa] hover:bg-[#7a4ae8] hover:shadow-[0_0_0_3px_rgba(122,74,232,0.25),0_6px_20px_rgba(106,59,214,0.35)]"
             >
-              <LinkIcon className="h-[21px] w-[21px]" />
+              <LinkIcon className="h-4 w-4" />
               Vincular Design System
             </button>
           )}
