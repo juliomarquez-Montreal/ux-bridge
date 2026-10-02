@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Atom,
+  BarChart3,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -15,6 +17,7 @@ import {
   Eye,
   EyeOff,
   Filter,
+  Flag,
   FolderPlus,
   Globe,
   Hand,
@@ -23,6 +26,8 @@ import {
   Lock,
   Mail,
   Maximize2,
+  Map as MapLucide,
+  MessageCircle,
   MessageSquare,
   Minimize2,
   Minus,
@@ -30,11 +35,14 @@ import {
   Network,
   Package,
   Pencil,
+  Play,
   PenTool,
   Redo2,
+  RefreshCw,
   Settings,
   Share2,
   SlidersHorizontal,
+  Target,
   Square,
   Star,
   ThumbsDown,
@@ -43,6 +51,7 @@ import {
   Undo2,
   Unlock,
   Upload,
+  Users,
   X,
 } from "lucide-react";
 
@@ -397,4 +406,33 @@ export function UnlockIcon(props: SVGProps<SVGSVGElement>) {
 // mais decorativo) pro tamanho compacto das Camadas/menu de contexto.
 export function EyeOpenIcon(props: SVGProps<SVGSVGElement>) {
   return <Eye strokeWidth={1.7} {...props} />;
+}
+
+// Ícones da tela de Projetos (tema claro, mockup Projetos.html).
+export function TargetIcon(props: SVGProps<SVGSVGElement>) {
+  return <Target strokeWidth={1.7} {...props} />;
+}
+export function StoryMapIcon(props: SVGProps<SVGSVGElement>) {
+  return <MapLucide strokeWidth={1.7} {...props} />;
+}
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return <RefreshCw strokeWidth={1.7} {...props} />;
+}
+export function BarChartIcon(props: SVGProps<SVGSVGElement>) {
+  return <BarChart3 strokeWidth={1.7} {...props} />;
+}
+export function MessageCircleIcon(props: SVGProps<SVGSVGElement>) {
+  return <MessageCircle strokeWidth={1.7} {...props} />;
+}
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return <Calendar strokeWidth={1.7} {...props} />;
+}
+export function UsersIcon(props: SVGProps<SVGSVGElement>) {
+  return <Users strokeWidth={1.7} {...props} />;
+}
+export function FlagIcon(props: SVGProps<SVGSVGElement>) {
+  return <Flag strokeWidth={1.7} {...props} />;
+}
+export function PlayIcon(props: SVGProps<SVGSVGElement>) {
+  return <Play strokeWidth={1.7} {...props} />;
 }

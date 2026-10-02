@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PillButton from "@/components/PillButton";
-import { CloseIcon } from "@/components/icons";
+import { Btn, Modal } from "../ui";
 import type { ApiUnlinkedBridge } from "../types";
 
 interface Props {
@@ -48,56 +47,42 @@ export default function LinkBridgeModal({ projectId, onClose, onLinked }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-white/10 bg-luminous-surface-container p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-sora text-lg font-semibold text-white">Vincular Bridge</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-luminous-on-surface-variant hover:text-luminous-on-surface">
-            <CloseIcon className="h-5 w-5" />
-          </button>
+    <Modal title="Vincular Bridge" onClose={onClose} busy={submitting}>
+      {loadError && <p className="text-sm text-[#C42B2B]">{loadError}</p>}
+      {bridges === null ? (
+        <p className="text-sm text-[#50545C]">Carregando...</p>
+      ) : bridges.length === 0 ? (
+        <p className="text-sm text-[#50545C]">Nenhum Bridge disponível (todos já estão em algum Projeto).</p>
+      ) : (
+        <div className="max-h-72 space-y-1.5 overflow-y-auto">
+          {bridges.map((bridge) => (
+            <button
+              key={bridge.id}
+              type="button"
+              onClick={() => setSelectedId(bridge.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                selectedId === bridge.id
+                  ? "border-[#8B40F5] bg-[#F5EEFE] text-[#1D1F25]"
+                  : "border-[#E6E8EC] bg-white text-[#1D1F25] hover:bg-[#F4F5F7]"
+              }`}
+            >
+              <span className="truncate">{bridge.planetName}</span>
+              <span className="ml-3 shrink-0 text-xs text-[#6B6F77]">{bridge.galaxiaName ?? "—"}</span>
+            </button>
+          ))}
         </div>
+      )}
 
-        {loadError && <p className="text-sm text-luminous-error">{loadError}</p>}
-        {bridges === null ? (
-          <p className="text-sm text-luminous-on-surface-variant">Carregando...</p>
-        ) : bridges.length === 0 ? (
-          <p className="text-sm text-luminous-on-surface-variant">Nenhum Bridge disponível (todos já estão em algum Projeto).</p>
-        ) : (
-          <div className="max-h-72 space-y-1.5 overflow-y-auto">
-            {bridges.map((bridge) => (
-              <button
-                key={bridge.id}
-                type="button"
-                onClick={() => setSelectedId(bridge.id)}
-                className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition ${
-                  selectedId === bridge.id
-                    ? "border-luminous-primary bg-luminous-primary/10 text-luminous-on-surface"
-                    : "border-white/10 bg-white/5 text-luminous-on-surface-variant hover:bg-white/10"
-                }`}
-              >
-                <span className="truncate">{bridge.planetName}</span>
-                <span className="shrink-0 text-xs">{bridge.galaxiaName ?? "—"}</span>
-              </button>
-            ))}
-          </div>
-        )}
+      {submitError && <p className="mt-3 text-sm text-[#C42B2B]">{submitError}</p>}
 
-        {submitError && <p className="mt-3 text-sm text-luminous-error">{submitError}</p>}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <PillButton type="button" variant="inactive" onClick={onClose}>
-            Cancelar
-          </PillButton>
-          <PillButton type="button" variant="primary" onClick={handleSubmit} disabled={!selectedId || submitting}>
-            {submitting ? "Vinculando..." : "Vincular"}
-          </PillButton>
-        </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Btn onClick={onClose} disabled={submitting}>
+          Cancelar
+        </Btn>
+        <Btn variant="primary" onClick={handleSubmit} disabled={!selectedId || submitting}>
+          {submitting ? "Vinculando..." : "Vincular"}
+        </Btn>
       </div>
-    </div>
+    </Modal>
   );
 }

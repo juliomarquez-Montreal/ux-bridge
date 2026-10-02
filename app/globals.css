@@ -23,6 +23,8 @@
   animation: skeleton-shimmer-sweep 1.6s ease-in-out infinite;
 }
 
+.skeleton-shimmer-light::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent); }
+
 @keyframes float-slow { from { transform: translate3d(-2%, -1%, 0) rotate(-5deg); } to { transform: translate3d(4%, 3%, 0) rotate(7deg); } }
 @keyframes float-reverse { from { transform: translate3d(3%, 2%, 0) rotate(6deg); } to { transform: translate3d(-3%, -3%, 0) rotate(-7deg); } }
 @keyframes drift-line { from { transform: translateX(-8%); } to { transform: translateX(8%); } }

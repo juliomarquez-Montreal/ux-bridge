@@ -1,67 +1,85 @@
 "use client";
 
-import GlassCard from "@/components/GlassCard";
 import { CheckIcon } from "@/components/icons";
 import { BRIDGE_STAGE_LABEL, BRIDGE_STAGES, mapBridgeToStage } from "@/lib/projects/bridgeStage";
+import { Card } from "../ui";
 import type { ApiProjectDetail } from "../types";
 
 interface Props {
   project: ApiProjectDetail;
 }
 
-// Story Map (versão mínima/funcional, Projeto-1): cada Bridge vinculado vira
-// um "cartão" com a trilha Material enviado → Bridge Spec aprovado →
-// Wireframe PO → Wireframe UX → Finalizado — mesmas 5 etapas reais do
-// pipeline "Status dos Bridges" da Visão geral, só numa visualização por
-// cartão em vez de agregada.
+// Story Map (versão mínima/funcional): cada Bridge vinculado vira um cartão
+// com a trilha Material enviado → Bridge Spec aprovado → Wireframe PO →
+// Wireframe UX → Finalizado — as mesmas 5 etapas reais do "Status dos
+// Bridges" da Visão geral, só por cartão. Visual da "Linha da release" do
+// mockup (concluído = verde, atual = azul com halo, futuro = vazado).
 export default function ProjectStoryMapTab({ project }: Props) {
   if (project.bridges.length === 0) {
     return (
-      <GlassCard className="text-center text-sm text-luminous-on-surface-variant">
-        Nenhum Bridge vinculado ainda — vincule pela aba Visão geral.
-      </GlassCard>
+      <Card className="p-8 text-center text-sm text-[#50545C]">Nenhum Bridge vinculado ainda — vincule pela aba Visão geral.</Card>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 xl:grid-cols-2">
       {project.bridges.map((bridge) => {
         const currentStage = mapBridgeToStage(bridge);
         const currentIndex = BRIDGE_STAGES.indexOf(currentStage);
+        const allDone = bridge.status === "FINALIZADO";
+        const filledUntil = allDone ? BRIDGE_STAGES.length - 1 : currentIndex;
         return (
-          <GlassCard key={bridge.id} className="transition hover:-translate-y-0.5">
-            <a href={`/bridges/${bridge.id}`} className="font-sora text-sm font-semibold text-luminous-on-surface hover:underline">
+          <Card key={bridge.id} className="p-5 transition hover:shadow-[0_6px_18px_rgba(16,24,40,0.08)]">
+            <a href={`/bridges/${bridge.id}`} className="text-[17px] font-bold text-[#15161A] hover:text-[#8B40F5]">
               {bridge.planetName}
             </a>
-            <p className="mt-0.5 text-xs text-luminous-on-surface-variant">
-              {bridge.estrelaName} {bridge.galaxiaName ? `· ${bridge.galaxiaName}` : ""}
+            <p className="mt-0.5 text-[13.5px] text-[#50545C]">
+              {[bridge.estrelaName, bridge.galaxiaName].filter(Boolean).join(" · ")}
             </p>
 
-            <div className="mt-4 space-y-2.5">
-              {BRIDGE_STAGES.map((stage, index) => {
-                const done = index < currentIndex || bridge.status === "FINALIZADO";
-                const active = index === currentIndex && bridge.status !== "FINALIZADO";
-                return (
-                  <div key={stage} className="flex items-center gap-2.5">
-                    <div
-                      className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition ${
-                        done
-                          ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
-                          : active
-                            ? "border-luminous-primary bg-luminous-primary/20 text-luminous-primary-fixed-dim"
-                            : "border-white/10 bg-white/5 text-luminous-on-surface-variant/50"
-                      }`}
-                    >
-                      {done ? <CheckIcon className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+            <div className="relative mt-6">
+              <div
+                className="absolute top-[13px] h-0 border-t-2 border-dashed border-[#D3D5DA]"
+                style={{ left: `${50 / BRIDGE_STAGES.length}%`, right: `${50 / BRIDGE_STAGES.length}%` }}
+              />
+              {filledUntil > 0 && (
+                <div
+                  className="absolute top-[12px] h-[3px] rounded bg-[#1F6FE8]"
+                  style={{ left: `${50 / BRIDGE_STAGES.length}%`, width: `${(filledUntil / BRIDGE_STAGES.length) * 100}%` }}
+                />
+              )}
+              <div className="relative grid grid-cols-5">
+                {BRIDGE_STAGES.map((stage, index) => {
+                  const done = index < currentIndex || allDone;
+                  const active = index === currentIndex && !allDone;
+                  return (
+                    <div key={stage} className="flex flex-col items-center text-center">
+                      <div className="grid h-[28px] place-items-center">
+                        {done ? (
+                          <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-[#2EB872] text-white">
+                            <CheckIcon className="h-3.5 w-3.5" />
+                          </span>
+                        ) : active ? (
+                          <span className="grid h-[28px] w-[28px] place-items-center rounded-full bg-[#CFE0FB]">
+                            <span className="h-[18px] w-[18px] rounded-full border-[3px] border-white bg-[#1F6FE8] shadow" />
+                          </span>
+                        ) : (
+                          <span className="h-[22px] w-[22px] rounded-full border-2 border-[#9A9EA6] bg-white" />
+                        )}
+                      </div>
+                      <span
+                        className={`mt-2 px-1 text-[12.5px] leading-tight ${
+                          active ? "font-semibold text-[#1A5FD0]" : done ? "text-[#1B6B36]" : "text-[#6B6F77]"
+                        }`}
+                      >
+                        {BRIDGE_STAGE_LABEL[stage]}
+                      </span>
                     </div>
-                    <span className={`text-xs ${active ? "font-medium text-luminous-on-surface" : "text-luminous-on-surface-variant"}`}>
-                      {BRIDGE_STAGE_LABEL[stage]}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </GlassCard>
+          </Card>
         );
       })}
     </div>

@@ -7,9 +7,11 @@ export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   FINALIZADO: "Finalizado",
 };
 
-export const PROJECT_STATUS_BADGE_VARIANT: Record<ProjectStatus, "success" | "warning" | "info" | "neutral" | "error"> = {
-  PLANEJAMENTO: "neutral",
-  EM_EXECUCAO: "info",
-  EM_VALIDACAO: "warning",
-  FINALIZADO: "success",
+// Tom da pílula no tema claro (ver ui.tsx::Pill) — "Em execução" é verde,
+// igual ao mockup Projetos.html.
+export const PROJECT_STATUS_TONE: Record<ProjectStatus, "green" | "blue" | "gray" | "amber"> = {
+  PLANEJAMENTO: "gray",
+  EM_EXECUCAO: "green",
+  EM_VALIDACAO: "amber",
+  FINALIZADO: "blue",
 };

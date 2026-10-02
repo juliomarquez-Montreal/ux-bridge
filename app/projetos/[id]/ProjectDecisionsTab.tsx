@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import GlassCard from "@/components/GlassCard";
-import PillButton from "@/components/PillButton";
-import { TrashIcon } from "@/components/icons";
+import Avatar from "@/components/Avatar";
+import { MessageCircleIcon, TrashIcon } from "@/components/icons";
+import { Btn, Card, CardTitle, fieldClass } from "../ui";
 import type { ApiProjectDetail } from "../types";
 
 interface Props {
   project: ApiProjectDetail;
-  onChanged: () => void;
+  onChanged: () => Promise<void>;
 }
 
 function formatDateTime(iso: string): string {
@@ -34,7 +34,7 @@ export default function ProjectDecisionsTab({ project, onChanged }: Props) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Falha ao registrar a decisão.");
       setText("");
-      onChanged();
+      await onChanged();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Falha ao registrar a decisão.");
     } finally {
@@ -46,7 +46,7 @@ export default function ProjectDecisionsTab({ project, onChanged }: Props) {
     setDeleteBusy(decisionId);
     try {
       await fetch(`/api/projetos/${project.id}/decisions/${decisionId}`, { method: "DELETE" });
-      onChanged();
+      await onChanged();
     } finally {
       setDeleteBusy(null);
     }
@@ -54,45 +54,48 @@ export default function ProjectDecisionsTab({ project, onChanged }: Props) {
 
   return (
     <div>
-      <GlassCard>
-        <h3 className="font-sora text-sm font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Registrar decisão</h3>
+      <Card className="p-5">
+        <CardTitle icon={<MessageCircleIcon className="h-6 w-6" />}>Registrar decisão</CardTitle>
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
           rows={2}
           placeholder="Ex: Priorizamos a tela de login antes do cadastro, por dependência técnica."
-          className="mt-3 w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
+          className={`${fieldClass} mt-4 resize-none`}
         />
-        {submitError && <p className="mt-2 text-sm text-luminous-error">{submitError}</p>}
+        {submitError && <p className="mt-2 text-sm text-[#C42B2B]">{submitError}</p>}
         <div className="mt-3 flex justify-end">
-          <PillButton type="button" variant="primary" onClick={handleSubmit} disabled={!text.trim() || submitting}>
+          <Btn variant="primary" onClick={handleSubmit} disabled={!text.trim() || submitting}>
             {submitting ? "Registrando..." : "Registrar"}
-          </PillButton>
+          </Btn>
         </div>
-      </GlassCard>
+      </Card>
 
       {project.decisions.length === 0 ? (
-        <GlassCard className="mt-4 text-center text-sm text-luminous-on-surface-variant">Nenhuma decisão registrada ainda.</GlassCard>
+        <Card className="mt-4 p-8 text-center text-sm text-[#50545C]">Nenhuma decisão registrada ainda.</Card>
       ) : (
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-4 space-y-3">
           {project.decisions.map((decision) => (
-            <GlassCard key={decision.id} className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm text-luminous-on-surface">{decision.text}</p>
-                <p className="mt-1.5 text-xs text-luminous-on-surface-variant">
-                  {decision.authorName} · {formatDateTime(decision.createdAt)}
-                </p>
+            <Card key={decision.id} className="flex items-start justify-between gap-3 p-5 transition hover:shadow-[0_6px_18px_rgba(16,24,40,0.08)]">
+              <div className="flex min-w-0 items-start gap-3">
+                <Avatar name={decision.authorName} size={34} className="!border-[#E6E8EC]" />
+                <div className="min-w-0">
+                  <p className="text-[15px] leading-relaxed text-[#1D1F25]">{decision.text}</p>
+                  <p className="mt-1.5 text-[13px] text-[#6B6F77]">
+                    {decision.authorName} · {formatDateTime(decision.createdAt)}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => handleDelete(decision.id)}
                 disabled={deleteBusy === decision.id}
                 aria-label="Remover decisão"
-                className="shrink-0 text-luminous-on-surface-variant hover:text-luminous-error disabled:opacity-50"
+                className="shrink-0 text-[#9A9EA6] transition hover:text-[#E5484D] disabled:opacity-50"
               >
-                <TrashIcon className="h-3.5 w-3.5" />
+                <TrashIcon className="h-4 w-4" />
               </button>
-            </GlassCard>
+            </Card>
           ))}
         </div>
       )}

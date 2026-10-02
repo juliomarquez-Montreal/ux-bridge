@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import GlassCard from "@/components/GlassCard";
-import PillButton from "@/components/PillButton";
-import Badge from "@/components/Badge";
 import Skeleton from "@/components/Skeleton";
-import { EyeIcon, PlusIcon } from "@/components/icons";
-import { PROJECT_STATUS_BADGE_VARIANT, PROJECT_STATUS_LABEL } from "./statusMeta";
+import { ChevronRightIcon, PlusIcon } from "@/components/icons";
+import { Btn, Card, Pill } from "./ui";
+import { PROJECT_STATUS_LABEL, PROJECT_STATUS_TONE } from "./statusMeta";
 import type { ApiProjectSummary } from "./types";
 import CreateProjectModal from "./CreateProjectModal";
 
@@ -15,7 +13,7 @@ function formatDate(iso: string): string {
 }
 
 // /projetos (Projeto-1): lista de Projetos existentes + botão "Criar novo
-// Projeto". Qualquer usuário autenticado pode ver e criar.
+// Projeto". Tema claro (cores do mockup Projetos.html).
 export default function ProjetosPanel() {
   const [projects, setProjects] = useState<ApiProjectSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,53 +34,51 @@ export default function ProjetosPanel() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[32px] font-extrabold leading-tight tracking-[-0.5px] text-white">Projetos</h1>
-          <p className="mt-1 text-[15px] text-luminous-on-surface-variant">
+          <h1 className="text-[30px] font-bold leading-tight text-[#15161A]">Projetos</h1>
+          <p className="mt-1 text-[15px] text-[#50545C]">
             Agrupe múltiplos Bridges e colaboradores sob um mesmo Projeto de entrega.
           </p>
         </div>
-        <PillButton type="button" variant="primary" onClick={() => setCreateOpen(true)} className="!px-5 !py-3 !text-xs">
-          <span className="flex items-center gap-2">
-            <PlusIcon className="h-3.5 w-3.5" />
-            Criar novo Projeto
-          </span>
-        </PillButton>
+        <Btn variant="primary" onClick={() => setCreateOpen(true)}>
+          <PlusIcon className="h-4 w-4" />
+          Criar novo Projeto
+        </Btn>
       </div>
 
-      {loadError && <p className="mt-6 text-sm text-luminous-error">{loadError}</p>}
+      {loadError && <p className="mt-6 text-sm text-[#C42B2B]">{loadError}</p>}
 
-      <div className="mt-8 space-y-3">
+      <div className="mt-7 space-y-3">
         {projects === null ? (
           <>
-            <Skeleton className="h-20 w-full rounded-xl" />
-            <Skeleton className="h-20 w-full rounded-xl" />
-            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton tone="light" className="h-[88px] w-full rounded-[10px]" />
+            <Skeleton tone="light" className="h-[88px] w-full rounded-[10px]" />
+            <Skeleton tone="light" className="h-[88px] w-full rounded-[10px]" />
           </>
         ) : projects.length === 0 ? (
-          <GlassCard className="text-center text-sm text-luminous-on-surface-variant">
+          <Card className="p-8 text-center text-sm text-[#50545C]">
             Nenhum Projeto cadastrado ainda. Clique em &quot;Criar novo Projeto&quot; acima.
-          </GlassCard>
+          </Card>
         ) : (
           projects.map((project) => (
-            <a key={project.id} href={`/projetos/${project.id}`} className="block transition hover:-translate-y-0.5">
-              <GlassCard className="flex flex-wrap items-center justify-between gap-4">
+            <a
+              key={project.id}
+              href={`/projetos/${project.id}`}
+              className="group block rounded-[10px] transition hover:-translate-y-0.5 hover:shadow-[0_6px_18px_rgba(16,24,40,0.08)]"
+            >
+              <Card className="flex flex-wrap items-center justify-between gap-4 p-5 transition group-hover:border-[#C9CDD4]">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="font-mono text-xs text-luminous-on-surface-variant">{project.code}</span>
-                    <h3 className="font-sora text-base font-semibold text-luminous-on-surface">{project.name}</h3>
-                    <Badge variant={PROJECT_STATUS_BADGE_VARIANT[project.status]}>{PROJECT_STATUS_LABEL[project.status]}</Badge>
+                    <h3 className="text-[18px] font-bold text-[#15161A]">{project.name}</h3>
+                    <span className="rounded-[6px] bg-[#EEF0F3] px-2.5 py-1 text-[13px] text-[#52565E]">{project.code}</span>
+                    <Pill tone={PROJECT_STATUS_TONE[project.status]}>{PROJECT_STATUS_LABEL[project.status]}</Pill>
                   </div>
-                  {project.objective && (
-                    <p className="mt-1.5 line-clamp-1 text-xs text-luminous-on-surface-variant">{project.objective}</p>
-                  )}
-                  <p className="mt-1.5 text-xs text-luminous-on-surface-variant/70">
+                  {project.objective && <p className="mt-1.5 line-clamp-1 text-sm text-[#50545C]">{project.objective}</p>}
+                  <p className="mt-1.5 text-[13px] text-[#6B6F77]">
                     {project.bridgeCount} Bridge(s) vinculado(s) · Criado por {project.createdByName} em {formatDate(project.createdAt)}
                   </p>
                 </div>
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-luminous-tertiary/30 bg-luminous-tertiary/15 text-luminous-tertiary-fixed-dim">
-                  <EyeIcon className="h-4 w-4" />
-                </div>
-              </GlassCard>
+                <ChevronRightIcon className="h-5 w-5 text-[#9A9EA6] transition group-hover:translate-x-0.5 group-hover:text-[#8B40F5]" />
+              </Card>
             </a>
           ))
         )}

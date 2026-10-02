@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import PillButton from "@/components/PillButton";
-import { CloseIcon } from "@/components/icons";
+import { Btn, fieldClass, labelClass, Modal } from "../ui";
 import type { ApiProjectSprint } from "../types";
 
 interface Props {
@@ -49,78 +48,45 @@ export default function NewSprintModal({ projectId, sprint, onClose, onSaved }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-sm rounded-xl border border-white/10 bg-luminous-surface-container p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-sora text-lg font-semibold text-white">{isEdit ? "Editar Sprint" : "Nova Sprint"}</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-luminous-on-surface-variant hover:text-luminous-on-surface">
-            <CloseIcon className="h-5 w-5" />
-          </button>
+    <Modal title={isEdit ? "Editar Sprint" : "Nova Sprint"} onClose={onClose} maxWidth="max-w-sm" busy={submitting}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass}>Nome</label>
+          <input
+            type="text"
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Ex: Sprint 01"
+            className={fieldClass}
+          />
+        </div>
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className={labelClass}>Início</label>
+            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={fieldClass} />
+          </div>
+          <div className="flex-1">
+            <label className={labelClass}>Fim</label>
+            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className={fieldClass} />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Observações (opcional)</label>
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} className={`${fieldClass} resize-none`} />
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Nome</label>
-            <input
-              type="text"
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Ex: Sprint 01"
-              className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
-            />
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Início</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Fim</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
-              Observações (opcional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={2}
-              className="w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
-            />
-          </div>
+        {submitError && <p className="text-sm text-[#C42B2B]">{submitError}</p>}
 
-          {submitError && <p className="text-sm text-luminous-error">{submitError}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <PillButton type="button" variant="inactive" onClick={onClose}>
-              Cancelar
-            </PillButton>
-            <PillButton type="button" variant="primary" onClick={handleSubmit} disabled={!name.trim() || !startDate || !endDate || submitting}>
-              {submitting ? "Salvando..." : isEdit ? "Salvar" : "Criar Sprint"}
-            </PillButton>
-          </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn onClick={onClose} disabled={submitting}>
+            Cancelar
+          </Btn>
+          <Btn variant="primary" onClick={handleSubmit} disabled={!name.trim() || !startDate || !endDate || submitting}>
+            {submitting ? "Salvando..." : isEdit ? "Salvar" : "Criar Sprint"}
+          </Btn>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PillButton from "@/components/PillButton";
 import Avatar from "@/components/Avatar";
-import { CloseIcon } from "@/components/icons";
+import { Btn, labelClass, Modal } from "../ui";
 import type { ApiProjectUser, ProjectMemberRole } from "../types";
 
 interface Props {
@@ -52,74 +51,60 @@ export default function AddMemberModal({ projectId, onClose, onAdded }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-xl border border-white/10 bg-luminous-surface-container p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-sora text-lg font-semibold text-white">Adicionar colaborador</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-luminous-on-surface-variant hover:text-luminous-on-surface">
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="mb-4">
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Papel</label>
-          <div className="flex gap-2">
-            {ROLES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRole(r)}
-                className={`rounded-lg border px-4 py-1.5 text-sm transition ${
-                  role === r
-                    ? "border-luminous-primary bg-luminous-primary/15 text-luminous-on-surface"
-                    : "border-white/10 bg-white/5 text-luminous-on-surface-variant hover:bg-white/10"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {loadError && <p className="text-sm text-luminous-error">{loadError}</p>}
-        {users === null ? (
-          <p className="text-sm text-luminous-on-surface-variant">Carregando...</p>
-        ) : (
-          <div className="max-h-56 space-y-1 overflow-y-auto">
-            {users.map((candidate) => (
-              <button
-                key={candidate.id}
-                type="button"
-                onClick={() => setSelectedUserId(candidate.id)}
-                className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
-                  selectedUserId === candidate.id
-                    ? "border-luminous-primary bg-luminous-primary/10 text-luminous-on-surface"
-                    : "border-white/10 bg-white/5 text-luminous-on-surface-variant hover:bg-white/10"
-                }`}
-              >
-                <Avatar name={candidate.name} avatarUrl={candidate.avatarUrl} size={26} />
-                {candidate.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {submitError && <p className="mt-3 text-sm text-luminous-error">{submitError}</p>}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <PillButton type="button" variant="inactive" onClick={onClose}>
-            Cancelar
-          </PillButton>
-          <PillButton type="button" variant="primary" onClick={handleSubmit} disabled={!selectedUserId || submitting}>
-            {submitting ? "Adicionando..." : "Adicionar"}
-          </PillButton>
+    <Modal title="Adicionar colaborador" onClose={onClose} maxWidth="max-w-sm" busy={submitting}>
+      <div className="mb-4">
+        <label className={labelClass}>Papel</label>
+        <div className="flex gap-2">
+          {ROLES.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRole(r)}
+              className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition ${
+                role === r
+                  ? "border-[#8B40F5] bg-[#F5EEFE] text-[#6B2FD1]"
+                  : "border-[#D7DAE0] bg-white text-[#50545C] hover:bg-[#F4F5F7]"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      {loadError && <p className="text-sm text-[#C42B2B]">{loadError}</p>}
+      {users === null ? (
+        <p className="text-sm text-[#50545C]">Carregando...</p>
+      ) : (
+        <div className="max-h-56 space-y-1 overflow-y-auto">
+          {users.map((candidate) => (
+            <button
+              key={candidate.id}
+              type="button"
+              onClick={() => setSelectedUserId(candidate.id)}
+              className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                selectedUserId === candidate.id
+                  ? "border-[#8B40F5] bg-[#F5EEFE] text-[#1D1F25]"
+                  : "border-[#E6E8EC] bg-white text-[#1D1F25] hover:bg-[#F4F5F7]"
+              }`}
+            >
+              <Avatar name={candidate.name} avatarUrl={candidate.avatarUrl} size={26} className="!border-[#E6E8EC]" />
+              {candidate.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {submitError && <p className="mt-3 text-sm text-[#C42B2B]">{submitError}</p>}
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Btn onClick={onClose} disabled={submitting}>
+          Cancelar
+        </Btn>
+        <Btn variant="primary" onClick={handleSubmit} disabled={!selectedUserId || submitting}>
+          {submitting ? "Adicionando..." : "Adicionar"}
+        </Btn>
+      </div>
+    </Modal>
   );
 }
