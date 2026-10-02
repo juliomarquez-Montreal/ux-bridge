@@ -53,6 +53,8 @@ export interface ApiProjectSummary {
   createdByName: string;
   createdAt: string;
   bridgeCount: number;
+  // Só vem na listagem (GET /api/projetos): o usuário pode gerenciar/apagar?
+  canManage?: boolean;
 }
 
 export interface ApiProjectDetail extends ApiProjectSummary {

@@ -29,7 +29,7 @@ export async function GET() {
 
   const projects = await db.project.findMany({
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { bridgeLinks: true } } },
+    include: { _count: { select: { bridgeLinks: true } }, members: { select: { userId: true } } },
   });
 
   const creatorIds = Array.from(new Set(projects.map((p) => p.createdById)));
@@ -47,6 +47,9 @@ export async function GET() {
       createdByName: creatorNameById.get(p.createdById) ?? "—",
       createdAt: p.createdAt,
       bridgeCount: p._count.bridgeLinks,
+      // Mesma regra de canManageProject (ADMIN, criador ou membro) — usada pela
+      // tabela pra só oferecer "Apagar" a quem realmente pode.
+      canManage: user.permissionLevel === "ADMIN" || p.createdById === user.id || p.members.some((m) => m.userId === user.id),
     })),
   });
 }

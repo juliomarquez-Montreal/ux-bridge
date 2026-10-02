@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Btn, fieldClass, Modal } from "../ui";
-import type { ApiProjectDetail } from "../types";
+import type { ApiProjectSummary } from "../types";
 
 interface Props {
-  project: ApiProjectDetail;
+  project: Pick<ApiProjectSummary, "id" | "name" | "bridgeCount">;
   onClose: () => void;
   onDeleted: () => void;
 }
