@@ -7,6 +7,7 @@ import AppSidebar from "@/components/AppSidebar";
 import CreateBridgeModal from "@/components/CreateBridgeModal";
 import GalaxySelector from "@/components/GalaxySelector";
 import NotificationBell from "@/components/NotificationBell";
+import NotificationPrompt from "@/components/NotificationPrompt";
 import SearchPalette from "@/components/SearchPalette";
 import { GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components/icons";
 
@@ -154,6 +155,7 @@ export default function AppHeader() {
             <UserMenu />
           </div>
         </div>
+        <NotificationPrompt />
       </header>
 
       {searchOpen && (

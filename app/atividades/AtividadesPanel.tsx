@@ -66,23 +66,23 @@ function FilterSelect({
   children: ReactNode;
 }) {
   return (
-    <div className="relative flex h-11 min-w-[210px] items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3.5">
-      <span className="shrink-0 text-luminous-on-surface-variant">{icon}</span>
+    <div className="relative flex h-11 min-w-[210px] items-center gap-2 rounded-lg border border-[#D7DAE0] bg-white px-3.5">
+      <span className="shrink-0 text-[#50545C]">{icon}</span>
       <select
         aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        style={{ colorScheme: "dark" }}
-        className="w-full appearance-none bg-transparent pr-5 text-sm text-luminous-on-surface outline-none"
+        style={{ colorScheme: "light" }}
+        className="w-full appearance-none bg-transparent pr-5 text-sm text-[#1D1F25] outline-none"
       >
         {children}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 h-4 w-4 text-luminous-on-surface-variant" />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 h-4 w-4 text-[#50545C]" />
     </div>
   );
 }
 
-const OPTION_CLASS = "bg-luminous-surface-container text-luminous-on-surface";
+const OPTION_CLASS = "bg-white text-[#1D1F25]";
 
 export default function AtividadesPanel() {
   const [data, setData] = useState<ApiActivityResponse | null>(null);
@@ -122,8 +122,8 @@ export default function AtividadesPanel() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white">Atividades</h1>
-      <p className="mt-1 text-sm text-luminous-on-surface-variant">
+      <h1 className="text-3xl font-bold text-[#15161A]">Atividades</h1>
+      <p className="mt-1 text-sm text-[#50545C]">
         Histórico das principais ações: Bridges, Wireframes, Projetos e mudanças na NOVA.
       </p>
 
@@ -175,13 +175,13 @@ export default function AtividadesPanel() {
         </FilterSelect>
       </div>
 
-      {loadError && <p className="mt-6 text-sm text-luminous-error">{loadError}</p>}
+      {loadError && <p className="mt-6 text-sm text-[#C42B2B]">{loadError}</p>}
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-white/10">
+      <div className="mt-6 overflow-hidden rounded-[10px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-[.05em] text-luminous-on-surface-variant">
+              <tr className="border-b border-[#E6E8EC] bg-[#FAFBFC] text-xs uppercase tracking-[.05em] text-[#50545C]">
                 <th className="px-4 py-3 font-medium">Usuário</th>
                 <th className="px-4 py-3 font-medium">Ação</th>
                 <th className="px-4 py-3 font-medium">Item afetado</th>
@@ -191,24 +191,24 @@ export default function AtividadesPanel() {
             <tbody className={`transition-opacity duration-200 ${loading && data ? "opacity-50" : "opacity-100"}`}>
               {data === null ? (
                 [0, 1, 2, 3, 4].map((i) => (
-                  <tr key={i} className="border-b border-white/5">
+                  <tr key={i} className="border-b border-[#EEF0F3]">
                     <td colSpan={4} className="px-4 py-3">
-                      <Skeleton className="h-8 w-full rounded-lg" />
+                      <Skeleton tone="light" className="h-8 w-full rounded-lg" />
                     </td>
                   </tr>
                 ))
               ) : data.items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-luminous-on-surface-variant">
+                  <td colSpan={4} className="px-4 py-10 text-center text-[#50545C]">
                     {action || userId ? "Nenhuma atividade encontrada com esses filtros." : "Nenhuma atividade registrada ainda."}
                   </td>
                 </tr>
               ) : (
                 data.items.map((item) => (
-                  <tr key={item.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+                  <tr key={item.id} className="border-b border-[#EEF0F3] last:border-0 hover:bg-[#FAFBFC]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border border-luminous-primary/40 bg-luminous-primary-container font-mono text-[10px] text-luminous-on-surface">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-[#EFE5FD] font-mono text-[10px] font-bold text-[#6B2FD1]">
                           {item.user.avatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element -- foto vem do Supabase Storage
                             <img src={item.user.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -216,20 +216,20 @@ export default function AtividadesPanel() {
                             initials(item.user.name)
                           )}
                         </span>
-                        <span className="font-medium text-luminous-on-surface">{item.user.name}</span>
+                        <span className="font-medium text-[#1D1F25]">{item.user.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-luminous-on-surface-variant">{describeActivity(item.action, item.metadata)}</td>
+                    <td className="px-4 py-3 text-[#50545C]">{describeActivity(item.action, item.metadata)}</td>
                     <td className="px-4 py-3">
                       {item.link ? (
-                        <a href={item.link} className="font-medium text-luminous-primary-fixed-dim underline-offset-2 transition hover:underline">
+                        <a href={item.link} className="font-medium text-[#6B2FD1] underline-offset-2 transition hover:underline">
                           {item.entityLabel}
                         </a>
                       ) : (
-                        <span className="text-luminous-on-surface">{item.entityLabel}</span>
+                        <span className="text-[#1D1F25]">{item.entityLabel}</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-luminous-on-surface-variant">
+                    <td className="whitespace-nowrap px-4 py-3 text-[#50545C]">
                       <time dateTime={item.createdAt} title={fullDate(item.createdAt)}>
                         {relativeTime(item.createdAt)}
                       </time>
@@ -242,8 +242,8 @@ export default function AtividadesPanel() {
         </div>
 
         {data && data.total > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-xs text-luminous-on-surface-variant">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E8EC] bg-[#FAFBFC] px-4 py-3">
+            <p className="text-xs text-[#50545C]">
               Mostrando {first}–{last} de {data.total} atividade(s)
             </p>
             <div className="flex items-center gap-2">
@@ -252,11 +252,11 @@ export default function AtividadesPanel() {
                 aria-label="Página anterior"
                 disabled={data.page <= 1}
                 onClick={() => setPage(data.page - 1)}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeftIcon className="h-4 w-4" />
               </button>
-              <span className="grid h-8 min-w-8 place-items-center rounded-lg bg-luminous-primary px-2 text-xs font-semibold text-luminous-on-primary">
+              <span className="grid h-8 min-w-8 place-items-center rounded-lg bg-[#8B40F5] px-2 text-xs font-semibold text-white">
                 {data.page} / {data.totalPages}
               </span>
               <button
@@ -264,7 +264,7 @@ export default function AtividadesPanel() {
                 aria-label="Próxima página"
                 disabled={data.page >= data.totalPages}
                 onClick={() => setPage(data.page + 1)}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRightIcon className="h-4 w-4" />
               </button>

@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge from "@/components/Badge";
 import GeneratingProgress from "@/components/GeneratingProgress";
-import GlassCard from "@/components/GlassCard";
-import PillButton from "@/components/PillButton";
-import { STATUS_BADGE_VARIANT, STATUS_LABEL } from "../statusMeta";
+import { Btn, Card, Pill, fieldClass, labelClass } from "@/app/projetos/ui";
+import { STATUS_LABEL, STATUS_TONE } from "../statusMeta";
 import type { ApiBridge } from "../types";
 import PageSkeleton from "@/components/PageSkeleton";
 
@@ -117,81 +115,77 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
     }
   }
 
-  if (loadError) return <p className="text-sm text-luminous-error">{loadError}</p>;
-  if (!bridge) return <PageSkeleton />;
+  if (loadError) return <p className="text-sm text-[#C42B2B]">{loadError}</p>;
+  if (!bridge) return <PageSkeleton tone="light" />;
 
   const galaxia = bridge.planet.parent?.parent;
   const estrela = bridge.planet.parent;
 
   return (
     <div>
-      <a href="/bridges" className="text-sm text-luminous-on-surface-variant hover:text-luminous-on-surface">
+      <a href="/bridges" className="text-sm text-[#50545C] transition hover:text-[#8B40F5]">
         ← Voltar para Bridges
       </a>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-white">{bridge.planet.name}</h1>
-        <Badge variant={STATUS_BADGE_VARIANT[bridge.status]}>{STATUS_LABEL[bridge.status]}</Badge>
+        <h1 className="text-2xl font-bold text-[#15161A]">{bridge.planet.name}</h1>
+        <Pill tone={STATUS_TONE[bridge.status] === "done" ? "blue" : STATUS_TONE[bridge.status] === "error" ? "red" : "amber"}>{STATUS_LABEL[bridge.status]}</Pill>
       </div>
-      <p className="mt-1 text-sm text-luminous-on-surface-variant">
+      <p className="mt-1 text-sm text-[#50545C]">
         {galaxia ? `${galaxia.name} / ` : ""}
         {estrela ? `${estrela.name} / ` : ""}
         {bridge.planet.name}
       </p>
 
-      {actionError && <p className="mt-4 text-sm text-luminous-error">{actionError}</p>}
+      {actionError && <p className="mt-4 text-sm text-[#C42B2B]">{actionError}</p>}
 
       {(bridge.status === "GERANDO_BDD" || bridge.status === "GERANDO_WIREFRAME") && (
-        <GlassCard className="mt-6">
-          <GeneratingProgress label={bridge.status === "GERANDO_BDD" ? "Gerando Bridge Spec..." : "Gerando Wireframe..."} />
+        <Card className="mt-6 p-6">
+          <GeneratingProgress tone="light" label={bridge.status === "GERANDO_BDD" ? "Gerando Bridge Spec..." : "Gerando Wireframe..."} />
           <div className="mt-4 flex justify-end">
-            <PillButton type="button" variant="inactive" onClick={() => router.push("/bridges")}>
-              Fechar e continuar depois
-            </PillButton>
+            <Btn onClick={() => router.push("/bridges")}>Fechar e continuar depois</Btn>
           </div>
-        </GlassCard>
+        </Card>
       )}
 
       {bridge.status === "ERRO_GERACAO" && (
-        <GlassCard className="mt-6">
-          <p className="text-sm font-medium text-luminous-error">
+        <Card className="mt-6 border-[#F2B8BA] bg-[#FDF1F1] p-6">
+          <p className="text-sm font-semibold text-[#C42B2B]">
             {bridge.bddApprovedAt ? "Falha ao gerar o wireframe" : "Falha ao gerar o Bridge Spec"}
           </p>
-          <p className="mt-1 text-sm text-luminous-on-surface-variant">
-            {bridge.errorMessage ?? "Erro desconhecido."}
-          </p>
-          <PillButton type="button" variant="primary" className="mt-4" onClick={handleRetry} disabled={busy}>
+          <p className="mt-1 text-sm text-[#50545C]">{bridge.errorMessage ?? "Erro desconhecido."}</p>
+          <Btn variant="primary" className="mt-4" onClick={handleRetry} disabled={busy}>
             {busy ? "Tentando..." : "Tentar novamente"}
-          </PillButton>
-        </GlassCard>
+          </Btn>
+        </Card>
       )}
 
       {/* Revisão do Bridge Spec (BS) */}
       {bridge.status === "AGUARDANDO_APROVACAO_BDD" && (
-        <GlassCard className="mt-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec gerado</p>
-          <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
+        <Card className="mt-6 p-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-[#6B6F77]">Bridge Spec gerado</p>
+          <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-[#E6E8EC] bg-[#FAFBFC] p-4 text-sm text-[#1D1F25]">
             {bridge.generatedBddPbi}
           </pre>
 
           {bridge.attemptCount >= 2 && (
-            <p className="mt-4 rounded-lg border border-[#ffb688]/30 bg-[#ffb688]/10 px-4 py-3 text-sm text-[#ffb688]">
+            <p className="mt-4 rounded-lg border border-[#F0DC9E] bg-[#FDF0CC] px-4 py-3 text-sm text-[#8A5A00]">
               Já são {bridge.attemptCount} tentativas — considere editar manualmente (edição manual chega numa fase futura).
             </p>
           )}
 
           {!showRejectForm ? (
             <div className="mt-4 flex gap-2">
-              <PillButton type="button" variant="primary" onClick={handleApprove} disabled={busy}>
+              <Btn variant="primary" onClick={handleApprove} disabled={busy}>
                 {busy ? "Confirmando..." : "OK"}
-              </PillButton>
-              <PillButton type="button" variant="inactive" onClick={() => setShowRejectForm(true)} disabled={busy}>
+              </Btn>
+              <Btn onClick={() => setShowRejectForm(true)} disabled={busy}>
                 Rejeitar e comentar
-              </PillButton>
+              </Btn>
             </div>
           ) : busy ? (
             <div className="mt-4">
-              <GeneratingProgress label="Gerando Bridge Spec..." />
+              <GeneratingProgress tone="light" label="Gerando Bridge Spec..." />
             </div>
           ) : (
             <RejectForm
@@ -205,14 +199,14 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
               busy={busy}
             />
           )}
-        </GlassCard>
+        </Card>
       )}
 
       {bridge.status === "FINALIZADO" && (
         <>
-          <GlassCard className="mt-6 border-emerald-300/30 bg-emerald-300/5">
-            <p className="text-sm font-medium text-emerald-200">Wireframe aprovado pelo UX e finalizado.</p>
-            <p className="mt-1 text-sm text-luminous-on-surface-variant">
+          <Card className="mt-6 border-[#BFE5CB] bg-[#EDF9F0] p-6">
+            <p className="text-sm font-semibold text-[#1A7A3C]">Wireframe aprovado pelo UX e finalizado.</p>
+            <p className="mt-1 text-sm text-[#50545C]">
               O arquivo SVG já foi exportado e está pronto para ser importado dentro do Figma.
             </p>
             {bridge.wireframeExportUrl && (
@@ -220,18 +214,18 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
                 href={bridge.wireframeExportUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-block rounded-full bg-luminous-primary px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] text-luminous-on-primary transition hover:bg-luminous-primary-fixed"
+                className="mt-4 inline-block rounded-full bg-[#8B40F5] px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] text-white transition hover:bg-[#7B3BF0]"
               >
                 Baixar SVG novamente
               </a>
             )}
-          </GlassCard>
-          <GlassCard className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">Bridge Spec final</p>
-            <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-4 text-sm text-luminous-on-surface">
+          </Card>
+          <Card className="mt-4 p-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[.05em] text-[#6B6F77]">Bridge Spec final</p>
+            <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-[#E6E8EC] bg-[#FAFBFC] p-4 text-sm text-[#1D1F25]">
               {bridge.generatedBddPbi}
             </pre>
-          </GlassCard>
+          </Card>
         </>
       )}
     </div>
@@ -253,10 +247,7 @@ function RejectForm({
 }) {
   return (
     <div className="mt-4 space-y-2">
-      <label
-        htmlFor="reject-comment"
-        className="block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant"
-      >
+      <label htmlFor="reject-comment" className={labelClass}>
         O que precisa ser corrigido?
       </label>
       <textarea
@@ -266,15 +257,15 @@ function RejectForm({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Ex: os critérios de aceite não cobrem o caso de erro de validação..."
-        className="w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-luminous-primary"
+        className={`${fieldClass} resize-none`}
       />
       <div className="flex justify-end gap-2">
-        <PillButton type="button" variant="inactive" onClick={onCancel} disabled={busy}>
+        <Btn onClick={onCancel} disabled={busy}>
           Cancelar
-        </PillButton>
-        <PillButton type="button" variant="primary" onClick={onSubmit} disabled={busy || !value.trim()}>
+        </Btn>
+        <Btn variant="primary" onClick={onSubmit} disabled={busy || !value.trim()}>
           {busy ? "Enviando..." : "Rejeitar e gerar de novo"}
-        </PillButton>
+        </Btn>
       </div>
     </div>
   );

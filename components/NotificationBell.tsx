@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BellIcon, CloseIcon } from "@/components/icons";
 import { relativeTime } from "@/lib/relativeTime";
 import {
@@ -8,7 +9,6 @@ import {
   browserNotificationsSupported,
   dismissPrompt,
   getBrowserPref,
-  isPromptDismissed,
   requestBrowserPermission,
   setBrowserPref,
   showBrowserNotification,
@@ -27,7 +27,6 @@ interface ApiNotification {
 const POLL_MS = 20_000;
 const TOAST_MS = 7_000;
 const MAX_TOASTS = 3;
-const PROMPT_DELAY_MS = 4_000;
 
 // Sino do header: contador de não lidas, lista, "marcar todas como lidas", e —
 // via polling simples (a cada ~20s, sem WebSocket) — Toast na tela e
@@ -37,9 +36,9 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [toasts, setToasts] = useState<ApiNotification[]>([]);
-  const [promptVisible, setPromptVisible] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [browserOn, setBrowserOn] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const seenRef = useRef<Set<string> | null>(null); // null = primeira carga (não faz Toast do que já existia)
@@ -48,7 +47,6 @@ export default function NotificationBell() {
     if (!browserNotificationsSupported()) return;
     setBrowserOn(getBrowserPref() === "on" && Notification.permission === "granted");
     setPermissionDenied(Notification.permission === "denied");
-    setPromptVisible((visible) => (visible && Notification.permission === "default" && getBrowserPref() === null && !isPromptDismissed() ? visible : false));
   }, []);
 
   const load = useCallback(async () => {
@@ -74,6 +72,8 @@ export default function NotificationBell() {
     }
   }, []);
 
+  useEffect(() => setMounted(true), []);
+
   // Polling: a cada 20s (pausa com a aba escondida) e ao voltar pra aba.
   useEffect(() => {
     load();
@@ -95,18 +95,12 @@ export default function NotificationBell() {
     return () => clearTimeout(timer);
   }, [toasts]);
 
-  // Convite (com explicação) pra ativar os avisos do navegador, antes do prompt nativo.
+  // Estado das preferências do navegador (sino mostra o link de ativar).
   useEffect(() => {
     if (!browserNotificationsSupported()) return;
     refreshPrefState();
-    const timer = setTimeout(() => {
-      if (Notification.permission === "default" && getBrowserPref() === null && !isPromptDismissed()) setPromptVisible(true);
-    }, PROMPT_DELAY_MS);
     window.addEventListener(BROWSER_PREF_EVENT, refreshPrefState);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener(BROWSER_PREF_EVENT, refreshPrefState);
-    };
+    return () => window.removeEventListener(BROWSER_PREF_EVENT, refreshPrefState);
   }, [refreshPrefState]);
 
   // Fecha o dropdown ao clicar fora / Esc.
@@ -148,7 +142,6 @@ export default function NotificationBell() {
 
   async function enableBrowser() {
     const result = await requestBrowserPermission();
-    setPromptVisible(false);
     if (result !== "granted") {
       setBrowserPref("off");
       dismissPrompt();
@@ -233,61 +226,37 @@ export default function NotificationBell() {
         )}
       </div>
 
+      {mounted && createPortal(
+        <>
       {/* Toasts: canto inferior direito (não cobrem a lista do sino). */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[65] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
-        {toasts.map((n) => (
-          <div
-            key={n.id}
-            role="status"
-            className="pointer-events-auto animate-[fadeIn_0.25s_ease-out] overflow-hidden rounded-xl border border-white/10 bg-luminous-surface-container text-luminous-on-surface shadow-2xl"
-          >
-            <div className="flex items-start gap-3 p-3.5">
-              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-luminous-tertiary" aria-hidden="true" />
-              <button type="button" onClick={() => openNotification(n)} className="min-w-0 flex-1 text-left">
-                <span className="block text-sm font-semibold">{n.title}</span>
-                <span className="mt-0.5 block text-xs text-luminous-on-surface-variant">{n.body}</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Fechar aviso"
-                onClick={() => setToasts((current) => current.filter((t) => t.id !== n.id))}
-                className="text-luminous-on-surface-variant transition hover:text-luminous-on-surface"
-              >
-                <CloseIcon className="h-4 w-4" />
-              </button>
+        <div className="pointer-events-none fixed bottom-4 right-4 z-[65] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
+          {toasts.map((n) => (
+            <div
+              key={n.id}
+              role="status"
+              className="pointer-events-auto animate-[fadeIn_0.25s_ease-out] overflow-hidden rounded-xl border border-white/10 bg-luminous-surface-container text-luminous-on-surface shadow-2xl"
+            >
+              <div className="flex items-start gap-3 p-3.5">
+                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-luminous-tertiary" aria-hidden="true" />
+                <button type="button" onClick={() => openNotification(n)} className="min-w-0 flex-1 text-left">
+                  <span className="block text-sm font-semibold">{n.title}</span>
+                  <span className="mt-0.5 block text-xs text-luminous-on-surface-variant">{n.body}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Fechar aviso"
+                  onClick={() => setToasts((current) => current.filter((t) => t.id !== n.id))}
+                  className="text-luminous-on-surface-variant transition hover:text-luminous-on-surface"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="h-0.5 bg-luminous-tertiary" style={{ animation: `toast-shrink ${TOAST_MS}ms linear forwards` }} />
             </div>
-            <div className="h-0.5 bg-luminous-tertiary" style={{ animation: `toast-shrink ${TOAST_MS}ms linear forwards` }} />
-          </div>
-        ))}
-      </div>
-
-      {/* Convite amigável antes do prompt nativo do navegador. */}
-      {promptVisible && (
-        <div className="fixed bottom-4 left-4 z-[65] w-[min(360px,calc(100vw-2rem))] animate-[fadeIn_0.25s_ease-out] rounded-xl border border-white/10 bg-luminous-surface-container p-4 text-luminous-on-surface shadow-2xl">
-          <p className="text-sm font-semibold">Quer receber avisos do navegador?</p>
-          <p className="mt-1 text-xs text-luminous-on-surface-variant">
-            Mostramos um aviso na tela quando algo importante acontece — como uma aprovação que você estava esperando. Só funciona com o sistema aberto numa aba, e você pode desligar em Meu perfil.
-          </p>
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                dismissPrompt();
-                setPromptVisible(false);
-              }}
-              className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-luminous-on-surface-variant transition hover:bg-white/10"
-            >
-              Agora não
-            </button>
-            <button
-              type="button"
-              onClick={enableBrowser}
-              className="rounded-full bg-luminous-primary px-3.5 py-1.5 text-xs font-semibold text-luminous-on-primary transition hover:bg-luminous-primary-fixed"
-            >
-              Ativar avisos
-            </button>
-          </div>
+          ))}
         </div>
+        </>,
+        document.body
       )}
     </>
   );

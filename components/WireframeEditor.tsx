@@ -1744,13 +1744,13 @@ export default function WireframeEditor({
             Ver Bridge Spec
           </button>
         )}
-        <span className={`flex items-center gap-1.5 text-[13.5px] ${saveState === "error" ? "text-luminous-error" : "text-[#55555b]"}`}>
+        <span className={`flex items-center gap-1.5 text-[13.5px] ${saveState === "error" ? "text-[#C42B2B]" : "text-[#55555b]"}`}>
           <CloudIcon className="h-4 w-4" />
           {saveLabel}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          {actionError && <p className="mr-2 text-sm text-luminous-error">{actionError}</p>}
+          {actionError && <p className="mr-2 text-sm text-[#C42B2B]">{actionError}</p>}
           {/* Indicador de quem precisa validar nesta etapa — some quando
               Finalizado (não há mais validação pendente). A bolinha usa o
               "pulse" nativo do Tailwind (opacidade), discreto o bastante pra
@@ -1828,7 +1828,7 @@ export default function WireframeEditor({
                 type="button"
                 onClick={handleApprove}
                 disabled={approveBusy}
-                className="flex items-center gap-2 rounded-lg bg-[#7c3aed] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
+                className="flex items-center gap-2 rounded-lg bg-[#8B40F5] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#7B3BF0] disabled:opacity-60"
               >
                 <CheckIcon className="h-3.5 w-3.5" />
                 {approveBusy ? "Aprovando..." : "Aprovar Wireframe"}
@@ -1847,7 +1847,7 @@ export default function WireframeEditor({
                 type="button"
                 onClick={handleApproveAndExport}
                 disabled={exportBusy}
-                className="flex items-center gap-2 rounded-lg bg-[#7c3aed] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
+                className="flex items-center gap-2 rounded-lg bg-[#8B40F5] px-6 py-2.5 text-[14.5px] font-semibold text-white hover:bg-[#7B3BF0] disabled:opacity-60"
               >
                 <CheckIcon className="h-3.5 w-3.5" />
                 {exportBusy ? "Exportando..." : "Aprovar e Exportar"}
@@ -1913,7 +1913,7 @@ export default function WireframeEditor({
             onClick={() => setShowGrid((v) => !v)}
             aria-label="Alternar grade"
             aria-pressed={showGrid}
-            className={`grid h-[34px] w-[34px] place-items-center rounded-lg ${showGrid ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f2f2f3]"}`}
+            className={`grid h-[34px] w-[34px] place-items-center rounded-lg ${showGrid ? "bg-[#f1ebfe] text-[#8B40F5]" : "text-[#1d1d1f] hover:bg-[#f2f2f3]"}`}
           >
             <GridIcon className="h-4 w-4" />
           </button>
@@ -1991,7 +1991,7 @@ export default function WireframeEditor({
                   value={componentSearch}
                   onChange={(event) => setComponentSearch(event.target.value)}
                   placeholder="Buscar componente..."
-                  className="w-full rounded-md border border-[#e4e4e7] py-1.5 pl-8 pr-2.5 text-[13px] text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                  className="w-full rounded-md border border-[#e4e4e7] py-1.5 pl-8 pr-2.5 text-[13px] text-[#1d1d1f] outline-none focus:border-[#8B40F5]"
                 />
               </div>
             </div>
@@ -2002,7 +2002,7 @@ export default function WireframeEditor({
               ) : designSystemLinked === false ? (
                 <div className="px-1">
                   <p className="mb-2 text-sm text-[#55555b]">Nenhum Design System vinculado a esta Galáxia.</p>
-                  <a href="/nova" target="_blank" rel="noreferrer" className="text-sm font-medium text-[#7c3aed] hover:underline">
+                  <a href="/nova" target="_blank" rel="noreferrer" className="text-sm font-medium text-[#8B40F5] hover:underline">
                     Vincular um Design System em /nova →
                   </a>
                 </div>
@@ -2021,7 +2021,7 @@ export default function WireframeEditor({
                         event.dataTransfer.effectAllowed = "copy";
                       }}
                       title={component.name}
-                      className="cursor-grab rounded-lg border border-[#e4e4e7] bg-white p-1.5 hover:border-[#7c3aed] active:cursor-grabbing"
+                      className="cursor-grab rounded-lg border border-[#e4e4e7] bg-white p-1.5 hover:border-[#8B40F5] active:cursor-grabbing"
                     >
                       <div className="mb-1 flex h-14 items-center justify-center overflow-hidden rounded-md bg-[#f3f3f4]">
                         {component.thumbnailUrl ? (
@@ -2139,7 +2139,7 @@ export default function WireframeEditor({
                         }}
                         onContextMenu={(event) => handleAnnotationContextMenu(event, annotation)}
                         className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pl-2 pr-1.5 text-left text-sm ${
-                          selectedAnnotationId === annotation.id ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+                          selectedAnnotationId === annotation.id ? "bg-[#f1ebfe] text-[#8B40F5]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
                         }`}
                       >
                         <PenToolIcon className="h-3.5 w-3.5 shrink-0" />
@@ -2166,7 +2166,7 @@ export default function WireframeEditor({
                               }}
                               aria-label={annotation.locked ? "Desbloquear" : "Bloquear"}
                               title={annotation.locked ? "Desbloquear" : "Bloquear"}
-                              className={`shrink-0 hover:text-[#1d1d1f] ${annotation.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+                              className={`shrink-0 hover:text-[#1d1d1f] ${annotation.locked ? "text-[#8B40F5]" : "text-[#8e8e93]"}`}
                             >
                               {annotation.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
                             </button>
@@ -2193,7 +2193,7 @@ export default function WireframeEditor({
                       <button
                         type="button"
                         onClick={groupSelection}
-                        className="w-full rounded-md bg-[#7c3aed] px-3 py-2 text-sm font-medium text-white hover:bg-[#6d28d9]"
+                        className="w-full rounded-md bg-[#8B40F5] px-3 py-2 text-sm font-medium text-white hover:bg-[#7B3BF0]"
                       >
                         Agrupar seleção (Ctrl+G)
                       </button>
@@ -2224,7 +2224,7 @@ export default function WireframeEditor({
                       onBlur={commitPropertyChange}
                       onKeyDown={(event) => event.key === "Enter" && commitPropertyChange()}
                       readOnly={readOnly}
-                      className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed] read-only:bg-[#f7f7f8] read-only:text-[#8e8e93]"
+                      className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#8B40F5] read-only:bg-[#f7f7f8] read-only:text-[#8e8e93]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -2345,7 +2345,7 @@ export default function WireframeEditor({
                   arrastar aqui (ou em qualquer ponto do minimapa) faz pan do
                   canvas principal, ver handleMinimapPointerDown. */}
               <div
-                className="pointer-events-none absolute border-2 border-[#7c3aed] bg-[#7c3aed]/10"
+                className="pointer-events-none absolute border-2 border-[#8B40F5] bg-[#8B40F5]/10"
                 style={{
                   left: `${(visibleLeftFrame / frameWidth) * 100}%`,
                   top: `${(visibleTopFrame / frameHeight) * 100}%`,
@@ -2378,7 +2378,7 @@ export default function WireframeEditor({
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
             aria-pressed={isFullscreen}
-            className={`grid h-10 w-10 place-items-center rounded-lg shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] hover:bg-[#f7f7f8] ${isFullscreen ? "bg-[#f1ebfe] text-[#7c3aed]" : "bg-white text-[#1d1d1f]"}`}
+            className={`grid h-10 w-10 place-items-center rounded-lg shadow-[0_1px_2px_rgba(0,0,0,.05),0_2px_10px_rgba(0,0,0,.04)] hover:bg-[#f7f7f8] ${isFullscreen ? "bg-[#f1ebfe] text-[#8B40F5]" : "bg-white text-[#1d1d1f]"}`}
           >
             {isFullscreen ? <MinimizeIcon className="h-4 w-4" /> : <MaximizeIcon className="h-4 w-4" />}
           </button>
@@ -2489,7 +2489,7 @@ export default function WireframeEditor({
                 <path
                   d={`M ${penPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`}
                   fill="none"
-                  stroke="#7c3aed"
+                  stroke="#8B40F5"
                   strokeWidth={2.5}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -2513,13 +2513,13 @@ export default function WireframeEditor({
                   zIndex: 50,
                 }}
               >
-                <div className="pointer-events-none h-full w-full rounded-sm border border-dashed border-[#7c3aed]/60" />
+                <div className="pointer-events-none h-full w-full rounded-sm border border-dashed border-[#8B40F5]/60" />
                 {ANNOTATION_RESIZE_HANDLES.map((handle) => (
                   <div
                     key={handle.corner}
                     onPointerDown={(event) => handleAnnotationResizePointerDown(event, selectedAnnotation, handle.corner)}
                     style={{ cursor: handle.cursor }}
-                    className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border border-[#7c3aed] bg-white ${handle.className}`}
+                    className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-full border border-[#8B40F5] bg-white ${handle.className}`}
                   />
                 ))}
               </div>
@@ -2528,7 +2528,7 @@ export default function WireframeEditor({
             {/* Retângulo de pré-visualização ao vivo (ferramentas Frame/Elipse) */}
             {drawRect && (
               <div
-                className="pointer-events-none absolute border-2 border-dashed border-[#7c3aed] bg-[#7c3aed]/10"
+                className="pointer-events-none absolute border-2 border-dashed border-[#8B40F5] bg-[#8B40F5]/10"
                 style={{
                   left: drawRect.x * zoom,
                   top: drawRect.y * zoom,
@@ -2580,7 +2580,7 @@ export default function WireframeEditor({
                   value={pendingCommentText}
                   onChange={(event) => setPendingCommentText(event.target.value)}
                   placeholder="Escreva um comentário..."
-                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#8B40F5]"
                 />
                 <div className="mt-2 flex justify-end gap-2">
                   <button
@@ -2597,7 +2597,7 @@ export default function WireframeEditor({
                     type="button"
                     onClick={submitNewComment}
                     disabled={!pendingCommentText.trim()}
-                    className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                    className="rounded-md bg-[#8B40F5] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#7B3BF0] disabled:opacity-50"
                   >
                     Comentar
                   </button>
@@ -2639,7 +2639,7 @@ export default function WireframeEditor({
                       value={replyDraft}
                       onChange={(event) => setReplyDraft(event.target.value)}
                       placeholder="Responder..."
-                      className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+                      className="w-full resize-none rounded-md border border-[#e4e4e7] px-2 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#8B40F5]"
                     />
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <button
@@ -2653,7 +2653,7 @@ export default function WireframeEditor({
                         type="button"
                         onClick={() => submitReply(activeComment.id)}
                         disabled={!replyDraft.trim()}
-                        className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6d28d9] disabled:opacity-50"
+                        className="rounded-md bg-[#8B40F5] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#7B3BF0] disabled:opacity-50"
                       >
                         Responder
                       </button>
@@ -2723,7 +2723,7 @@ export default function WireframeEditor({
           <button
             type="button"
             onClick={() => deleteBlocks(selectedIds)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-luminous-error hover:bg-red-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#C42B2B] hover:bg-red-50"
           >
             <TrashIcon className="h-4 w-4" />
             Apagar
@@ -2760,7 +2760,7 @@ export default function WireframeEditor({
           <button
             type="button"
             onClick={() => deleteAnnotationById(contextMenuAnnotation.id)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-luminous-error hover:bg-red-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#C42B2B] hover:bg-red-50"
           >
             <TrashIcon className="h-4 w-4" />
             Apagar
@@ -2787,7 +2787,7 @@ export default function WireframeEditor({
               value={regenerateComment}
               onChange={(event) => setRegenerateComment(event.target.value)}
               placeholder="O que está errado na estrutura atual?"
-              className="w-full resize-none rounded-lg border border-[#e4e4e7] px-3 py-2 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed]"
+              className="w-full resize-none rounded-lg border border-[#e4e4e7] px-3 py-2 text-sm text-[#1d1d1f] outline-none focus:border-[#8B40F5]"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -2802,7 +2802,7 @@ export default function WireframeEditor({
                 type="button"
                 onClick={handleRegenerate}
                 disabled={regenerateBusy || !regenerateComment.trim()}
-                className="rounded-lg bg-[#7c3aed] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-60"
+                className="rounded-lg bg-[#8B40F5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#7B3BF0] disabled:opacity-60"
               >
                 {regenerateBusy ? "Gerando..." : "Gerar de novo"}
               </button>
@@ -2853,7 +2853,7 @@ export default function WireframeEditor({
                 href={exportResult.svgUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg bg-[#7c3aed] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6d28d9]"
+                className="rounded-lg bg-[#8B40F5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#7B3BF0]"
               >
                 Salvar
               </a>
@@ -2889,7 +2889,7 @@ function ToolButton({
         disabled
           ? "cursor-not-allowed text-[#c4c4c8]"
           : active
-            ? "bg-[#f1ebfe] text-[#7c3aed]"
+            ? "bg-[#f1ebfe] text-[#8B40F5]"
             : "text-[#2a2a2e] hover:bg-[#f2f2f3]"
       }`}
     >
@@ -2953,7 +2953,7 @@ function PropertyActionButton({
       title={label}
       aria-label={label}
       className={`flex flex-1 items-center justify-center rounded-md border border-[#e4e4e7] py-1.5 ${
-        danger ? "text-luminous-error hover:bg-red-50" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+        danger ? "text-[#C42B2B] hover:bg-red-50" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
       }`}
     >
       {children}
@@ -2987,7 +2987,7 @@ function NumberField({
         // decrementar e pro scroll — disabled é o único jeito de bloquear de
         // verdade (modo leitura, Wireframe-2).
         disabled={readOnly}
-        className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#7c3aed] disabled:bg-[#f7f7f8] disabled:text-[#8e8e93]"
+        className="w-full rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-sm text-[#1d1d1f] outline-none focus:border-[#8B40F5] disabled:bg-[#f7f7f8] disabled:text-[#8e8e93]"
       />
     </div>
   );
@@ -3056,10 +3056,10 @@ function LayerRow({
   const dropClass = !isDropTarget
     ? ""
     : layerDropPosition === "before"
-      ? "shadow-[inset_0_2px_0_0_#7c3aed]"
+      ? "shadow-[inset_0_2px_0_0_#8B40F5]"
       : layerDropPosition === "after"
-        ? "shadow-[inset_0_-2px_0_0_#7c3aed]"
-        : "outline outline-2 outline-[#7c3aed]";
+        ? "shadow-[inset_0_-2px_0_0_#8B40F5]"
+        : "outline outline-2 outline-[#8B40F5]";
 
   return (
     <div>
@@ -3085,7 +3085,7 @@ function LayerRow({
         onContextMenu={(event) => onContextMenu(event, block)}
         style={{ paddingLeft: 8 + depth * 16 }}
         className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-1.5 text-left text-sm ${
-          isSelected ? "bg-[#f1ebfe] text-[#7c3aed]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
+          isSelected ? "bg-[#f1ebfe] text-[#8B40F5]" : "text-[#1d1d1f] hover:bg-[#f7f7f8]"
         } ${dropClass}`}
       >
         {isGroup ? (
@@ -3110,7 +3110,7 @@ function LayerRow({
           {block.sourceComponentId && (
             <span
               title="Baseado em um componente do Design System"
-              className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-white bg-[#7c3aed]"
+              className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-white bg-[#8B40F5]"
             />
           )}
         </span>
@@ -3137,7 +3137,7 @@ function LayerRow({
               }}
               aria-label={block.locked ? "Desbloquear" : "Bloquear"}
               title={block.locked ? "Desbloquear" : "Bloquear"}
-              className={`shrink-0 hover:text-[#1d1d1f] ${block.locked ? "text-[#7c3aed]" : "text-[#8e8e93]"}`}
+              className={`shrink-0 hover:text-[#1d1d1f] ${block.locked ? "text-[#8B40F5]" : "text-[#8e8e93]"}`}
             >
               {block.locked ? <LockIcon className="h-3.5 w-3.5" /> : <UnlockIcon className="h-3.5 w-3.5" />}
             </button>
@@ -3200,11 +3200,11 @@ function GroupOutline({
         zIndex: selected ? 50 : undefined,
       }}
     >
-      <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#7c3aed]" : "border-[#c4b5fd]"}`} />
+      <div className={`pointer-events-none h-full w-full rounded-sm border-2 border-dashed ${selected ? "border-[#8B40F5]" : "border-[#c4b5fd]"}`} />
       <span
         onPointerDown={onPointerDown}
         onContextMenu={onContextMenu}
-        className="absolute -top-6 left-0 cursor-move whitespace-nowrap rounded bg-[#7c3aed] px-1.5 py-0.5 text-[10px] font-medium text-white"
+        className="absolute -top-6 left-0 cursor-move whitespace-nowrap rounded bg-[#8B40F5] px-1.5 py-0.5 text-[10px] font-medium text-white"
       >
         {block.locked && <LockIcon className="mr-1 inline h-2.5 w-2.5" />}
         {block.label}
@@ -3314,7 +3314,7 @@ function CanvasBlock({
         />
       ) : (
         <span className="pointer-events-none flex items-center gap-1 truncate px-2 py-1.5 text-[12px] font-medium text-[#333336]">
-          {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#7c3aed]" />}
+          {block.locked && <LockIcon className="h-3 w-3 shrink-0 text-[#8B40F5]" />}
           {block.label}
         </span>
       )}
@@ -3354,7 +3354,7 @@ function CanvasBlock({
         </>
       )}
       {selected && block.locked && (
-        <div className="pointer-events-none absolute inset-0 rounded-[1px] ring-2 ring-[#7c3aed]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[1px] ring-2 ring-[#8B40F5]" />
       )}
     </div>
   );

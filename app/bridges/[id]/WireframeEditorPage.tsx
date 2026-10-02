@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import WireframeEditor from "@/components/WireframeEditor";
 import type { ApiBridge } from "../types";
+import PageSkeleton from "@/components/PageSkeleton";
 
 // Wrapper client-side do editor de Wireframe em tela cheia — busca o Bridge
 // (mesmo padrão de fetch do BridgeDetail) e repassa pro WireframeEditor.
@@ -31,14 +32,14 @@ export default function WireframeEditorPage({ bridgeId }: { bridgeId: string }) 
   if (loadError) {
     return (
       <div className="grid h-full place-items-center bg-[#f3f3f4]">
-        <p className="text-sm text-luminous-error">{loadError}</p>
+        <p className="text-sm text-[#C42B2B]">{loadError}</p>
       </div>
     );
   }
   if (!bridge) {
     return (
       <div className="grid h-full place-items-center bg-[#f3f3f4]">
-        <p className="text-sm text-[#55555b]">Carregando...</p>
+        <PageSkeleton tone="light" rows={3} />
       </div>
     );
   }

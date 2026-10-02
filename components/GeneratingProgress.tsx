@@ -1,14 +1,15 @@
 // Indicador de progresso pra qualquer tela aguardando uma geração de IA
 // (BDD ou Wireframe) — a duração real da chamada é desconhecida, então a
 // barra é indeterminada (só comunica "em andamento", nunca uma % real).
-export default function GeneratingProgress({ label }: { label: string }) {
+export default function GeneratingProgress({ label, tone = "dark" }: { label: string; tone?: "dark" | "light" }) {
+  const light = tone === "light";
   return (
     <div>
-      <p className="text-sm text-luminous-on-surface">{label}</p>
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-        <div className="progress-bar-indeterminate h-full w-1/3 rounded-full bg-luminous-primary" />
+      <p className={`text-sm ${light ? "text-[#1D1F25]" : "text-luminous-on-surface"}`}>{label}</p>
+      <div className={`mt-4 h-1.5 w-full overflow-hidden rounded-full ${light ? "bg-[#E6E8EC]" : "bg-white/10"}`}>
+        <div className={`progress-bar-indeterminate h-full w-1/3 rounded-full ${light ? "bg-[#8B40F5]" : "bg-luminous-primary"}`} />
       </div>
-      <p className="mt-3 text-xs text-luminous-on-surface-variant">
+      <p className={`mt-3 text-xs ${light ? "text-[#50545C]" : "text-luminous-on-surface-variant"}`}>
         Você pode fechar esta janela — a geração continua em segundo plano. Acompanhe o progresso em /bridges.
       </p>
     </div>
