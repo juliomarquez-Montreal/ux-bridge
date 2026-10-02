@@ -26,5 +26,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     permissionLevel: PermissionLevel;
     funcao: Funcao;
+    // false = conta desativada; checkedAt = última conferência no banco (ms).
+    active?: boolean;
+    checkedAt?: number;
   }
 }

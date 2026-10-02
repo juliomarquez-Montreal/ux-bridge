@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
+import { notifyUsers } from "@/lib/notifications/notify";
 
 // POST /api/bridges/:id/assign-ux -> botão "+" ao lado dos avatares de PO/UX
 // no subheader do editor (Wireframe-1a). Body: { userId: string | null } —
@@ -30,5 +31,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
     data: { uxUserId: userId },
     include: BRIDGE_WITH_PLANET_INCLUDE,
   });
+  if (userId && userId !== bridge.uxUserId) {
+    await notifyUsers({
+      userIds: [userId],
+      actorId: user.id,
+      type: "BRIDGE_UX_ASSIGNED",
+      title: "Você foi atribuído a um Bridge",
+      body: `${user.name ?? "Alguém"} atribuiu você como UX do Bridge de ${updated.planet.name}.`,
+      linkUrl: `/bridges/${bridge.id}`,
+    });
+  }
   return NextResponse.json({ bridge: updated });
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canManageProject } from "@/lib/projects/permissions";
 import { logActivity } from "@/lib/activity/logActivity";
+import { notifyUsers } from "@/lib/notifications/notify";
 
 interface Params {
   params: { id: string };
@@ -138,7 +139,10 @@ export async function DELETE(request: Request, { params }: Params) {
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
   const mode = new URL(request.url).searchParams.get("mode") === "delete" ? "delete" : "keep";
-  const target = await db.project.findUnique({ where: { id: params.id }, select: { name: true, code: true } });
+  const target = await db.project.findUnique({
+    where: { id: params.id },
+    select: { name: true, code: true, createdById: true, members: { select: { userId: true } } },
+  });
 
   if (mode === "delete") {
     const links = await db.projectBridgeLink.findMany({ where: { projectId: params.id }, select: { bridgeId: true } });
@@ -157,6 +161,14 @@ export async function DELETE(request: Request, { params }: Params) {
     entityId: params.id,
     entityLabel: target?.name ?? "Projeto",
     metadata: { code: target?.code ?? null, mode },
+  });
+  // Equipe (PO/UX) e criador do Projeto.
+  await notifyUsers({
+    userIds: [target?.createdById, ...(target?.members.map((m) => m.userId) ?? [])],
+    actorId: user.id,
+    type: "PROJECT_DELETED",
+    title: "Projeto excluído",
+    body: `${user.name ?? "Alguém"} excluiu o Projeto "${target?.name ?? "Projeto"}"${target?.code ? ` (${target.code})` : ""}.`,
   });
 
   return NextResponse.json({ ok: true });

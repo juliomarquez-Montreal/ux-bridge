@@ -26,6 +26,8 @@ import {
 } from "@/components/icons";
 import { progressForBridge, STATUS_LABEL, STATUS_TONE } from "./statusMeta";
 import type { ApiBridgeListItem, BridgeStatus } from "./types";
+import PageSkeleton from "@/components/PageSkeleton";
+import { Btn, Modal } from "@/app/projetos/ui";
 
 const PAGE_SIZE = 10;
 const STATUS_ORDER: BridgeStatus[] = [
@@ -55,9 +57,9 @@ function matchesSearch(bridge: ApiBridgeListItem, query: string): boolean {
 }
 
 const TONE_PILL_STYLES: Record<"pending" | "done" | "error", string> = {
-  pending: "border-[#ffb688]/40 bg-[#ffb688]/10 text-[#ffb688]",
-  done: "border-luminous-tertiary/40 bg-luminous-tertiary/10 text-luminous-tertiary-fixed-dim",
-  error: "border-luminous-error/40 bg-luminous-error/10 text-luminous-error",
+  pending: "border-[#F0DC9E] bg-[#FDF0CC] text-[#8A5A00]",
+  done: "border-[#B9D0F7] bg-[#DBE8FC] text-[#1A5FD0]",
+  error: "border-[#F2B8BA] bg-[#FDE3E3] text-[#C42B2B]",
 };
 
 function StatusPill({ status }: { status: BridgeStatus }) {
@@ -74,24 +76,19 @@ function StatusPill({ status }: { status: BridgeStatus }) {
 }
 
 const STAT_TONE_STYLES = {
-  primary: { border: "border-luminous-primary/30", from: "from-luminous-primary/10", iconBg: "bg-luminous-primary/20", iconText: "text-luminous-primary" },
-  tertiary: {
-    border: "border-luminous-tertiary/30",
-    from: "from-luminous-tertiary/10",
-    iconBg: "bg-luminous-tertiary/20",
-    iconText: "text-luminous-tertiary-fixed-dim",
-  },
-  amber: { border: "border-[#ffb688]/30", from: "from-[#ffb688]/10", iconBg: "bg-[#ffb688]/20", iconText: "text-[#ffb688]" },
+  primary: { iconBg: "bg-[#EFE5FD]", iconText: "text-[#6B2FD1]" },
+  tertiary: { iconBg: "bg-[#DBE8FC]", iconText: "text-[#1A5FD0]" },
+  amber: { iconBg: "bg-[#FDF0CC]", iconText: "text-[#8A5A00]" },
 } as const;
 
 function StatCard({ icon, value, label, tone }: { icon: ReactNode; value: number; label: string; tone: keyof typeof STAT_TONE_STYLES }) {
   const styles = STAT_TONE_STYLES[tone];
   return (
-    <div className={`flex flex-1 items-center gap-4 rounded-xl border bg-gradient-to-br to-transparent p-5 ${styles.border} ${styles.from}`}>
+    <div className="flex flex-1 items-center gap-4 rounded-[10px] border border-[#E6E8EC] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${styles.iconBg} ${styles.iconText}`}>{icon}</div>
       <div>
-        <p className="font-sora text-3xl font-bold text-white">{value}</p>
-        <p className="text-sm text-luminous-on-surface-variant">{label}</p>
+        <p className="font-sora text-3xl font-bold text-[#15161A]">{value}</p>
+        <p className="text-sm text-[#50545C]">{label}</p>
       </div>
     </div>
   );
@@ -109,17 +106,17 @@ function FilterSelect({
   children: ReactNode;
 }) {
   return (
-    <div className="relative flex h-11 min-w-[190px] items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3.5">
-      <span className="shrink-0 text-luminous-on-surface-variant">{icon}</span>
+    <div className="relative flex h-11 min-w-[190px] items-center gap-2 rounded-lg border border-[#D7DAE0] bg-white px-3.5">
+      <span className="shrink-0 text-[#50545C]">{icon}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        style={{ colorScheme: "dark" }}
-        className="w-full appearance-none bg-transparent pr-5 text-sm text-luminous-on-surface outline-none"
+        style={{ colorScheme: "light" }}
+        className="w-full appearance-none bg-transparent pr-5 text-sm text-[#1D1F25] outline-none"
       >
         {children}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 h-4 w-4 text-luminous-on-surface-variant" />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 h-4 w-4 text-[#50545C]" />
     </div>
   );
 }
@@ -235,8 +232,8 @@ export default function BridgesPanel() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Bridges</h1>
-          <p className="mt-1 text-sm text-luminous-on-surface-variant">
+          <h1 className="text-3xl font-bold text-[#15161A]">Bridges</h1>
+          <p className="mt-1 text-sm text-[#50545C]">
             Acompanhe a criação de cada Bridge, do material bruto até o Bridge Spec (BS) aprovado.
           </p>
         </div>
@@ -250,9 +247,9 @@ export default function BridgesPanel() {
         </button>
       </div>
 
-      {loadError && <p className="mt-6 text-sm text-luminous-error">{loadError}</p>}
+      {loadError && <p className="mt-6 text-sm text-[#C42B2B]">{loadError}</p>}
 
-      {!loadError && bridges === null && <p className="mt-6 text-sm text-luminous-on-surface-variant">Carregando...</p>}
+      {!loadError && bridges === null && <PageSkeleton tone="light" />}
 
       {!loadError && bridges !== null && (
         <>
@@ -263,8 +260,8 @@ export default function BridgesPanel() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <div className="flex h-11 min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3.5">
-              <SearchIcon className="h-4 w-4 shrink-0 text-luminous-on-surface-variant" />
+            <div className="flex h-11 min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-[#D7DAE0] bg-white px-3.5">
+              <SearchIcon className="h-4 w-4 shrink-0 text-[#50545C]" />
               <input
                 type="text"
                 value={search}
@@ -273,7 +270,7 @@ export default function BridgesPanel() {
                   resetToFirstPage();
                 }}
                 placeholder="Buscar por planeta, estrela ou galáxia..."
-                className="w-full bg-transparent text-sm text-luminous-on-surface outline-none placeholder:text-luminous-on-surface-variant"
+                className="w-full bg-transparent text-sm text-[#1D1F25] outline-none placeholder:text-[#9A9EA6]"
               />
             </div>
 
@@ -285,11 +282,11 @@ export default function BridgesPanel() {
                 resetToFirstPage();
               }}
             >
-              <option value="ALL" className="bg-luminous-surface-container text-luminous-on-surface">
+              <option value="ALL" className="bg-white text-[#1D1F25]">
                 Todos os status
               </option>
               {STATUS_ORDER.map((status) => (
-                <option key={status} value={status} className="bg-luminous-surface-container text-luminous-on-surface">
+                <option key={status} value={status} className="bg-white text-[#1D1F25]">
                   {STATUS_LABEL[status]}
                 </option>
               ))}
@@ -303,28 +300,28 @@ export default function BridgesPanel() {
                 resetToFirstPage();
               }}
             >
-              <option value="recent" className="bg-luminous-surface-container text-luminous-on-surface">
+              <option value="recent" className="bg-white text-[#1D1F25]">
                 Mais recentes
               </option>
-              <option value="oldest" className="bg-luminous-surface-container text-luminous-on-surface">
+              <option value="oldest" className="bg-white text-[#1D1F25]">
                 Mais antigos
               </option>
-              <option value="planeta" className="bg-luminous-surface-container text-luminous-on-surface">
+              <option value="planeta" className="bg-white text-[#1D1F25]">
                 Planeta (A-Z)
               </option>
             </FilterSelect>
           </div>
 
           {bridges.length === 0 ? (
-            <div className="mt-6 rounded-xl border border-white/10 bg-luminous-surface-container/50 py-10 text-center text-sm text-luminous-on-surface-variant">
+            <div className="mt-6 rounded-[10px] border border-[#E6E8EC] bg-white py-10 text-center text-sm text-[#50545C]">
               Nenhum Bridge criado ainda. Use o botão &quot;Nova Bridge&quot; para começar.
             </div>
           ) : (
-            <div className="mt-6 overflow-hidden rounded-xl border border-white/10">
+            <div className="mt-6 overflow-hidden rounded-[10px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-[.05em] text-luminous-on-surface-variant">
+                    <tr className="border-b border-[#E6E8EC] bg-[#FAFBFC] text-xs uppercase tracking-[.05em] text-[#50545C]">
                       <th className="px-4 py-3 font-medium">Planeta</th>
                       <th className="px-4 py-3 font-medium">Estrela</th>
                       <th className="px-4 py-3 font-medium">Galáxia</th>
@@ -338,7 +335,7 @@ export default function BridgesPanel() {
                   <tbody>
                     {pageItems.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-luminous-on-surface-variant">
+                        <td colSpan={8} className="px-4 py-8 text-center text-[#50545C]">
                           Nenhum Bridge encontrado com esses filtros.
                         </td>
                       </tr>
@@ -346,17 +343,17 @@ export default function BridgesPanel() {
                       pageItems.map((bridge) => {
                         const progress = progressForBridge(bridge);
                         return (
-                          <tr key={bridge.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                            <td className="px-4 py-3 font-medium text-luminous-on-surface">{bridge.planeta.name}</td>
-                            <td className="px-4 py-3 text-luminous-on-surface-variant">{bridge.estrela?.name ?? "—"}</td>
-                            <td className="px-4 py-3 text-luminous-on-surface-variant">{bridge.galaxia?.name ?? "—"}</td>
+                          <tr key={bridge.id} className="border-b border-[#EEF0F3] last:border-0 hover:bg-[#FAFBFC]">
+                            <td className="px-4 py-3 font-medium text-[#1D1F25]">{bridge.planeta.name}</td>
+                            <td className="px-4 py-3 text-[#50545C]">{bridge.estrela?.name ?? "—"}</td>
+                            <td className="px-4 py-3 text-[#50545C]">{bridge.galaxia?.name ?? "—"}</td>
                             <td className="px-4 py-3">
                               <StatusPill status={bridge.status} />
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
-                                <span className="w-9 shrink-0 text-xs font-semibold text-luminous-on-surface">{progress}%</span>
-                                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
+                                <span className="w-9 shrink-0 text-xs font-semibold text-[#1D1F25]">{progress}%</span>
+                                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[#E6E8EC]">
                                   <div
                                     className="h-full rounded-full bg-gradient-to-r from-luminous-primary to-luminous-tertiary"
                                     style={{ width: `${progress}%` }}
@@ -364,14 +361,14 @@ export default function BridgesPanel() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-luminous-on-surface-variant">{bridge.createdBy}</td>
-                            <td className="px-4 py-3 text-luminous-on-surface-variant">{formatDate(bridge.createdAt)}</td>
+                            <td className="px-4 py-3 text-[#50545C]">{bridge.createdBy}</td>
+                            <td className="px-4 py-3 text-[#50545C]">{formatDate(bridge.createdAt)}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <a
                                   href={`/bridges/${bridge.id}`}
                                   aria-label={`Ver Bridge de ${bridge.planeta.name}`}
-                                  className="grid h-8 w-8 place-items-center rounded-lg border border-luminous-tertiary/30 bg-luminous-tertiary/15 text-luminous-tertiary-fixed-dim transition hover:bg-luminous-tertiary/25"
+                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#B9D0F7] bg-[#DBE8FC] text-[#1A5FD0] transition hover:bg-[#C9DCFA]"
                                 >
                                   <EyeIcon className="h-4 w-4" />
                                 </a>
@@ -384,12 +381,12 @@ export default function BridgesPanel() {
                                         type="button"
                                         aria-label={`Copiar link de compartilhamento de ${bridge.planeta.name}`}
                                         onClick={() => handleCopyShareLink(bridge)}
-                                        className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                        className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] hover:text-[#1D1F25]"
                                       >
                                         <ShareIcon className="h-4 w-4" />
                                       </button>
                                       {copiedShareId === bridge.id && (
-                                        <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-luminous-on-surface px-2.5 py-1 text-[11px] font-medium text-luminous-surface shadow-lg">
+                                        <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1D1F25] px-2.5 py-1 text-[11px] font-medium text-white shadow-lg">
                                           Link copiado!
                                         </span>
                                       )}
@@ -397,14 +394,14 @@ export default function BridgesPanel() {
                                     <a
                                       href={`/api/bridges/${bridge.id}/pdf`}
                                       aria-label={`Baixar PDF de ${bridge.planeta.name}`}
-                                      className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                      className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] hover:text-[#1D1F25]"
                                     >
                                       <DownloadIcon className="h-4 w-4" />
                                     </a>
                                     <a
                                       href={`mailto:?subject=${encodeURIComponent(`UX Bridge — ${bridge.planeta.name}`)}&body=${encodeURIComponent(shareUrlFor(bridge.id))}`}
                                       aria-label={`Enviar ${bridge.planeta.name} por e-mail`}
-                                      className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                      className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] hover:text-[#1D1F25]"
                                     >
                                       <MailIcon className="h-4 w-4" />
                                     </a>
@@ -415,7 +412,7 @@ export default function BridgesPanel() {
                                     href={`/projetos/${bridge.project.id}`}
                                     aria-label={`Ver Projeto ${bridge.project.name}`}
                                     title={`Projeto: ${bridge.project.name}`}
-                                    className="grid h-8 w-8 place-items-center rounded-lg border border-luminous-primary/30 bg-luminous-primary/15 text-luminous-primary-fixed-dim transition hover:bg-luminous-primary/25"
+                                    className="grid h-8 w-8 place-items-center rounded-lg border border-[#E1D3FB] bg-[#F5EEFE] text-[#6B2FD1] transition hover:bg-[#EDE0FD]"
                                   >
                                     <FolderIcon className="h-4 w-4" />
                                   </a>
@@ -425,7 +422,7 @@ export default function BridgesPanel() {
                                     aria-label={`Converter ${bridge.planeta.name} em Projeto`}
                                     title="Converter em Projeto"
                                     onClick={() => setConvertTarget(bridge)}
-                                    className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 hover:text-luminous-on-surface"
+                                    className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] hover:text-[#1D1F25]"
                                   >
                                     <FolderPlusIcon className="h-4 w-4" />
                                   </button>
@@ -437,7 +434,7 @@ export default function BridgesPanel() {
                                     setDeleteError(null);
                                     setDeleteTarget(bridge);
                                   }}
-                                  className="grid h-8 w-8 place-items-center rounded-lg border border-luminous-error/30 bg-luminous-error/15 text-luminous-error transition hover:bg-luminous-error/25"
+                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#F2B8BA] bg-[#FDF1F1] text-[#C42B2B] transition hover:bg-[#FDE3E3]"
                                 >
                                   <TrashIcon className="h-4 w-4" />
                                 </button>
@@ -451,8 +448,8 @@ export default function BridgesPanel() {
                 </table>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs text-luminous-on-surface-variant">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E8EC] bg-[#FAFBFC] px-4 py-3">
+                <p className="text-xs text-[#50545C]">
                   Mostrando {pageItems.length} de {filteredAndSorted.length} bridges
                 </p>
                 <div className="flex items-center gap-2">
@@ -461,11 +458,11 @@ export default function BridgesPanel() {
                     aria-label="Página anterior"
                     disabled={currentPage <= 1}
                     onClick={() => setPage(currentPage - 1)}
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-luminous-primary text-xs font-semibold text-luminous-on-primary">
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#8B40F5] text-xs font-semibold text-white">
                     {currentPage}
                   </span>
                   <button
@@ -473,7 +470,7 @@ export default function BridgesPanel() {
                     aria-label="Próxima página"
                     disabled={currentPage >= pageCount}
                     onClick={() => setPage(currentPage + 1)}
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-luminous-on-surface-variant transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-8 w-8 place-items-center rounded-lg border border-[#D7DAE0] bg-white text-[#50545C] transition hover:border-[#C9CDD4] hover:bg-[#F4F5F7] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronRightIcon className="h-4 w-4" />
                   </button>
@@ -487,43 +484,20 @@ export default function BridgesPanel() {
       {createModalOpen && <CreateBridgeModal onClose={() => setCreateModalOpen(false)} />}
 
       {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => !deleteBusy && setDeleteTarget(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-sm rounded-xl border border-white/10 bg-luminous-surface-container p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="font-sora text-lg font-semibold text-white">Excluir Bridge</h2>
-            <p className="mt-2 text-sm text-luminous-on-surface-variant">
-              Tem certeza que deseja excluir o Bridge de{" "}
-              <strong className="text-luminous-on-surface">{deleteTarget.planeta.name}</strong>? Essa ação não pode ser
-              desfeita.
-            </p>
-            {deleteError && <p className="mt-3 text-sm text-luminous-error">{deleteError}</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleteBusy}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] text-luminous-on-surface-variant transition hover:text-luminous-on-surface disabled:opacity-60"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleteBusy}
-                className="rounded-full bg-luminous-error px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] text-luminous-on-error transition hover:opacity-90 disabled:opacity-60"
-              >
-                {deleteBusy ? "Excluindo..." : "Excluir"}
-              </button>
-            </div>
+        <Modal title="Excluir Bridge" onClose={() => setDeleteTarget(null)} busy={deleteBusy} maxWidth="max-w-sm">
+          <p className="text-sm text-[#50545C]">
+            Tem certeza que deseja excluir o Bridge de <strong className="text-[#1D1F25]">{deleteTarget.planeta.name}</strong>? Essa ação não pode ser desfeita.
+          </p>
+          {deleteError && <p className="mt-3 text-sm text-[#C42B2B]">{deleteError}</p>}
+          <div className="mt-5 flex justify-end gap-2">
+            <Btn onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>
+              Cancelar
+            </Btn>
+            <Btn variant="danger" onClick={handleDelete} disabled={deleteBusy}>
+              {deleteBusy ? "Excluindo..." : "Excluir"}
+            </Btn>
           </div>
-        </div>
+        </Modal>
       )}
 
       {convertTarget && (

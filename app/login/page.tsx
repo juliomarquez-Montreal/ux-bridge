@@ -73,7 +73,7 @@ function LoginForm() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Email ou senha inválidos.");
+      setError(result.error === "ACCOUNT_DISABLED" ? "Sua conta está desativada. Fale com um administrador." : "Email ou senha inválidos.");
       return;
     }
 

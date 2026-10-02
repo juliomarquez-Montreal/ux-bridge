@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PillButton from "@/components/PillButton";
-import { CloseIcon } from "@/components/icons";
+import { Btn, fieldClass, Modal } from "@/app/projetos/ui";
 import type { ApiBridgeListItem } from "@/app/bridges/types";
 import type { ApiProjectSummary } from "@/app/projetos/types";
 
@@ -76,21 +75,10 @@ export default function ConvertToProjectModal({ bridge, onClose, onConverted }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-xl border border-white/10 bg-luminous-surface-container p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-sora text-lg font-semibold text-white">Converter em Projeto</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-luminous-on-surface-variant hover:text-luminous-on-surface">
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-        <p className="mb-4 text-sm text-luminous-on-surface-variant">
-          Vincule <strong className="text-luminous-on-surface">{bridge.planeta.name}</strong> a um Projeto.
+    <Modal title="Converter em Projeto" onClose={onClose} busy={submitting}>
+      <div>
+        <p className="mb-4 text-sm text-[#50545C]">
+          Vincule <strong className="text-[#1D1F25]">{bridge.planeta.name}</strong> a um Projeto.
         </p>
 
         {mode === "choose" && (
@@ -98,18 +86,18 @@ export default function ConvertToProjectModal({ bridge, onClose, onConverted }: 
             <button
               type="button"
               onClick={() => setMode("new")}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-luminous-on-surface transition hover:bg-white/10"
+              className="w-full rounded-lg border border-[#E6E8EC] bg-[#FAFBFC] px-4 py-3 text-left text-sm text-[#1D1F25] transition hover:bg-[#F4F5F7]"
             >
               <span className="font-medium">Criar Projeto novo</span>
-              <p className="mt-0.5 text-xs text-luminous-on-surface-variant">Este Bridge vira o primeiro vinculado.</p>
+              <p className="mt-0.5 text-xs text-[#50545C]">Este Bridge vira o primeiro vinculado.</p>
             </button>
             <button
               type="button"
               onClick={() => setMode("existing")}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-luminous-on-surface transition hover:bg-white/10"
+              className="w-full rounded-lg border border-[#E6E8EC] bg-[#FAFBFC] px-4 py-3 text-left text-sm text-[#1D1F25] transition hover:bg-[#F4F5F7]"
             >
               <span className="font-medium">Vincular a Projeto existente</span>
-              <p className="mt-0.5 text-xs text-luminous-on-surface-variant">Escolha um Projeto já cadastrado.</p>
+              <p className="mt-0.5 text-xs text-[#50545C]">Escolha um Projeto já cadastrado.</p>
             </button>
           </div>
         )}
@@ -117,7 +105,7 @@ export default function ConvertToProjectModal({ bridge, onClose, onConverted }: 
         {mode === "new" && (
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-luminous-on-surface-variant">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[.05em] text-[#50545C]">
                 Nome do Projeto
               </label>
               <input
@@ -126,28 +114,28 @@ export default function ConvertToProjectModal({ bridge, onClose, onConverted }: 
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder="Ex: Portal de Concessões"
-                className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-luminous-on-surface outline-none focus:border-luminous-primary"
+                className={fieldClass}
               />
             </div>
-            {submitError && <p className="text-sm text-luminous-error">{submitError}</p>}
+            {submitError && <p className="text-sm text-[#C42B2B]">{submitError}</p>}
             <div className="flex justify-end gap-2 pt-1">
-              <PillButton type="button" variant="inactive" onClick={() => setMode("choose")}>
+              <Btn type="button" onClick={() => setMode("choose")}>
                 Voltar
-              </PillButton>
-              <PillButton type="button" variant="primary" onClick={handleCreateNew} disabled={!newName.trim() || submitting}>
+              </Btn>
+              <Btn type="button" variant="primary" onClick={handleCreateNew} disabled={!newName.trim() || submitting}>
                 {submitting ? "Criando..." : "Criar e vincular"}
-              </PillButton>
+              </Btn>
             </div>
           </div>
         )}
 
         {mode === "existing" && (
           <div className="space-y-4">
-            {loadError && <p className="text-sm text-luminous-error">{loadError}</p>}
+            {loadError && <p className="text-sm text-[#C42B2B]">{loadError}</p>}
             {projects === null ? (
-              <p className="text-sm text-luminous-on-surface-variant">Carregando Projetos...</p>
+              <p className="text-sm text-[#50545C]">Carregando Projetos...</p>
             ) : projects.length === 0 ? (
-              <p className="text-sm text-luminous-on-surface-variant">Nenhum Projeto cadastrado ainda. Crie um novo.</p>
+              <p className="text-sm text-[#50545C]">Nenhum Projeto cadastrado ainda. Crie um novo.</p>
             ) : (
               <div className="max-h-64 space-y-1.5 overflow-y-auto">
                 {projects.map((project) => (
@@ -157,30 +145,30 @@ export default function ConvertToProjectModal({ bridge, onClose, onConverted }: 
                     onClick={() => setSelectedProjectId(project.id)}
                     className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition ${
                       selectedProjectId === project.id
-                        ? "border-luminous-primary bg-luminous-primary/10 text-luminous-on-surface"
-                        : "border-white/10 bg-white/5 text-luminous-on-surface-variant hover:bg-white/10"
+                        ? "border-[#8B40F5] bg-[#F5EEFE] text-[#1D1F25]"
+                        : "border-[#E6E8EC] bg-[#FAFBFC] text-[#50545C] hover:bg-[#F4F5F7]"
                     }`}
                   >
                     <span>
-                      <span className="font-mono text-xs text-luminous-on-surface-variant">{project.code}</span> {project.name}
+                      <span className="font-mono text-xs text-[#50545C]">{project.code}</span> {project.name}
                     </span>
-                    <span className="text-xs text-luminous-on-surface-variant">{project.bridgeCount} Bridge(s)</span>
+                    <span className="text-xs text-[#50545C]">{project.bridgeCount} Bridge(s)</span>
                   </button>
                 ))}
               </div>
             )}
-            {submitError && <p className="text-sm text-luminous-error">{submitError}</p>}
+            {submitError && <p className="text-sm text-[#C42B2B]">{submitError}</p>}
             <div className="flex justify-end gap-2 pt-1">
-              <PillButton type="button" variant="inactive" onClick={() => setMode("choose")}>
+              <Btn type="button" onClick={() => setMode("choose")}>
                 Voltar
-              </PillButton>
-              <PillButton type="button" variant="primary" onClick={handleLinkExisting} disabled={!selectedProjectId || submitting}>
+              </Btn>
+              <Btn type="button" variant="primary" onClick={handleLinkExisting} disabled={!selectedProjectId || submitting}>
                 {submitting ? "Vinculando..." : "Vincular"}
-              </PillButton>
+              </Btn>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

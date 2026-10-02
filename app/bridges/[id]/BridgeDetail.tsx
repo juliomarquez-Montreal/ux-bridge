@@ -8,6 +8,7 @@ import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
 import { STATUS_BADGE_VARIANT, STATUS_LABEL } from "../statusMeta";
 import type { ApiBridge } from "../types";
+import PageSkeleton from "@/components/PageSkeleton";
 
 const GENERATING_STATUSES: ApiBridge["status"][] = ["GERANDO_BDD", "GERANDO_WIREFRAME"];
 
@@ -117,7 +118,7 @@ export default function BridgeDetail({ bridgeId }: { bridgeId: string }) {
   }
 
   if (loadError) return <p className="text-sm text-luminous-error">{loadError}</p>;
-  if (!bridge) return <p className="text-sm text-luminous-on-surface-variant">Carregando...</p>;
+  if (!bridge) return <PageSkeleton />;
 
   const galaxia = bridge.planet.parent?.parent;
   const estrela = bridge.planet.parent;

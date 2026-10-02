@@ -41,6 +41,8 @@ export default function ProjetosPanel() {
 
   useEffect(() => {
     refresh();
+    // Atalho da busca (Ctrl+K): /projetos?novo=1 já abre o modal de criar.
+    if (new URLSearchParams(window.location.search).get("novo") === "1") setCreateOpen(true);
   }, []);
 
   const filtered = useMemo(() => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canManageGalaxy } from "@/lib/nova/permissions";
+import { getGalaxyAccessUserIds, notifyUsers } from "@/lib/notifications/notify";
 
 interface Params {
   params: { id: string };
@@ -34,11 +35,24 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: permission.reason }, { status: 403 });
   }
 
+  const alreadyLinked = await db.designSystemGalaxyLink.findUnique({ where: { sourceId_galaxyId: { sourceId: source.id, galaxyId } } });
   const link = await db.designSystemGalaxyLink.upsert({
     where: { sourceId_galaxyId: { sourceId: source.id, galaxyId } },
     create: { sourceId: source.id, galaxyId, linkedById: user.id },
     update: {},
   });
+
+  if (!alreadyLinked) {
+    // Quem tem acesso a essa Galáxia passa a ter esse Design System no contexto.
+    await notifyUsers({
+      userIds: await getGalaxyAccessUserIds(galaxyId),
+      actorId: user.id,
+      type: "DESIGN_SYSTEM_LINKED",
+      title: "Design System vinculado à sua Galáxia",
+      body: `${user.name ?? "Alguém"} vinculou o Design System "${source.name}" à Galáxia ${galaxy.name}.`,
+      linkUrl: "/nova",
+    });
+  }
 
   return NextResponse.json({ link }, { status: 201 });
 }

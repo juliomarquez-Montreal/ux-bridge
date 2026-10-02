@@ -6,6 +6,7 @@ import PillButton from "@/components/PillButton";
 import { EditIcon, TrashIcon } from "@/components/icons";
 import PlanetTypeFormModal, { type PlanetTypeFormState } from "./PlanetTypeFormModal";
 import type { ApiPlanetType, NovaUser } from "./types";
+import PageSkeleton from "@/components/PageSkeleton";
 
 interface Props {
   user: NovaUser;
@@ -56,7 +57,7 @@ export default function PlanetTypesTab({ user, planetTypes, search, showCreateFo
   }
 
   if (!planetTypes) {
-    return <p className="text-sm text-luminous-on-surface-variant">Carregando...</p>;
+    return <PageSkeleton />;
   }
 
   return (

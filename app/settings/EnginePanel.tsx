@@ -5,6 +5,7 @@ import GlassCard from "@/components/GlassCard";
 import PillButton from "@/components/PillButton";
 import Badge from "@/components/Badge";
 import Switch from "@/components/Switch";
+import PageSkeleton from "@/components/PageSkeleton";
 
 type ProviderKey = "gemini" | "openai" | "claude";
 
@@ -97,7 +98,7 @@ export default function EnginePanel() {
   }
 
   if (!engines) {
-    return <p className="text-sm text-luminous-on-surface-variant">Carregando engines...</p>;
+    return <PageSkeleton />;
   }
 
   return (

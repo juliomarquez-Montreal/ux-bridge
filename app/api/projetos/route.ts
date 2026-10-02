@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { logActivity } from "@/lib/activity/logActivity";
+import { notifyUsers } from "@/lib/notifications/notify";
 
 // Gera o próximo código sequencial "PRJ-XXX" (3 dígitos, cresce além disso
 // sem quebrar). Tenta algumas vezes em caso de corrida rara entre duas
@@ -113,6 +114,16 @@ export async function POST(request: Request) {
     entityId: project.id,
     entityLabel: project.name,
     metadata: { code: project.code, bridgeCount: bridgeIds.length },
+  });
+  // O Projeto nasce sem equipe; avisa quem criou/é PO dos Bridges incluídos.
+  const linked = await db.bridge.findMany({ where: { id: { in: bridgeIds } }, select: { createdById: true, poUserId: true } });
+  await notifyUsers({
+    userIds: linked.flatMap((b) => [b.createdById, b.poUserId]),
+    actorId: user.id,
+    type: "PROJECT_CREATED",
+    title: "Seu Bridge entrou num Projeto",
+    body: `${user.name ?? "Alguém"} criou o Projeto "${project.name}" (${project.code}) com um Bridge seu.`,
+    linkUrl: `/projetos/${project.id}`,
   });
 
   return NextResponse.json({ project }, { status: 201 });

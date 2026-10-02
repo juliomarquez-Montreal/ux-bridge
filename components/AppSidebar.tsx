@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import type { ReactNode } from "react";
 import {
   ActivityIcon,
@@ -11,26 +12,31 @@ import {
   GridIcon,
   LinkIcon,
   NovaIcon,
+  UsersIcon,
 } from "@/components/icons";
 
 interface NavItem {
   label: string;
   icon: (props: { className?: string }) => ReactNode;
   href?: string;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: GridIcon, href: "/" },
-  { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
   { label: "Projetos", icon: FolderIcon, href: "/projetos" },
   { label: "Wireframes", icon: FrameIcon, href: "/wireframes" },
+  { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Atividades", icon: ActivityIcon, href: "/atividades" },
+  { label: "Usuários", icon: UsersIcon, href: "/usuarios", adminOnly: true },
   { label: "Configurações", icon: GearIcon, href: "/settings" },
 ];
 
 export default function AppSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.permissionLevel === "ADMIN";
 
   return (
     <>
@@ -56,7 +62,7 @@ export default function AppSidebar({ open, onClose }: { open: boolean; onClose: 
         </div>
 
         <nav className="space-y-1 p-4">
-          {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+          {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map(({ label, icon: Icon, href }) => {
             const active = href && (href === "/" ? pathname === "/" : pathname.startsWith(href));
             const className = `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm transition ${
               active

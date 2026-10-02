@@ -13,6 +13,7 @@ import PlanetTypesTab from "./PlanetTypesTab";
 import { collectAllIds, filterTreeBySearch } from "./search";
 import { canCreateUniverso, flattenTree } from "./clientPermissions";
 import type { ApiContextNode, ApiDesignSystemSource, ApiPlanetType, ApiUserGalaxy, FormModalState, NovaUser } from "./types";
+import PageSkeleton from "@/components/PageSkeleton";
 
 type Tab = "universo" | "design-system" | "planetas";
 
@@ -165,7 +166,7 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
   }
 
   if (!tree) {
-    return <p className="text-sm text-luminous-on-surface-variant">Carregando hierarquia...</p>;
+    return <PageSkeleton />;
   }
 
   return (

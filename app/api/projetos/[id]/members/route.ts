@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canManageProject } from "@/lib/projects/permissions";
+import { notifyUsers } from "@/lib/notifications/notify";
 
 interface Params {
   params: { id: string };
@@ -37,5 +38,14 @@ export async function POST(request: Request, { params }: Params) {
   if (existing) return NextResponse.json({ error: "Este usuário já está na equipe com este papel." }, { status: 409 });
 
   const member = await db.projectMember.create({ data: { projectId: params.id, userId, role } });
+  const project = await db.project.findUnique({ where: { id: params.id }, select: { name: true, code: true } });
+  await notifyUsers({
+    userIds: [userId],
+    actorId: user.id,
+    type: "PROJECT_MEMBER_ADDED",
+    title: "Você foi adicionado a um Projeto",
+    body: `${user.name ?? "Alguém"} adicionou você como ${role} no Projeto "${project?.name ?? ""}"${project?.code ? ` (${project.code})` : ""}.`,
+    linkUrl: `/projetos/${params.id}`,
+  });
   return NextResponse.json({ member }, { status: 201 });
 }

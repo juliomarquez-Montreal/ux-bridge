@@ -59,6 +59,8 @@ model User {
   passwordHash    String?
   avatarUrl       String?
   permissionLevel PermissionLevel    @default(USER)
+  // false = conta desativada (módulo Usuários): não loga e a sessão deixa de valer.
+  active          Boolean            @default(true)
   funcao          Funcao             @default(OUTROS)
   // Galáxia selecionada no momento no seletor do header — só afeta o que a
   // UI mostra por padrão, não é fonte de permissão (isso é galaxyAccess,
@@ -75,6 +77,7 @@ model User {
   bridgesAsPO     Bridge[]           @relation("BridgePO")
   bridgesAsUX     Bridge[]           @relation("BridgeUX")
   activityLogs    ActivityLog[]
+  notifications   Notification[]
 }
 
 // Acesso de um usuário a uma Galáxia (N:N) — ver lib/nova/permissions.ts.
@@ -438,16 +441,6 @@ model GoalModeRun {
   logJson         Json?
 }
 
-model Notification {
-  id                String   @id @default(cuid())
-  recipientId       String
-  type              String
-  relatedEntityType String
-  relatedEntityId   String
-  channel           String   @default("EMAIL")
-  sentAt            DateTime @default(now())
-}
-
 // Projeto-1: agrupa vários Bridges (+ equipe + sprints + decisões) sob um
 // mesmo guarda-chuva de entrega. Um Bridge pertence a no máximo um Projeto
 // (ver ProjectBridgeLink.bridgeId @unique); um Projeto pode ter qualquer
@@ -606,4 +599,23 @@ model ActivityLog {
   @@index([createdAt])
   @@index([galaxyId])
   @@index([userId])
+}
+
+// Notificações internas (sino do header + Toast + notificação do navegador).
+// Uma linha por DESTINATÁRIO; type usa o mesmo vocabulário de ActivityLog
+// (BRIDGE_CREATED etc.) mais PROJECT_MEMBER_ADDED / BRIDGE_UX_ASSIGNED /
+// DESIGN_SYSTEM_LINKED. Criadas por lib/notifications/notify.ts, nos mesmos
+// pontos em que já se chama logActivity().
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  linkUrl   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
 }

@@ -7,6 +7,7 @@ import PillButton from "@/components/PillButton";
 import { CloseIcon, LinkIcon, TrashIcon } from "@/components/icons";
 import DesignSystemLinkModal from "./DesignSystemLinkModal";
 import type { ApiContextNode, ApiDesignSystemSource, NovaUser } from "./types";
+import PageSkeleton from "@/components/PageSkeleton";
 
 interface Props {
   user: NovaUser;
@@ -142,7 +143,7 @@ export default function DesignSystemTab({
   }
 
   if (!sources) {
-    return <p className="text-sm text-luminous-on-surface-variant">Carregando...</p>;
+    return <PageSkeleton />;
   }
 
   return (

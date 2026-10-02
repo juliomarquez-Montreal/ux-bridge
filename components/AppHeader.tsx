@@ -6,8 +6,9 @@ import UserMenu from "@/components/UserMenu";
 import AppSidebar from "@/components/AppSidebar";
 import CreateBridgeModal from "@/components/CreateBridgeModal";
 import GalaxySelector from "@/components/GalaxySelector";
+import NotificationBell from "@/components/NotificationBell";
 import SearchPalette from "@/components/SearchPalette";
-import { BellIcon, GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components/icons";
+import { GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components/icons";
 
 // Header/navegação compartilhado entre as páginas autenticadas (dashboard,
 // ajustes, perfil). Sticky no topo; dono do estado do sidebar e da busca —
@@ -140,14 +141,7 @@ export default function AppHeader() {
               <span className="hidden sm:inline">Criar novo Bridge</span>
             </button>
 
-            <button
-              type="button"
-              aria-label="Notificações"
-              // TODO: ligar em notificações reais quando existirem.
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10"
-            >
-              <BellIcon className="h-5 w-5" />
-            </button>
+            <NotificationBell />
 
             <a
               href="/settings"

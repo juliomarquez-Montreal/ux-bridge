@@ -6,6 +6,8 @@ import PillButton from "@/components/PillButton";
 import Badge from "@/components/Badge";
 import CropModal from "./CropModal";
 import { useFieldAutosave, type SaveStatus } from "./useFieldAutosave";
+import PageSkeleton from "@/components/PageSkeleton";
+import BrowserNotificationsCard from "./BrowserNotificationsCard";
 
 type Funcao = "PO" | "UX" | "GERENTE_PROJETOS" | "OUTROS";
 type PermissionLevel = "ADMIN" | "USER";
@@ -185,7 +187,7 @@ export default function ProfilePanel() {
   }
 
   if (loadError) return <p className="text-sm text-luminous-error">{loadError}</p>;
-  if (!profile) return <p className="text-sm text-luminous-on-surface-variant">Carregando perfil...</p>;
+  if (!profile) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -294,6 +296,8 @@ export default function ProfilePanel() {
           {emailAutosave.error && <p className="mt-1 text-xs text-luminous-error">{emailAutosave.error}</p>}
         </div>
       </GlassCard>
+
+      <BrowserNotificationsCard />
 
       <GlassCard className="space-y-4">
         <h3 className="font-sora text-lg font-semibold">Senha</h3>

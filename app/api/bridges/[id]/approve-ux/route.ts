@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet, canEditWireframeContent } from "@/lib/nova/permissions";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { logActivity } from "@/lib/activity/logActivity";
+import { getAdminIds, getGalaxyAccessUserIds, notifyUsers } from "@/lib/notifications/notify";
 import { WIREFRAME_FRAME_WIDTH, WIREFRAME_FRAME_HEIGHT } from "@/lib/bridges/wireframeLayout";
 import { renderWireframeSvg } from "@/lib/bridges/wireframeSvg";
 import { ensureWireframeExportsBucket, getSupabaseAdmin, WIREFRAME_EXPORTS_BUCKET } from "@/lib/supabase-admin";
@@ -65,6 +66,14 @@ export async function POST(_request: Request, { params }: { params: { id: string
     entityId: bridge.id,
     entityLabel: updated.planet.name,
     galaxyFromNodeId: bridge.planetContextNodeId,
+  });
+  await notifyUsers({
+    userIds: [bridge.poUserId, bridge.createdById],
+    actorId: user.id,
+    type: "WIREFRAME_APPROVED_UX",
+    title: "Wireframe finalizado",
+    body: `${user.name ?? "Alguém"} aprovou e exportou o Wireframe de ${updated.planet.name}.`,
+    linkUrl: `/bridges/${bridge.id}`,
   });
 
   return NextResponse.json({ bridge: updated });

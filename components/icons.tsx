@@ -7,6 +7,9 @@ import {
   Columns3,
   Calendar,
   Check,
+  KeyRound,
+  UserCheck,
+  UserX,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -457,4 +460,17 @@ export function CompareIcon(props: SVGProps<SVGSVGElement>) {
 }
 export function TagIcon(props: SVGProps<SVGSVGElement>) {
   return <Tag strokeWidth={1.7} {...props} />;
+}
+
+// Módulo Usuários: redefinir senha, desativar e reativar conta.
+export function KeyIcon(props: SVGProps<SVGSVGElement>) {
+  return <KeyRound strokeWidth={1.7} {...props} />;
+}
+
+export function UserOffIcon(props: SVGProps<SVGSVGElement>) {
+  return <UserX strokeWidth={1.7} {...props} />;
+}
+
+export function UserCheckIcon(props: SVGProps<SVGSVGElement>) {
+  return <UserCheck strokeWidth={1.7} {...props} />;
 }

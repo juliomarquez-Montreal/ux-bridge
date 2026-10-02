@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { logActivity } from "@/lib/activity/logActivity";
+import { getAdminIds, getGalaxyAccessUserIds, notifyUsers } from "@/lib/notifications/notify";
 
 // POST /api/bridges/:id/approve-wireframe -> botão "Aprovar Wireframe" no
 // subheader do editor (Wireframe-1a). O PO já edita direto no canvas (mover/
@@ -37,6 +38,14 @@ export async function POST(_request: Request, { params }: { params: { id: string
     entityId: bridge.id,
     entityLabel: updated.planet.name,
     galaxyFromNodeId: bridge.planetContextNodeId,
+  });
+  await notifyUsers({
+    userIds: [bridge.uxUserId],
+    actorId: user.id,
+    type: "WIREFRAME_APPROVED_PO",
+    title: "Wireframe aguardando você (UX)",
+    body: `${user.name ?? "Alguém"} aprovou o Wireframe de ${updated.planet.name}. Agora é a sua vez de avaliar e exportar.`,
+    linkUrl: `/bridges/${bridge.id}`,
   });
   return NextResponse.json({ bridge: updated });
 }

@@ -6,6 +6,7 @@ import { ensureBridgeMaterialsBucket, getSupabaseAdmin, BRIDGE_MATERIALS_BUCKET 
 import { runBddGeneration } from "@/lib/bridges/generate";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { logActivity } from "@/lib/activity/logActivity";
+import { getAdminIds, getGalaxyAccessUserIds, notifyUsers } from "@/lib/notifications/notify";
 
 // A geração roda dentro da própria requisição (sem fila) — pode levar
 // bastante tempo numa chamada de IA real, então damos mais margem que o
@@ -139,6 +140,15 @@ export async function POST(request: Request) {
     entityId: bridge.id,
     entityLabel: planet.name,
     galaxyFromNodeId: planet.id,
+  });
+  // PO do Bridge (se não for quem criou) + administradores.
+  await notifyUsers({
+    userIds: [bridge.poUserId, ...(await getAdminIds())],
+    actorId: user.id,
+    type: "BRIDGE_CREATED",
+    title: "Novo Bridge criado",
+    body: `${user.name ?? "Alguém"} criou o Bridge de ${planet.name}.`,
+    linkUrl: `/bridges/${bridge.id}`,
   });
 
   if (hasFile && file instanceof File) {

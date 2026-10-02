@@ -5,6 +5,7 @@ import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { runWireframeGeneration } from "@/lib/bridges/generate";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { logActivity } from "@/lib/activity/logActivity";
+import { getAdminIds, getGalaxyAccessUserIds, notifyUsers } from "@/lib/notifications/notify";
 
 // A aprovação do BDD dispara a geração do Wireframe dentro da própria
 // requisição (mesmo padrão síncrono do Bridge-1) — pode levar um tempo.
@@ -64,6 +65,15 @@ export async function POST(_request: Request, { params }: Params) {
     entityId: bridge.id,
     entityLabel: updated?.planet.name ?? "Bridge",
     galaxyFromNodeId: bridge.planetContextNodeId,
+  });
+  // Quem espera a próxima etapa (aprovar o Wireframe): o PO e quem criou o Bridge.
+  await notifyUsers({
+    userIds: [bridge.poUserId, bridge.createdById],
+    actorId: user.id,
+    type: "BRIDGE_SPEC_APPROVED",
+    title: "Bridge Spec (BS) aprovado",
+    body: `${user.name ?? "Alguém"} aprovou o Bridge Spec de ${updated?.planet.name ?? "um Bridge"}. Próxima etapa: aprovação do Wireframe pelo PO.`,
+    linkUrl: `/bridges/${bridge.id}`,
   });
   return NextResponse.json({ bridge: updated });
 }

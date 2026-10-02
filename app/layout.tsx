@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
+import { Suspense } from "react";
+import NavigationProgress from "@/components/NavigationProgress";
 import Providers from "./providers";
 
 // Fontes-base disponíveis para interfaces, textos e conteúdo técnico.
@@ -23,7 +25,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          {children}
+        </Providers>
       </body>
     </html>
   );
