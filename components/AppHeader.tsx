@@ -16,6 +16,7 @@ import { BellIcon, GearIcon, GridIcon, PlusIcon, SearchIcon } from "@/components
 export default function AppHeader() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [bridgeModalOpen, setBridgeModalOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +32,7 @@ export default function AppHeader() {
 
   function closeSearch() {
     setSearchOpen(false);
+    setSearchQuery("");
   }
 
   function toggleSidebar() {
@@ -50,6 +52,7 @@ export default function AppHeader() {
       }
       if (event.key === "Escape") {
         setSearchOpen(false);
+        setSearchQuery("");
         setSidebarOpen(false);
       }
     }
@@ -102,9 +105,12 @@ export default function AppHeader() {
               <input
                 ref={searchInputRef}
                 type="text"
-                readOnly
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 onFocus={openSearch}
                 onClick={openSearch}
+                aria-label="Buscar"
+                autoComplete="off"
                 placeholder="O que você precisa encontrar?"
                 className="w-full min-w-0 flex-1 cursor-pointer bg-transparent text-luminous-on-surface outline-none placeholder:text-luminous-on-surface-variant"
               />
@@ -113,7 +119,14 @@ export default function AppHeader() {
               </kbd>
             </div>
 
-            {searchOpen && <SearchPalette onClose={closeSearch} />}
+            {searchOpen && (
+              <SearchPalette
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                onClose={closeSearch}
+                onCreateBridge={() => setBridgeModalOpen(true)}
+              />
+            )}
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">

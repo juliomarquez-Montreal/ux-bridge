@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ActivityIcon,
-  EyeIcon,
   FolderIcon,
   FrameIcon,
   GearIcon,
@@ -21,13 +20,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Visão geral", icon: EyeIcon },
   { label: "Dashboard", icon: GridIcon, href: "/" },
   { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
-  { label: "Atividades", icon: ActivityIcon, href: "/atividades" },
   { label: "Projetos", icon: FolderIcon, href: "/projetos" },
   { label: "Wireframes", icon: FrameIcon, href: "/wireframes" },
+  { label: "Atividades", icon: ActivityIcon, href: "/atividades" },
   { label: "Configurações", icon: GearIcon, href: "/settings" },
 ];
 

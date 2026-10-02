@@ -56,6 +56,12 @@ export default function NovaPanel({ user }: { user: NovaUser }) {
   const [deleteTarget, setDeleteTarget] = useState<ApiContextNode | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  // Link da busca do header (/nova?q=Nome): abre a hierarquia já filtrada.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, []);
+
   const refreshTree = useCallback(async () => {
     const res = await fetch("/api/nova/nodes");
     if (!res.ok) throw new Error("Falha ao carregar a árvore.");
