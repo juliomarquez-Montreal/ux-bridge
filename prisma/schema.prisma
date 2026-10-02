@@ -468,6 +468,10 @@ model Project {
   members     ProjectMember[]
   sprints     ProjectSprint[]
   decisions   ProjectDecision[]
+  scopeAnalyses     ProjectScopeAnalysis[]
+  conflictAnalyses  ProjectConflictAnalysis[]
+  bridgeDependencies BridgeDependency[]
+  comparisonNotes   BridgeComparisonNote[]
 }
 
 // Vínculo N:1 entre Bridge e Project (um Bridge só pode estar vinculado a um
@@ -481,6 +485,8 @@ model ProjectBridgeLink {
   bridge     Bridge   @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
   linkedById String?
   linkedAt   DateTime @default(now())
+  // Etiqueta livre de área (ex: "Login", "Relatórios") — Mapa de Áreas.
+  area       String?
 }
 
 // Colaborador de um Projeto (PO ou UX) — lista de "quem está envolvido no
@@ -518,6 +524,58 @@ model ProjectDecision {
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   text      String
+  authorId  String
+  createdAt DateTime @default(now())
+}
+
+// Ferramentas do PO (Projeto-2): análises/anotações que só fazem sentido com
+// vários Bridges reunidos num Projeto. bridgeId(s) são scalars sem FK formal
+// (mesmo padrão de Bridge.createdById) — limpeza ao desvincular fica na rota
+// DELETE /api/projetos/[id]/bridges/[bridgeId].
+
+// Radar de Desvio de Escopo: último veredito da IA por Bridge (sobrescrito).
+model ProjectScopeAnalysis {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bridgeId    String
+  aligned     Boolean
+  explanation String
+  analyzedAt  DateTime @default(now())
+}
+
+// Detector de Conflitos: última análise do Projeto inteiro (substituída).
+model ProjectConflictAnalysis {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // lista de { bridgeIdA, bridgeIdB, description }
+  conflicts  Json
+  analyzedAt DateTime @default(now())
+}
+
+// Mapa de Dependências: "bridgeId depende de dependsOnBridgeId".
+model BridgeDependency {
+  id                String   @id @default(cuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bridgeId          String
+  dependsOnBridgeId String
+  note              String?
+  createdById       String
+  createdAt         DateTime @default(now())
+
+  @@unique([bridgeId, dependsOnBridgeId])
+}
+
+// Comparador de Bridge Specs: anotação do PO sobre uma comparação.
+model BridgeComparisonNote {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // array de IDs dos Bridges comparados
+  bridgeIds Json
+  note      String
   authorId  String
   createdAt DateTime @default(now())
 }

@@ -10,6 +10,9 @@ export interface ApiProjectBridge {
   estrelaName: string | null;
   galaxiaName: string | null;
   linkedAt: string;
+  // Etiqueta livre de área (Mapa de Áreas) e se já tem Bridge Spec gerado.
+  area: string | null;
+  hasSpec: boolean;
 }
 
 export interface ApiProjectMember {
@@ -74,4 +77,54 @@ export interface ApiProjectUser {
   id: string;
   name: string;
   avatarUrl: string | null;
+}
+
+// ---- Ferramentas do PO (Projeto-2) ----
+
+export interface ApiScopeAnalysis {
+  bridgeId: string;
+  aligned: boolean;
+  explanation: string;
+  analyzedAt: string;
+}
+
+export interface ApiConflict {
+  bridgeIdA: string;
+  bridgeIdB: string;
+  description: string;
+}
+
+export interface ApiConflictAnalysis {
+  analyzedAt: string;
+  conflicts: ApiConflict[];
+}
+
+export interface ApiBridgeDependency {
+  id: string;
+  bridgeId: string;
+  dependsOnBridgeId: string;
+  note: string | null;
+  createdByName: string;
+  createdAt: string;
+}
+
+export interface ApiComparisonNote {
+  id: string;
+  bridgeIds: string[];
+  note: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface ApiToolsData {
+  scopeAnalyses: ApiScopeAnalysis[];
+  conflictAnalysis: ApiConflictAnalysis | null;
+  dependencies: ApiBridgeDependency[];
+  comparisonNotes: ApiComparisonNote[];
+}
+
+export interface ApiBridgeSpec {
+  bridgeId: string;
+  name: string;
+  spec: string | null;
 }

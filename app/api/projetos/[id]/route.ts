@@ -19,13 +19,16 @@ export async function GET(_request: Request, { params }: Params) {
     where: { id: params.id },
     include: {
       bridgeLinks: {
-        orderBy: { linkedAt: "asc" },
+        // id como desempate: vínculos criados em lote têm o mesmo linkedAt, e
+        // sem isso a ordem das linhas mudava a cada recarga.
+        orderBy: [{ linkedAt: "asc" }, { id: "asc" }],
         include: {
           bridge: {
             select: {
               id: true,
               status: true,
               bddApprovedAt: true,
+              generatedBddPbi: true,
               createdAt: true,
               planet: {
                 select: { name: true, parent: { select: { name: true, parent: { select: { name: true } } } } },
@@ -67,6 +70,8 @@ export async function GET(_request: Request, { params }: Params) {
         estrelaName: link.bridge.planet.parent?.name ?? null,
         galaxiaName: link.bridge.planet.parent?.parent?.name ?? null,
         linkedAt: link.linkedAt,
+        area: link.area,
+        hasSpec: !!link.bridge.generatedBddPbi,
       })),
       members: project.members.map((m) => ({
         id: m.id,

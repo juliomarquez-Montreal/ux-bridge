@@ -13,6 +13,7 @@ import {
   MessageCircleIcon,
   MoreIcon,
   PlusIcon,
+  RadarIcon,
   RefreshIcon,
   StoryMapIcon,
   TargetIcon,
@@ -25,12 +26,13 @@ import ProjectStoryMapTab from "./ProjectStoryMapTab";
 import ProjectSprintsTab from "./ProjectSprintsTab";
 import ProjectMetricsTab from "./ProjectMetricsTab";
 import ProjectDecisionsTab from "./ProjectDecisionsTab";
+import ProjectToolsTab, { type ToolKey } from "./ProjectToolsTab";
 import DeleteProjectModal from "./DeleteProjectModal";
 import LinkBridgeModal from "./LinkBridgeModal";
 import AddMemberModal from "./AddMemberModal";
 import NewSprintModal from "./NewSprintModal";
 
-export type ProjectTab = "overview" | "story-map" | "sprints" | "metrics" | "decisions";
+export type ProjectTab = "overview" | "story-map" | "sprints" | "metrics" | "decisions" | "tools";
 
 const TABS: { key: ProjectTab; label: string; icon: (p: { className?: string }) => ReactNode }[] = [
   { key: "overview", label: "Visão geral", icon: TargetIcon },
@@ -38,6 +40,7 @@ const TABS: { key: ProjectTab; label: string; icon: (p: { className?: string }) 
   { key: "sprints", label: "Sprints", icon: RefreshIcon },
   { key: "metrics", label: "Métricas", icon: BarChartIcon },
   { key: "decisions", label: "Decisões", icon: MessageCircleIcon },
+  { key: "tools", label: "Ferramentas do PO", icon: RadarIcon },
 ];
 
 const STATUS_OPTIONS: ProjectStatus[] = ["PLANEJAMENTO", "EM_EXECUCAO", "EM_VALIDACAO", "FINALIZADO"];
@@ -65,6 +68,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<ApiProjectDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectTab>("overview");
+  const [toolSection, setToolSection] = useState<ToolKey>("scope");
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -105,6 +109,12 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     const frame = requestAnimationFrame(() => setProgressWidth(progressPct));
     return () => cancelAnimationFrame(frame);
   }, [project, progressPct]);
+
+  // Troca de aba; os atalhos da Visão geral podem abrir direto uma ferramenta.
+  function goTab(tab: ProjectTab, section?: ToolKey) {
+    if (section) setToolSection(section);
+    setActiveTab(tab);
+  }
 
   async function handleStatusChange(status: ProjectStatus) {
     setStatusMenuOpen(false);
@@ -289,13 +299,16 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
               onOpenLink={() => setLinkOpen(true)}
               onOpenMember={() => setMemberOpen(true)}
               onOpenSprint={() => setSprintOpen(true)}
-              onGoTab={setActiveTab}
+              onGoTab={goTab}
             />
           )}
           {activeTab === "story-map" && <ProjectStoryMapTab project={project} />}
           {activeTab === "sprints" && <ProjectSprintsTab project={project} onChanged={onMutated} />}
           {activeTab === "metrics" && <ProjectMetricsTab project={project} />}
           {activeTab === "decisions" && <ProjectDecisionsTab project={project} onChanged={onMutated} />}
+          {activeTab === "tools" && (
+            <ProjectToolsTab project={project} section={toolSection} onSectionChange={setToolSection} onChanged={onMutated} />
+          )}
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E8EC] pt-4 text-[12.5px] text-[#50545C]">

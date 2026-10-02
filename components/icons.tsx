@@ -4,6 +4,7 @@ import {
   ArrowUpDown,
   Atom,
   BarChart3,
+  Columns3,
   Calendar,
   Check,
   ChevronDown,
@@ -18,6 +19,7 @@ import {
   EyeOff,
   Filter,
   Flag,
+  GitCompare,
   FolderPlus,
   Globe,
   Hand,
@@ -27,6 +29,7 @@ import {
   Mail,
   Maximize2,
   Map as MapLucide,
+  Network as NetworkLucide,
   MessageCircle,
   MessageSquare,
   Minimize2,
@@ -36,12 +39,14 @@ import {
   Package,
   Pencil,
   Play,
+  Radar,
   PenTool,
   Redo2,
   RefreshCw,
   Settings,
   Share2,
   SlidersHorizontal,
+  Tag,
   Target,
   Square,
   Star,
@@ -435,4 +440,21 @@ export function FlagIcon(props: SVGProps<SVGSVGElement>) {
 }
 export function PlayIcon(props: SVGProps<SVGSVGElement>) {
   return <Play strokeWidth={1.7} {...props} />;
+}
+
+// Ferramentas do PO (Projeto-2).
+export function RadarIcon(props: SVGProps<SVGSVGElement>) {
+  return <Radar strokeWidth={1.7} {...props} />;
+}
+export function ConflictIcon(props: SVGProps<SVGSVGElement>) {
+  return <GitCompare strokeWidth={1.7} {...props} />;
+}
+export function DependencyIcon(props: SVGProps<SVGSVGElement>) {
+  return <NetworkLucide strokeWidth={1.7} {...props} />;
+}
+export function CompareIcon(props: SVGProps<SVGSVGElement>) {
+  return <Columns3 strokeWidth={1.7} {...props} />;
+}
+export function TagIcon(props: SVGProps<SVGSVGElement>) {
+  return <Tag strokeWidth={1.7} {...props} />;
 }

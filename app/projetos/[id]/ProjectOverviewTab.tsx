@@ -12,6 +12,7 @@ import {
   LayersIcon,
   LinkIcon,
   PlusIcon,
+  RadarIcon,
   RefreshIcon,
   TargetIcon,
   TrashIcon,
@@ -21,6 +22,7 @@ import { BRIDGE_STAGE_LABEL, BRIDGE_STAGES, mapBridgeToStage, type BridgeStage }
 import { Btn, Card, CardTitle, fieldClass, Pill } from "../ui";
 import type { ApiProjectDetail, ApiProjectSprint } from "../types";
 import type { ProjectTab } from "./ProjectDetail";
+import { TOOLS, type ToolKey } from "./ProjectToolsTab";
 
 interface Props {
   project: ApiProjectDetail;
@@ -28,7 +30,7 @@ interface Props {
   onOpenLink: () => void;
   onOpenMember: () => void;
   onOpenSprint: () => void;
-  onGoTab: (tab: ProjectTab) => void;
+  onGoTab: (tab: ProjectTab, section?: ToolKey) => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -449,6 +451,28 @@ export default function ProjectOverviewTab({ project, onChanged, onOpenLink, onO
         )}
       </Card>
 
+      {/* Atalhos das Ferramentas do PO (Projeto-2) */}
+      <Card className="p-5">
+        <CardTitle icon={<RadarIcon className="h-6 w-6" />}>Ferramentas do PO</CardTitle>
+        <p className="mt-1 pl-[34px] text-[14px] text-[#50545C]">Análises que só fazem sentido com vários Bridges reunidos.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {TOOLS.map(({ key, label, description, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onGoTab("tools", key)}
+              className="group rounded-[10px] border border-[#E6E8EC] bg-white p-3.5 text-left transition hover:-translate-y-0.5 hover:border-[#C9B2F7] hover:shadow-[0_6px_18px_rgba(139,64,245,0.10)] active:scale-[0.98]"
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#F5EEFE] text-[#7B3BF0] transition group-hover:bg-[#8B40F5] group-hover:text-white">
+                <Icon className="h-5 w-5" />
+              </span>
+              <p className="mt-2.5 text-[14.5px] font-semibold text-[#15161A]">{label}</p>
+              <p className="mt-0.5 text-[12.5px] leading-snug text-[#50545C]">{description}</p>
+            </button>
+          ))}
+        </div>
+      </Card>
+
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Status dos Bridges */}
         <Card className="p-5">
@@ -554,9 +578,14 @@ export default function ProjectOverviewTab({ project, onChanged, onOpenLink, onO
                   >
                     <a href={`/bridges/${bridge.id}`} className="min-w-0 flex-1">
                       <p className="truncate text-[14.5px] font-medium text-[#1D1F25] hover:underline">{bridge.planetName}</p>
-                      <Pill tone={STAGE_PILL_TONE[stage]} className="mt-1 !px-2 !py-0.5 !text-[11.5px]">
-                        {BRIDGE_STAGE_LABEL[stage]}
-                      </Pill>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <Pill tone={STAGE_PILL_TONE[stage]} className="!px-2 !py-0.5 !text-[11.5px]">
+                          {BRIDGE_STAGE_LABEL[stage]}
+                        </Pill>
+                        {bridge.area && (
+                          <span className="rounded-[6px] border border-[#E6E8EC] bg-[#F4F5F7] px-2 py-0.5 text-[11.5px] text-[#50545C]">{bridge.area}</span>
+                        )}
+                      </div>
                     </a>
                     <Btn small variant="ghost" onClick={() => handleUnlink(bridge.id)} disabled={unlinkBusy === bridge.id}>
                       {unlinkBusy === bridge.id ? "Desvinculando..." : "Desvincular"}
