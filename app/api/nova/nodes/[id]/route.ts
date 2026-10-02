@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canModifyNode } from "@/lib/nova/permissions";
+import { logActivity } from "@/lib/activity/logActivity";
 import { extractStoragePath, getSupabaseAdmin, PLANET_EXAMPLES_BUCKET } from "@/lib/supabase-admin";
 
 interface Params {
@@ -60,6 +61,15 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const updated = await db.contextNode.update({ where: { id: node.id }, data });
+  await logActivity({
+    userId: user.id,
+    action: "NOVA_NODE_UPDATED",
+    entityType: "NOVA_NODE",
+    entityId: node.id,
+    entityLabel: updated.name,
+    metadata: { nodeType: node.type, previousName: node.name },
+    galaxyFromNodeId: node.id,
+  });
   return NextResponse.json({ node: updated });
 }
 
@@ -104,5 +114,16 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await db.contextNode.delete({ where: { id: node.id } });
+  // Excluída uma Galáxia, ela é a própria Galáxia do registro; nos demais
+  // tipos a Galáxia sai do pai (que continua existindo).
+  await logActivity({
+    userId: user.id,
+    action: "NOVA_NODE_DELETED",
+    entityType: "NOVA_NODE",
+    entityId: node.id,
+    entityLabel: node.name,
+    metadata: { nodeType: node.type },
+    ...(node.type === "GALAXIA" ? { galaxyId: node.id } : { galaxyFromNodeId: node.parentId }),
+  });
   return NextResponse.json({ ok: true });
 }

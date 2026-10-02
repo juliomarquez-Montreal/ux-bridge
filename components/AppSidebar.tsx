@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: GridIcon, href: "/" },
   { label: "NOVA", icon: NovaIcon, href: "/nova" },
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
-  { label: "Atividades", icon: ActivityIcon },
+  { label: "Atividades", icon: ActivityIcon, href: "/atividades" },
   { label: "Projetos", icon: FolderIcon, href: "/projetos" },
   { label: "Wireframes", icon: FrameIcon },
   { label: "Configurações", icon: GearIcon, href: "/settings" },
@@ -51,19 +51,10 @@ export default function AppSidebar({ open, onClose }: { open: boolean; onClose: 
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div className="flex items-center border-b border-white/10 px-6 py-4">
           <a href="/" onClick={onClose} aria-label="UX Bridge — início" className="shrink-0">
             <Image src="/logo-ux-bridge.png" alt="UX Bridge" width={1749} height={333} priority className="h-5 w-auto sm:h-6" />
           </a>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar menu"
-            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[.05em] hover:bg-white/10"
-          >
-            <GridIcon className="h-4 w-4" />
-            Menu
-          </button>
         </div>
 
         <nav className="space-y-1 p-4">

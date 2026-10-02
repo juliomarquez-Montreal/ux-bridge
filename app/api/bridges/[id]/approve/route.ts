@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth-helpers";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
 import { runWireframeGeneration } from "@/lib/bridges/generate";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { logActivity } from "@/lib/activity/logActivity";
 
 // A aprovação do BDD dispara a geração do Wireframe dentro da própria
 // requisição (mesmo padrão síncrono do Bridge-1) — pode levar um tempo.
@@ -56,5 +57,13 @@ export async function POST(_request: Request, { params }: Params) {
   await runWireframeGeneration(bridge.id);
 
   const updated = await db.bridge.findUnique({ where: { id: bridge.id }, include: BRIDGE_WITH_PLANET_INCLUDE });
+  await logActivity({
+    userId: user.id,
+    action: "BRIDGE_SPEC_APPROVED",
+    entityType: "BRIDGE",
+    entityId: bridge.id,
+    entityLabel: updated?.planet.name ?? "Bridge",
+    galaxyFromNodeId: bridge.planetContextNodeId,
+  });
   return NextResponse.json({ bridge: updated });
 }

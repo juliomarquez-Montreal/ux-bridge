@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
+import { logActivity } from "@/lib/activity/logActivity";
 
 // Gera o próximo código sequencial "PRJ-XXX" (3 dígitos, cresce além disso
 // sem quebrar). Tenta algumas vezes em caso de corrida rara entre duas
@@ -103,6 +104,15 @@ export async function POST(request: Request) {
         create: bridgeIds.map((bridgeId) => ({ bridgeId, linkedById: user.id })),
       },
     },
+  });
+
+  await logActivity({
+    userId: user.id,
+    action: "PROJECT_CREATED",
+    entityType: "PROJECT",
+    entityId: project.id,
+    entityLabel: project.name,
+    metadata: { code: project.code, bridgeCount: bridgeIds.length },
   });
 
   return NextResponse.json({ project }, { status: 201 });

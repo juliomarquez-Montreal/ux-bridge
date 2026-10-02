@@ -3,6 +3,7 @@ import type { ContextNode, ContextNodeType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canCreateNode, EXPECTED_PARENT_TYPE } from "@/lib/nova/permissions";
+import { logActivity } from "@/lib/activity/logActivity";
 
 const VALID_TYPES: ContextNodeType[] = ["UNIVERSO", "GALAXIA", "ESTRELA", "PLANETA"];
 
@@ -103,6 +104,16 @@ export async function POST(request: Request) {
 
   const created = await db.contextNode.create({
     data: { type, name, parentId, planetTypeId: type === "PLANETA" ? planetTypeId : null },
+  });
+
+  await logActivity({
+    userId: user.id,
+    action: "NOVA_NODE_CREATED",
+    entityType: "NOVA_NODE",
+    entityId: created.id,
+    entityLabel: created.name,
+    metadata: { nodeType: created.type },
+    galaxyFromNodeId: created.id,
   });
 
   return NextResponse.json({ node: created }, { status: 201 });

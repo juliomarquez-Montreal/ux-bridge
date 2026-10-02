@@ -5,6 +5,7 @@ import { canAccessBridgeForPlanet } from "@/lib/nova/permissions";
 import { ensureBridgeMaterialsBucket, getSupabaseAdmin, BRIDGE_MATERIALS_BUCKET } from "@/lib/supabase-admin";
 import { runBddGeneration } from "@/lib/bridges/generate";
 import { BRIDGE_WITH_PLANET_INCLUDE } from "@/lib/bridges/include";
+import { logActivity } from "@/lib/activity/logActivity";
 
 // A geração roda dentro da própria requisição (sem fila) — pode levar
 // bastante tempo numa chamada de IA real, então damos mais margem que o
@@ -130,6 +131,14 @@ export async function POST(request: Request) {
 
   const bridge = await db.bridge.create({
     data: { planetContextNodeId: planet.id, createdById: user.id, poUserId: user.id, status: "GERANDO_BDD" },
+  });
+  await logActivity({
+    userId: user.id,
+    action: "BRIDGE_CREATED",
+    entityType: "BRIDGE",
+    entityId: bridge.id,
+    entityLabel: planet.name,
+    galaxyFromNodeId: planet.id,
   });
 
   if (hasFile && file instanceof File) {

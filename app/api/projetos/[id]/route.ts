@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-helpers";
 import { canManageProject } from "@/lib/projects/permissions";
+import { logActivity } from "@/lib/activity/logActivity";
 
 interface Params {
   params: { id: string };
@@ -137,6 +138,7 @@ export async function DELETE(request: Request, { params }: Params) {
   if (!permission.allowed) return NextResponse.json({ error: permission.reason }, { status: 403 });
 
   const mode = new URL(request.url).searchParams.get("mode") === "delete" ? "delete" : "keep";
+  const target = await db.project.findUnique({ where: { id: params.id }, select: { name: true, code: true } });
 
   if (mode === "delete") {
     const links = await db.projectBridgeLink.findMany({ where: { projectId: params.id }, select: { bridgeId: true } });
@@ -147,6 +149,15 @@ export async function DELETE(request: Request, { params }: Params) {
   // ProjectSprint e ProjectDecision têm onDelete: Cascade em projectId —
   // excluir o Project já limpa tudo isso junto.
   await db.project.delete({ where: { id: params.id } });
+
+  await logActivity({
+    userId: user.id,
+    action: "PROJECT_DELETED",
+    entityType: "PROJECT",
+    entityId: params.id,
+    entityLabel: target?.name ?? "Projeto",
+    metadata: { code: target?.code ?? null, mode },
+  });
 
   return NextResponse.json({ ok: true });
 }

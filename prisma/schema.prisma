@@ -74,6 +74,7 @@ model User {
   // ver Bridge.poUserId/uxUserId abaixo.
   bridgesAsPO     Bridge[]           @relation("BridgePO")
   bridgesAsUX     Bridge[]           @relation("BridgeUX")
+  activityLogs    ActivityLog[]
 }
 
 // Acesso de um usuário a uma Galáxia (N:N) — ver lib/nova/permissions.ts.
@@ -578,4 +579,31 @@ model BridgeComparisonNote {
   note      String
   authorId  String
   createdAt DateTime @default(now())
+}
+
+// Atividades (histórico/auditoria) — uma linha por ação relevante, gravada
+// por lib/activity/logActivity.ts. entityLabel guarda o nome legível NO
+// MOMENTO da ação (o item pode ser excluído depois). galaxyId (extra em
+// relação ao pedido original) é a Galáxia ancestral do item, denormalizada
+// só pra filtrar a visibilidade por Galáxia sem joins: null = sem Galáxia
+// (Projetos, Universo) e visível a qualquer usuário autenticado.
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  // BRIDGE_CREATED | BRIDGE_SPEC_APPROVED | WIREFRAME_APPROVED_PO |
+  // WIREFRAME_APPROVED_UX | PROJECT_CREATED | PROJECT_DELETED |
+  // NOVA_NODE_CREATED | NOVA_NODE_UPDATED | NOVA_NODE_DELETED
+  action      String
+  // "BRIDGE" | "WIREFRAME" | "PROJECT" | "NOVA_NODE"
+  entityType  String
+  entityId    String
+  entityLabel String
+  metadata    Json?
+  galaxyId    String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([galaxyId])
+  @@index([userId])
 }
