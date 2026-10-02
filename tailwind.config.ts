@@ -34,6 +34,10 @@ const config: Config = {
           "on-tertiary-fixed": "#002147", "on-tertiary-fixed-variant": "#0954aa",
           background: "#15121a", "on-background": "#e8e0eb", "surface-variant": "#37333c",
         },
+        // Tema claro exclusivo de /projetos (mockup Projetos.html).
+        projetos: {
+          primary: "#7B3BF0", text: "#1D1F25", "text-muted": "#50545C", border: "#E6E8EC",
+        },
       },
       fontFamily: { sora: ["var(--font-sora)", "sans-serif"], inter: ["var(--font-inter)", "sans-serif"], mono: ["var(--font-jetbrains-mono)", "monospace"] },
       borderRadius: { sm: "0.25rem", DEFAULT: "0.5rem", md: "0.75rem", lg: "1rem", xl: "1.5rem", full: "9999px" },

@@ -4,13 +4,11 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ActivityIcon,
-  DocumentIcon,
   EyeIcon,
   FolderIcon,
   FrameIcon,
   GearIcon,
   GridIcon,
-  LayersIcon,
   LinkIcon,
   NovaIcon,
 } from "@/components/icons";
@@ -28,8 +26,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
   { label: "Atividades", icon: ActivityIcon },
   { label: "Projetos", icon: FolderIcon, href: "/projetos" },
-  { label: "Transcrições", icon: DocumentIcon },
-  { label: "Protótipos", icon: LayersIcon },
   { label: "Wireframes", icon: FrameIcon },
   { label: "Configurações", icon: GearIcon, href: "/settings" },
 ];

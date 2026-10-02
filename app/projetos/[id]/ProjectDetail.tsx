@@ -264,22 +264,26 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          <div className="mt-5 flex gap-1 overflow-x-auto">
+          {/* Mesmo padrão das abas do /nova: aba ativa só com indicador roxo
+              embaixo (sobre a linha-base), sem caixa/borda ao redor do botão. */}
+          <div role="tablist" aria-label="Seções do Projeto" className="relative mt-5 flex gap-0 overflow-x-auto overflow-y-hidden">
             {TABS.map(({ key, label, icon: Icon }) => {
               const isActive = activeTab === key;
               return (
                 <button
                   key={key}
                   type="button"
+                  role="tab"
+                  aria-selected={isActive}
                   onClick={() => setActiveTab(key)}
-                  className={`relative flex shrink-0 items-center gap-2.5 px-5 py-3.5 text-[16px] transition-colors ${
-                    isActive ? "font-semibold text-[#7B3BF0]" : "text-[#1D1F25] hover:text-[#7B3BF0]"
+                  className={`relative flex shrink-0 items-center gap-2.5 px-5 py-3.5 text-[16px] outline-none transition-colors hover:text-projetos-primary focus-visible:text-projetos-primary ${
+                    isActive ? "font-semibold text-projetos-primary" : "text-projetos-text"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? "text-[#7B3BF0]" : "text-[#50545C]"}`} />
+                  <Icon className={`h-5 w-5 transition-colors ${isActive ? "text-projetos-primary" : "text-projetos-text-muted"}`} />
                   {label}
                   <span
-                    className={`absolute inset-x-3 bottom-0 h-[3px] rounded-t-[2px] bg-[#7B3BF0] transition-all duration-300 ${
+                    className={`absolute inset-x-0 bottom-0 h-[3px] rounded-t-[2px] bg-projetos-primary transition-all duration-300 ${
                       isActive ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
                     }`}
                   />
