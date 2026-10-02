@@ -68,7 +68,9 @@ export default function AppHeader() {
               width={1749}
               height={333}
               priority
-              className="h-5 w-auto sm:h-6"
+              // Some enquanto o sidebar está aberto: ele tem o próprio logo e
+              // este apareceria "fantasma" por baixo do fundo translúcido.
+              className={`h-5 w-auto transition-opacity sm:h-6 ${sidebarOpen ? "opacity-0" : "opacity-100"}`}
             />
           </a>
 

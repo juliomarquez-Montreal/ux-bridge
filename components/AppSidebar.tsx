@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -51,7 +52,9 @@ export default function AppSidebar({ open, onClose }: { open: boolean; onClose: 
         }`}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <span className="font-sora text-lg font-bold tracking-[0.08em]">UX·BRIDGE</span>
+          <a href="/" onClick={onClose} aria-label="UX Bridge — início" className="shrink-0">
+            <Image src="/logo-ux-bridge.png" alt="UX Bridge" width={1749} height={333} priority className="h-5 w-auto sm:h-6" />
+          </a>
           <button
             type="button"
             onClick={onClose}
