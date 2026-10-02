@@ -2,6 +2,7 @@ import type { MemoryPattern, PlanetExample } from "@prisma/client";
 import { getContextPath } from "@/lib/context";
 import { db } from "@/lib/db";
 import { getRelevantPatterns } from "@/lib/memory";
+import { PBI_STYLE_EXAMPLES_LIMIT, TRAINING_EXAMPLES_PER_KIND } from "@/lib/ai/leanContext";
 
 export const EXAMPLE_KINDS = ["RAW_TRANSCRIPT", "FINAL_BDD_PBI", "WIREFRAME_REFERENCE"] as const;
 export type PlanetExampleKind = (typeof EXAMPLE_KINDS)[number];
@@ -53,11 +54,14 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
 
   if (!universo || !galaxia || !estrela) throw new Error("A árvore do Planeta está incompleta: esperado Universo > Galáxia > Estrela > Planeta.");
 
-  const [memoryPatterns, examples, galaxyLinks, pbiStyleSources] = await Promise.all([
-    getRelevantPatterns(planet.id),
+  // Exemplos de treino: só os N mais recentes de CADA tipo (antes vinham todos
+  // os acumulados, crescendo a cada Bridge aprovado). Referências de Wireframe
+  // têm folga maior porque só servem pra escolher a imagem anexada.
+  const examplesOfKind = (kind: PlanetExampleKind, take: number) =>
     db.planetExample.findMany({
-      where: { contextNode: { type: "PLANETA", planetTypeId: planet.planetTypeId } },
-      orderBy: { createdAt: "asc" },
+      where: { kind, contextNode: { type: "PLANETA", planetTypeId: planet.planetTypeId } },
+      orderBy: { createdAt: "desc" },
+      take,
       include: {
         contextNode: {
           select: {
@@ -67,13 +71,27 @@ export async function buildContextPackage(planetContextNodeId: string): Promise<
           },
         },
       },
-    }),
+    });
+
+  const [memoryPatterns, exampleGroups, galaxyLinks, pbiStyleSources] = await Promise.all([
+    // Não vai pra IA (ver lib/ai/leanContext.ts: as correções do Wireframe
+    // entram resumidas no prompt) — só uma amostra pequena no pacote.
+    getRelevantPatterns(planet.id, { limit: 8 }),
+    Promise.all([
+      examplesOfKind("RAW_TRANSCRIPT", TRAINING_EXAMPLES_PER_KIND),
+      examplesOfKind("FINAL_BDD_PBI", TRAINING_EXAMPLES_PER_KIND),
+      examplesOfKind("WIREFRAME_REFERENCE", 20),
+    ]),
     db.designSystemGalaxyLink.findMany({
       where: { galaxyId: galaxia.id },
       include: { source: { include: { components: { orderBy: { name: "asc" } } } } },
     }),
-    db.pbiStyleSource.findMany({ where: { galaxyId: galaxia.id }, orderBy: { createdAt: "asc" } }),
+    // Só os N PBIs de estilo mais recentes (ordem cronológica no resultado).
+    db.pbiStyleSource.findMany({ where: { galaxyId: galaxia.id }, orderBy: { createdAt: "desc" }, take: PBI_STYLE_EXAMPLES_LIMIT }),
   ]);
+  // Cronológico (mais antigo -> mais recente) dentro de cada tipo, como antes.
+  const examples = exampleGroups.flatMap((group) => [...group].reverse());
+  pbiStyleSources.reverse();
 
   const trainingExamples: Record<PlanetExampleKind, ExampleWithOrigin[]> = { RAW_TRANSCRIPT: [], FINAL_BDD_PBI: [], WIREFRAME_REFERENCE: [] };
   for (const example of examples) {

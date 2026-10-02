@@ -10,10 +10,10 @@ function buildPrompt(input: AIGenerateInput): string {
   const parts: string[] = [];
 
   if (input.context !== undefined) {
-    parts.push(`Contexto:\n${JSON.stringify(input.context, null, 2)}`);
+    parts.push(`Contexto:\n${JSON.stringify(input.context)}`);
   }
   if (input.memoryPatterns?.length) {
-    parts.push(`Padrões de memória conhecidos para este contexto:\n${JSON.stringify(input.memoryPatterns, null, 2)}`);
+    parts.push(`Padrões de memória conhecidos para este contexto:\n${JSON.stringify(input.memoryPatterns)}`);
   }
   parts.push(input.prompt);
 

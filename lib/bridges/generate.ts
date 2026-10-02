@@ -1,8 +1,15 @@
-import type { MemoryPattern, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { AIImagePart } from "@/lib/ai/types";
 import { getAIProvider } from "@/lib/ai/provider";
 import { buildContextPackage, type ContextPackage } from "@/lib/nova/buildContextPackage";
+import {
+  PBI_STYLE_TEXT_MAX_CHARS,
+  buildBridgeSpecContext,
+  buildLayoutCorrectionSummaries,
+  buildWireframeContext,
+  truncateText,
+} from "@/lib/ai/leanContext";
 import type { WireframeHeightHint, WireframeWidthHint, WireframeZone } from "@/app/bridges/types";
 import { computeWireframeLayout } from "@/lib/bridges/wireframeLayout";
 
@@ -89,7 +96,7 @@ Quando fizer sentido, cenários distintos dentro de CENÁRIOS BDD podem ser orga
 // Monta o prompt de geração do Bridge Spec (campo Bridge.generatedBddPbi).
 // O pacote de contexto completo (posição na árvore, padrões de memória,
 // exemplos de treino do mesmo Tipo de Planeta e componentes de Design
-// System) vai à parte, via `context`/`memoryPatterns` do AIProvider — aqui
+// System) vai à parte, via `context` do AIProvider (versão enxuta, ver lib/ai/leanContext.ts) — aqui
 // só o material bruto + instrução de estrutura + instrução de rejeição
 // (quando houver) + os PBIs de estilo da Galáxia (explicitados em texto, não
 // só via `context`, pra deixar clara a distinção entre ESTILO DE ESCRITA e
@@ -101,7 +108,7 @@ function buildBddPrompt(
   pbiStyleExamples: ContextPackage["pbiStyleExamples"]
 ): string {
   const parts: string[] = [
-    "Você transforma material bruto (transcrição, anotações, rascunho ou qualquer texto de entrada) em um Bridge Spec completo — uma especificação estruturada com História de Usuário, Critérios de Aceite e Cenários BDD, entre outras seções — para um time ágil de produto/UX. Use o contexto fornecido — posição na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta (especialmente pares inicial/final de Bridge Spec já aprovados, que mostram a transformação esperada) e componentes de Design System da Galáxia, quando houver — como referência de padrão e estilo esperado.",
+    "Você transforma material bruto (transcrição, anotações, rascunho ou qualquer texto de entrada) em um Bridge Spec completo — uma especificação estruturada com História de Usuário, Critérios de Aceite e Cenários BDD, entre outras seções — para um time ágil de produto/UX. Use o contexto fornecido — posição na árvore, padrões de memória, exemplos de treino do mesmo Tipo de Planeta (especialmente pares inicial/final de Bridge Spec já aprovados, que mostram a transformação esperada) — como referência de padrão e estilo esperado.",
   ];
 
   parts.push(
@@ -110,7 +117,7 @@ function buildBddPrompt(
 
   if (pbiStyleExamples.length > 0) {
     const examplesText = pbiStyleExamples
-      .map((example, index) => `Exemplo ${index + 1} (de "${example.fileName}"):\n${example.extractedAcceptanceCriteria}`)
+      .map((example, index) => `Exemplo ${index + 1} (de "${example.fileName}"):\n${truncateText(example.extractedAcceptanceCriteria, PBI_STYLE_TEXT_MAX_CHARS)}`)
       .join("\n\n");
     parts.push(
       `REFERÊNCIA DE ESTILO DE ESCRITA/FORMATO DO ACCEPTANCE CRITERIA desta Galáxia — PBIs reais já aprovados, enviados pela equipe especificamente pra ensinar como ela escreve e formata o Acceptance Criteria em Gherkin (indentação, nível de detalhe dos passos, como nomeia Funcionalidade/Cenário, uso de Dado/Quando/Então/E). Isso é DIFERENTE dos exemplos de treino por Tipo de Planeta mencionados acima (que guiam CONTEÚDO/ESTRUTURA do Bridge Spec para aquele tipo específico de tela) — esta referência vale para QUALQUER Tipo de Planeta desta Galáxia e serve SÓ pra moldar a FORMA de escrever as seções CENÁRIOS BDD e CRITÉRIOS DE ACEITE, nunca o conteúdo específico de uma tela diferente, e nunca a presença/ordem das 10 seções em si (isso continua sempre obrigatório). Esta referência real da Galáxia tem PRIORIDADE sobre a instrução de formato genérica mencionada acima, caso haja qualquer conflito entre as duas (ex: se estes exemplos reais não usarem o formato Connextra, siga o que está aqui, não a instrução genérica):\n\n${examplesText}`
@@ -150,7 +157,7 @@ function buildWireframePrompt(
   bddPbiText: string,
   lastWireframeRejectionComment: string | null,
   hasWireframeReference: boolean,
-  layoutCorrections: MemoryPattern[]
+  layoutCorrectionSummaries: string[]
 ): string {
   const parts: string[] = [
     `Você projeta a estrutura básica de tela (wireframe) para a interface descrita no BDD/PBI abaixo. NÃO desenhe HTML/SVG — retorne SOMENTE um JSON neste formato exato, sem nenhum texto antes ou depois:\n{"blocks": [{"label": "string", "zone": "header|sidebar|footer|content", "row": 0, "order": 0, "widthHint": "fill|auto", "heightHint": "compact|fill"}]}`,
@@ -159,7 +166,7 @@ function buildWireframePrompt(
     `Cada bloco representa UM ÚNICO elemento de interface real, com um nome SIMPLES e SINGULAR (ex: "Campo de busca", "Botão Filtros", "Dropdown Filtrar por Status", "Botão Novo projeto", "Título da página"). NUNCA combine dois elementos diferentes num nome só usando "+", "e" ou "/" (ex: nunca "Busca+Status" ou "Ações e status") — se uma linha tem busca E filtro, são DOIS blocos separados com o mesmo "row" e "order" diferente. Badges/tags de status coloridos DENTRO das linhas de uma tabela são CONTEÚDO DE DADO da tabela, não elementos de navegação — nunca crie um bloco separado pra eles; se quiser, mencione isso só dentro do label do próprio bloco de tabela (ex: "Tabela de listagem com coluna de status colorido"), nunca como um bloco à parte.`,
     `"order" é um número inteiro indicando a posição HORIZONTAL do bloco dentro da mesma zone+row (0 = mais à esquerda, 1 = o próximo à direita dele, etc.). Observe a imagem de referência (quando houver) com atenção pra preencher "row" e "order" refletindo a disposição visual real — nunca invente, replique o que está na imagem.`,
     `"widthHint": "fill" quando o elemento deve esticar pra ocupar o espaço disponível na linha (ex: um campo de busca, uma tabela); "auto" quando o elemento é compacto, do tamanho do próprio texto/ícone (ex: um botão pequeno, um dropdown, um ícone). "heightHint": IMPORTANTE PRA FINS EDUCATIVOS — o PO precisa aprender a reconhecer proporções reais de componentes, então observe as PROPORÇÕES REAIS da tela (ou imagem de referência) com atenção. Use "compact" pra elementos de controle — botões, campos de texto, títulos, abas — que são sempre baixos/rasos. Use "fill" SÓ pro conteúdo principal — tabela, gráfico, lista, formulário grande — que deve ocupar a MAIOR PARTE do espaço vertical disponível, muito maior que uma linha de botões ou filtros. Tamanhos desproporcionais atrapalham o aprendizado, então nunca marque uma tabela como "compact" nem um botão como "fill".`,
-    `Liste os blocos na ordem visual de cima para baixo e da esquerda para a direita. Use o pacote de contexto fornecido — especialmente os componentes do Design System da Galáxia, quando houver — para nomear cada bloco com a terminologia real da equipe (ex: o nome exato de um componente do Figma). Se não houver Design System vinculado, use terminologia genérica de UI (ex: "Campo de busca", "Botão de filtro", "Tabela de listagem", "Coluna de ID").`,
+    `Liste os blocos na ordem visual de cima para baixo e da esquerda para a direita. Use o contexto fornecido — especialmente a lista de componentes do Design System da Galáxia, quando houver — para nomear cada bloco com a terminologia real da equipe (ex: o nome exato de um componente do Figma). Se não houver Design System vinculado, use terminologia genérica de UI (ex: "Campo de busca", "Botão de filtro", "Tabela de listagem", "Coluna de ID").`,
     `BDD/PBI aprovado que este wireframe precisa representar:\n"""\n${bddPbiText}\n"""`,
   ];
 
@@ -169,20 +176,15 @@ function buildWireframePrompt(
     );
   }
 
-  if (layoutCorrections.length > 0) {
+  if (layoutCorrectionSummaries.length > 0) {
     // Correção manual do PO no canvas = verdade absoluta, prioridade máxima
-    // — sempre veio com confidence 1.0 (ver
-    // app/api/bridges/[id]/wireframe-edit/route.ts), então aparece aqui em
-    // destaque, separado do resto dos memoryPatterns (que o provider já
-    // inclui genericamente via JSON.stringify no context).
-    const correctionsText = layoutCorrections
-      .map((pattern, index) => {
-        const data = pattern.patternData as { before?: unknown; after?: unknown };
-        return `Correção ${index + 1} — o wireframe gerado pela IA (ANTES) era:\n${JSON.stringify(data.before)}\ne o PO editou manualmente pra (DEPOIS):\n${JSON.stringify(data.after)}`;
-      })
-      .join("\n\n");
+    // (sempre gravada com confidence 1.0 — ver
+    // app/api/bridges/[id]/wireframe-edit/route.ts). Aqui entra só um RESUMO do
+    // que mudou em cada correção (lib/ai/leanContext.ts), não o JSON completo
+    // antes/depois — e é a única cópia dessas correções enviada à IA.
+    const correctionsText = layoutCorrectionSummaries.map((line, index) => `Correção ${index + 1} (mais recentes primeiro): ${line}`).join("\n");
     parts.push(
-      `IMPORTANTE — O PO já CORRIGIU MANUALMENTE wireframes anteriores deste mesmo Tipo de Planeta. Trate isso como a preferência REAL da equipe, com prioridade MÁXIMA sobre qualquer outra inferência sua (inclusive sobre a imagem de referência, se as duas coisas conflitarem):\n\n${correctionsText}\n\nCompare o "antes" e o "depois" de cada correção — o que mudou de posição (zone/row/order), de proporção (widthHint/heightHint) ou de nome (label) é exatamente o que o PO considera certo. Replique esse padrão sempre que a situação for parecida nesta nova geração.`
+      `IMPORTANTE — O PO já CORRIGIU MANUALMENTE wireframes anteriores deste mesmo Tipo de Planeta. Abaixo, um RESUMO do que ele mudou em cada correção (do wireframe gerado pela IA para a versão editada por ele). Trate isso como a preferência REAL da equipe, com prioridade MÁXIMA sobre qualquer outra inferência sua (inclusive sobre a imagem de referência, se as duas coisas conflitarem):\n\n${correctionsText}\n\nO que mudou de posição (zone/row/order), de proporção (widthHint/heightHint) ou de nome (label) é exatamente o que o PO considera certo. Replique esse padrão sempre que a situação for parecida nesta nova geração.`
     );
   }
 
@@ -220,18 +222,22 @@ function extensionOf(url: string): string {
 // (usado pro BDD) só olha o Planeta exato, o que faria uma correção feita
 // num Planeta nunca ensinar outro Planeta do mesmo Tipo — exatamente o
 // oposto do que uma correção de layout deveria fazer.
-async function fetchLayoutCorrectionPatterns(planetContextNodeId: string): Promise<MemoryPattern[]> {
+async function fetchLayoutCorrectionSummaries(planetContextNodeId: string): Promise<string[]> {
   const planet = await db.contextNode.findUnique({ where: { id: planetContextNodeId }, select: { planetTypeId: true } });
   if (!planet?.planetTypeId) return [];
 
-  return db.memoryPattern.findMany({
+  // Todas as correções manuais têm confidence 1.0, então o desempate é pela
+  // data: as mais recentes primeiro. Pega uma folga (24) porque edições
+  // incrementais seguidas geram resumos repetidos/vazios, descartados abaixo.
+  const patterns = await db.memoryPattern.findMany({
     where: {
       patternType: WIREFRAME_LAYOUT_CORRECTION_PATTERN_TYPE,
       contextNode: { type: "PLANETA", planetTypeId: planet.planetTypeId },
     },
-    orderBy: { confidence: "desc" },
-    take: 2,
+    orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
+    take: 24,
   });
+  return buildLayoutCorrectionSummaries(patterns);
 }
 
 // Busca a imagem/PDF de referência de wireframe mais relevante pro Planeta
@@ -329,17 +335,15 @@ function parseWireframeResponse(rawText: string): Prisma.InputJsonValue {
   return wireframeData as unknown as Prisma.InputJsonValue;
 }
 
-// Roda a geração (ou regeração) do BDD/PBI de um Bridge e grava o resultado
-// no banco. Chamado de dentro da própria requisição da API (criação, rejeição
-// ou nova tentativa) — sem fila assíncrona: o registro já existe no banco
-// (status GERANDO_BDD) antes desta função rodar, então fechar a aba no meio
-// não perde o Bridge, só atrasa quando o resultado final aparece.
-export async function runBddGeneration(bridgeId: string): Promise<void> {
-  await db.bridge.update({ where: { id: bridgeId }, data: { status: "GERANDO_BDD" } });
-
-  const bridge = await db.bridge.findUniqueOrThrow({ where: { id: bridgeId } });
-
-  try {
+// Só a parte de IA da geração do Bridge Spec (sem gravar nada no banco):
+// monta o contexto + prompt e devolve o texto. Separada de runBddGeneration
+// pra poder ser medida/testada isoladamente (diagnóstico de tokens).
+export async function generateBridgeSpecText(bridge: {
+  planetContextNodeId: string;
+  rawMaterialText: string | null;
+  rawMaterialFileUrl: string | null;
+  lastRejectionComment: string | null;
+}): Promise<string> {
     const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
     const provider = await getAIProvider();
     const prompt = buildBddPrompt(
@@ -351,16 +355,66 @@ export async function runBddGeneration(bridgeId: string): Promise<void> {
 
     const { text } = await provider.generate({
       prompt,
-      context: contextPackage,
-      memoryPatterns: contextPackage.memoryPatterns,
+      context: buildBridgeSpecContext(contextPackage),
       usageLabel: "bridge_spec",
       usageParts: {
         instrucao_estrutura_10_secoes: BRIDGE_SPEC_STRUCTURE_INSTRUCTION,
-        pbi_estilo_copiado_no_texto: contextPackage.pbiStyleExamples.map((e) => e.extractedAcceptanceCriteria).join("\n\n"),
+        pbi_estilo_no_texto_do_prompt: contextPackage.pbiStyleExamples.map((e) => truncateText(e.extractedAcceptanceCriteria, PBI_STYLE_TEXT_MAX_CHARS)).join("\n\n"),
         material_bruto_do_usuario: bridge.rawMaterialText ?? "",
         comentario_de_rejeicao: bridge.lastRejectionComment ?? "",
       },
     });
+
+  return text;
+}
+
+// Só a parte de IA da geração do Wireframe (sem gravar nada): devolve o
+// wireframeData já convertido pra pixels.
+export async function generateWireframeData(bridge: {
+  planetContextNodeId: string;
+  generatedBddPbi: string;
+  lastWireframeRejectionComment: string | null;
+}): Promise<Prisma.InputJsonValue> {
+    const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
+    const provider = await getAIProvider();
+    const wireframeImage = await fetchWireframeReferenceImage(contextPackage, bridge.planetContextNodeId);
+    // Cruza Planetas do mesmo Tipo (não só o Planeta exato deste Bridge) —
+    // ver fetchLayoutCorrectionSummaries.
+    const layoutCorrectionSummaries = await fetchLayoutCorrectionSummaries(bridge.planetContextNodeId);
+    const prompt = buildWireframePrompt(
+      bridge.generatedBddPbi,
+      bridge.lastWireframeRejectionComment,
+      wireframeImage !== null,
+      layoutCorrectionSummaries
+    );
+
+    const { text } = await provider.generate({
+      prompt,
+      context: buildWireframeContext(contextPackage),
+      images: wireframeImage ? [wireframeImage] : undefined,
+      usageLabel: "wireframe",
+      usageParts: {
+        bridge_spec_aprovado: bridge.generatedBddPbi,
+        correcoes_do_PO_resumidas: layoutCorrectionSummaries.join("\n"),
+      },
+    });
+
+    const wireframeData = parseWireframeResponse(text);
+  return wireframeData;
+}
+
+// Roda a geração (ou regeração) do BDD/PBI de um Bridge e grava o resultado
+// no banco. Chamado de dentro da própria requisição da API (criação, rejeição
+// ou nova tentativa) — sem fila assíncrona: o registro já existe no banco
+// (status GERANDO_BDD) antes desta função rodar, então fechar a aba no meio
+// não perde o Bridge, só atrasa quando o resultado final aparece.
+export async function runBddGeneration(bridgeId: string): Promise<void> {
+  await db.bridge.update({ where: { id: bridgeId }, data: { status: "GERANDO_BDD" } });
+
+  const bridge = await db.bridge.findUniqueOrThrow({ where: { id: bridgeId } });
+
+  try {
+    const text = await generateBridgeSpecText(bridge);
 
     await db.bridge.update({
       where: { id: bridgeId },
@@ -397,32 +451,11 @@ export async function runWireframeGeneration(bridgeId: string): Promise<void> {
   try {
     if (!bridge.generatedBddPbi) throw new Error("Este Bridge ainda não tem um Bridge Spec aprovado para gerar o wireframe.");
 
-    const contextPackage = await buildContextPackage(bridge.planetContextNodeId);
-    const provider = await getAIProvider();
-    const wireframeImage = await fetchWireframeReferenceImage(contextPackage, bridge.planetContextNodeId);
-    // Cruza Planetas do mesmo Tipo (não só o Planeta exato deste Bridge) —
-    // ver fetchLayoutCorrectionPatterns.
-    const layoutCorrections = await fetchLayoutCorrectionPatterns(bridge.planetContextNodeId);
-    const prompt = buildWireframePrompt(
-      bridge.generatedBddPbi,
-      bridge.lastWireframeRejectionComment,
-      wireframeImage !== null,
-      layoutCorrections
-    );
-
-    const { text } = await provider.generate({
-      prompt,
-      context: contextPackage,
-      memoryPatterns: contextPackage.memoryPatterns,
-      images: wireframeImage ? [wireframeImage] : undefined,
-      usageLabel: "wireframe",
-      usageParts: {
-        bridge_spec_aprovado: bridge.generatedBddPbi,
-        correcoes_manuais_do_PO: JSON.stringify(layoutCorrections.map((p) => p.patternData)),
-      },
+    const wireframeData = await generateWireframeData({
+      planetContextNodeId: bridge.planetContextNodeId,
+      generatedBddPbi: bridge.generatedBddPbi,
+      lastWireframeRejectionComment: bridge.lastWireframeRejectionComment,
     });
-
-    const wireframeData = parseWireframeResponse(text);
 
     await db.bridge.update({
       where: { id: bridgeId },
