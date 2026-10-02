@@ -9,7 +9,7 @@ import type { WireframeBlock } from "@/app/bridges/types";
 // tela de compartilhamento (app/bridges/[id]/share/page.tsx, <img src>).
 // Mesma regra de acesso de .../shared: qualquer usuário autenticado, sem
 // checagem de Galáxia.
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
@@ -29,5 +29,11 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     annotations: annotations.map((a) => ({ pathData: a.pathData, color: a.color, hidden: a.hidden })),
   });
 
-  return new NextResponse(svg, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" } });
+  // ?download=1 -> baixa o arquivo (usado pelo ícone de Download de /wireframes
+  // quando o Wireframe ainda não tem SVG exportado pelo UX).
+  const headers: Record<string, string> = { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" };
+  if (new URL(request.url).searchParams.get("download") === "1") {
+    headers["Content-Disposition"] = 'attachment; filename="wireframe.svg"';
+  }
+  return new NextResponse(svg, { headers });
 }

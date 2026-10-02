@@ -27,7 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Bridges", icon: LinkIcon, href: "/bridges" },
   { label: "Atividades", icon: ActivityIcon, href: "/atividades" },
   { label: "Projetos", icon: FolderIcon, href: "/projetos" },
-  { label: "Wireframes", icon: FrameIcon },
+  { label: "Wireframes", icon: FrameIcon, href: "/wireframes" },
   { label: "Configurações", icon: GearIcon, href: "/settings" },
 ];
 
