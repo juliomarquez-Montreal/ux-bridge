@@ -17,6 +17,10 @@ export interface AIGenerateInput {
   context?: unknown;
   memoryPatterns?: unknown[];
   images?: AIImagePart[];
+  // Só pro diagnóstico de tokens (lib/ai/usage.ts, ligado por AI_USAGE_LOG=1):
+  // rótulo da chamada e trechos nomeados do prompt pra medir o peso de cada um.
+  usageLabel?: string;
+  usageParts?: Record<string, string>;
 }
 
 export interface AIGenerateOutput {

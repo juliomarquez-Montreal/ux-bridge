@@ -10,7 +10,7 @@ const EXTRACTION_INSTRUCTION =
 export async function extractAcceptanceCriteria(rawText: string): Promise<string> {
   const provider = await getAIProvider();
   const prompt = `${EXTRACTION_INSTRUCTION}\n\nDocumento:\n"""\n${rawText}\n"""`;
-  const { text } = await provider.generate({ prompt });
+  const { text } = await provider.generate({ prompt, usageLabel: "extrair_acceptance_criteria", usageParts: { documento_enviado: rawText } });
   const cleaned = text.trim();
   if (!cleaned) {
     throw new Error("Não foi possível extrair o Acceptance Criteria deste arquivo — confira se ele contém um bloco Gherkin.");

@@ -73,7 +73,7 @@ ${excerpt}
 Seja criterioso: marque aligned=false quando o assunto do Bridge NÃO ajuda a atingir o objetivo do Projeto (ex: tema diferente, funcionalidade sem relação). Responda SOMENTE com JSON neste formato exato, sem texto antes ou depois:
 {"aligned": true|false, "explanation": "1 a 2 frases em português justificando"}`;
       try {
-        const { text } = await provider.generate({ prompt });
+        const { text } = await provider.generate({ prompt, usageLabel: "radar_escopo", usageParts: { trechos_do_spec: excerpt, objetivo: objective } });
         const parsed = parseAiJson<{ aligned?: unknown; explanation?: unknown }>(text);
         if (typeof parsed.aligned !== "boolean" || typeof parsed.explanation !== "string") {
           throw new Error("Resposta da IA fora do formato esperado.");

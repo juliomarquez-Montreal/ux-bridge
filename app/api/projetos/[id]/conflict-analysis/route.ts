@@ -58,7 +58,7 @@ Identifique apenas contradições (uma regra de um Bridge nega ou inviabiliza a 
   let rawText: string;
   try {
     const provider = await getAIProvider();
-    rawText = (await provider.generate({ prompt })).text;
+    rawText = (await provider.generate({ prompt, usageLabel: "detector_conflitos", usageParts: { blocos_dos_specs: blocks } })).text;
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao consultar a IA." }, { status: 502 });
   }

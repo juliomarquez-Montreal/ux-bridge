@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AIGenerateInput, AIGenerateOutput, AIProvider } from "@/lib/ai/types";
+import { AI_USAGE_ENABLED, logAIUsage } from "@/lib/ai/usage";
 
 // "-latest" acompanha automaticamente o modelo flash mais recente do Gemini,
 // evitando repetir o problema de versões antigas (ex: 1.5, 2.5) serem descontinuadas.
@@ -37,7 +38,19 @@ export function createGeminiProvider(apiKey: string): AIProvider {
         parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
       }
 
+      const startedAt = Date.now();
       const result = await model.generateContent(parts);
+      const durationMs = Date.now() - startedAt;
+
+      if (AI_USAGE_ENABLED) {
+        await logAIUsage({
+          model,
+          generateInput: input,
+          durationMs,
+          usage: result.response.usageMetadata as Parameters<typeof logAIUsage>[0]["usage"],
+          imageCount: input.images?.length ?? 0,
+        });
+      }
 
       return { text: result.response.text(), raw: result.response };
     },

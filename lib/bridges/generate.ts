@@ -353,6 +353,13 @@ export async function runBddGeneration(bridgeId: string): Promise<void> {
       prompt,
       context: contextPackage,
       memoryPatterns: contextPackage.memoryPatterns,
+      usageLabel: "bridge_spec",
+      usageParts: {
+        instrucao_estrutura_10_secoes: BRIDGE_SPEC_STRUCTURE_INSTRUCTION,
+        pbi_estilo_copiado_no_texto: contextPackage.pbiStyleExamples.map((e) => e.extractedAcceptanceCriteria).join("\n\n"),
+        material_bruto_do_usuario: bridge.rawMaterialText ?? "",
+        comentario_de_rejeicao: bridge.lastRejectionComment ?? "",
+      },
     });
 
     await db.bridge.update({
@@ -408,6 +415,11 @@ export async function runWireframeGeneration(bridgeId: string): Promise<void> {
       context: contextPackage,
       memoryPatterns: contextPackage.memoryPatterns,
       images: wireframeImage ? [wireframeImage] : undefined,
+      usageLabel: "wireframe",
+      usageParts: {
+        bridge_spec_aprovado: bridge.generatedBddPbi,
+        correcoes_manuais_do_PO: JSON.stringify(layoutCorrections.map((p) => p.patternData)),
+      },
     });
 
     const wireframeData = parseWireframeResponse(text);
