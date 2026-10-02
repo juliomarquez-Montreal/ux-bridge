@@ -46,7 +46,7 @@ export default function AppSidebar({ open, onClose }: { open: boolean; onClose: 
 
       <aside
         aria-hidden={!open}
-        className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-white/10 bg-luminous-surface-container/95 backdrop-blur-lg transition-transform duration-300 ease-out ${
+        className={`fixed inset-y-0 left-0 z-40 w-72 border-r text-luminous-on-surface border-white/10 bg-luminous-surface-container/95 backdrop-blur-lg transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

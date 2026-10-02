@@ -15,10 +15,10 @@ export default async function ProjetosPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7] text-[#1D1F25]">
+    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7]">
       <AppHeader />
 
-      <main className="relative mx-auto w-full max-w-[1480px] flex-1 px-6 py-8 lg:px-8">
+      <main className="relative mx-auto w-full max-w-[1480px] flex-1 px-6 py-8 text-[#1D1F25] lg:px-8">
         <ProjetosPanel />
       </main>
 

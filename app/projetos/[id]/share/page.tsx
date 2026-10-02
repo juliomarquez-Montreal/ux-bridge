@@ -26,9 +26,9 @@ const STAGE_PILL_TONE: Record<BridgeStage, "gray" | "blue" | "amber" | "purple" 
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7] text-[#1D1F25]">
+    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7]">
       <AppHeader />
-      <main className="relative mx-auto w-full max-w-4xl flex-1 px-6 py-8 lg:px-8">{children}</main>
+      <main className="relative mx-auto w-full max-w-4xl flex-1 px-6 py-8 text-[#1D1F25] lg:px-8">{children}</main>
       <div className="bg-[#0D0D0D]">
         <AppFooter />
       </div>

@@ -15,10 +15,10 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7] text-[#1D1F25]">
+    <div className="relative flex min-h-screen flex-col bg-[#F4F5F7]">
       <AppHeader />
 
-      <main className="relative flex-1">
+      <main className="relative flex-1 text-[#1D1F25]">
         <ProjectDetail projectId={params.id} />
       </main>
 

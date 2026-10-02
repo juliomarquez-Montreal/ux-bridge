@@ -59,7 +59,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-luminous-outline-variant/70 bg-luminous-surface/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b text-luminous-on-surface border-luminous-outline-variant/70 bg-luminous-surface/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <a href="/" className="shrink-0">
             <Image
